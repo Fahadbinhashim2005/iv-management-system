@@ -1,10 +1,8 @@
-import './App.css'
-import './pages/LandingPage.tsx'
-import LandingPage from './pages/LandingPage.tsx'
+import Login from './pages/Login'
 
 function App() {
   return (
-    <LandingPage/>
+    <Login />
   )
 }
 
