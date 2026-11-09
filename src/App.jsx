@@ -1,9 +1,19 @@
+
 import './App.css'
 import Login from './pages/Login'
+import StudentDashboard from './pages/StudentDashboard'
 
 function App() {
+  const isDashboardPreview = true
+
   return (
-    <Login />
+    <>
+      {isDashboardPreview ? (
+        <StudentDashboard />
+      ) : (
+        <Login />
+      )}
+    </>
   )
 }
 
