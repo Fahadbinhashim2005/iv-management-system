@@ -2,6 +2,7 @@
 import { Bell, LayoutDashboard, Map, ClipboardCheck, Bus, BedDouble, MessageCircle, Images, Settings } from 'lucide-react'
 import StudentBottomNav from "../components/navigation/StudentBottomNav";
 function StudentDashboard() {
+    const navigate = useNavigate();
     const tripStatus = "upcoming";
     return (
     <main className="min-h-screen bg-[#F4F8F5] text-[#163D2B]">
