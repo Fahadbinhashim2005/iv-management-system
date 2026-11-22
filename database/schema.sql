@@ -1,43 +1,34 @@
 -- ==============================================================================
--- IV CONNECT — COMPLETE POSTGRESQL & SUPABASE DATABASE SCHEMA (V1.1 BUGFIX)
+-- IV CONNECT — COMPLETE POSTGRESQL & SUPABASE DATABASE SCHEMA (V1.2 PRODUCTION)
 -- ==============================================================================
 -- Run this script in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 
--- 1. Enable UUID Extension (or use native gen_random_uuid())
+-- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. ENUMS
+-- 2. ENUMS (Safe creation)
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('student', 'coordinator', 'admin');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
     CREATE TYPE visit_status AS ENUM ('draft', 'review', 'published', 'ongoing', 'completed', 'cancelled');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
     CREATE TYPE enrollment_status AS ENUM ('pending', 'approved', 'waitlisted', 'rejected');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
     CREATE TYPE attendance_status AS ENUM ('present', 'absent', 'late', 'excused');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
     CREATE TYPE notice_category AS ENUM ('urgent', 'logistics', 'general', 'info');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- 3. PROFILES TABLE (Extends Supabase auth.users or standalone)
+-- 3. PROFILES TABLE
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
@@ -55,8 +46,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Ensure id column has DEFAULT gen_random_uuid() even if table was created previously without default
-ALTER TABLE public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+-- Ensure id column has DEFAULT gen_random_uuid()
+ALTER TABLE IF EXISTS public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+-- CRITICAL FIX: Drop the auth.users foreign key constraint if it was previously created,
+-- so profiles can be seeded and used flexibly without requiring auth.users entries first.
+ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 
 -- 4. MASTER INDUSTRIAL VISITS TABLE
 CREATE TABLE IF NOT EXISTS public.industrial_visits (
@@ -196,7 +191,7 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
     UNIQUE(session_id, enrollment_id)
 );
 
--- 10. ANNOUNCEMENTS & CIRCULARS
+-- 10. ANNOUNCEMENTS & NOTICES
 CREATE TABLE IF NOT EXISTS public.announcements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
@@ -220,8 +215,33 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 );
 
 -- ==============================================================================
--- 12. SEED INITIAL SAMPLE DATA (EXPLICIT ID WITH gen_random_uuid())
+-- 12. ROW LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.industrial_visits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.visit_enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read profiles" ON public.profiles;
+CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read visits" ON public.industrial_visits;
+CREATE POLICY "Public read visits" ON public.industrial_visits FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read enrollments" ON public.visit_enrollments;
+CREATE POLICY "Public read enrollments" ON public.visit_enrollments FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read attendance" ON public.attendance_records;
+CREATE POLICY "Public read attendance" ON public.attendance_records FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read announcements" ON public.announcements;
+CREATE POLICY "Public read announcements" ON public.announcements FOR SELECT USING (true);
+
+-- ==============================================================================
+-- 13. SEED INITIAL USERS & SAMPLE VISIT DATA
+-- ==============================================================================
+-- Seed Profiles for Student, Coordinator, and Admin
 INSERT INTO public.profiles (id, email, full_name, role, department, academic_batch, roll_number)
 VALUES 
     (gen_random_uuid(), 'fahad@college.edu', 'Fahad Bin Hashim', 'student', 'Computer Science & Engineering', 'Batch 2023-27 (Semester 5)', 'CS-2026-084'),
@@ -233,3 +253,25 @@ ON CONFLICT (email) DO UPDATE SET
     department = EXCLUDED.department,
     academic_batch = EXCLUDED.academic_batch,
     roll_number = EXCLUDED.roll_number;
+
+-- Seed Master Industrial Visit
+INSERT INTO public.industrial_visits (
+    id, code, title, department, academic_batch, host_companies, 
+    destination_city, destination_state, start_date, end_date, capacity, status, learning_objectives
+)
+VALUES (
+    gen_random_uuid(),
+    'CSE-2026-AHM',
+    'Industrial Visit 2026 — GIFT City & Tech Infrastructure',
+    'Computer Science & Engineering',
+    'Batch 2023-27 (Semester 5)',
+    'Gujarat International Finance Tec-City (GIFT) & ISRO SAC',
+    'Gandhinagar & Ahmedabad',
+    'Gujarat',
+    '2026-12-05',
+    '2026-12-08',
+    135,
+    'published',
+    'FinTech architectures, cloud server datacenters, automated green infrastructure, and satellite telemetry.'
+)
+ON CONFLICT (code) DO NOTHING;
