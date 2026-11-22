@@ -114,6 +114,11 @@ DO $$ BEGIN
     CHECK (medical_notes IS NULL OR length(medical_notes) <= 500);
 EXCEPTION WHEN others THEN null; END $$;
 
+-- Explicitly approve the active student account so login succeeds immediately
+UPDATE public.profiles 
+SET approval_status = 'approved', is_active = TRUE 
+WHERE email = 'fahadbinhashim03@gmail.com';
+
 -- 3. CREATE public.trip_assignments TABLE (Admin-Assigned & Read-Only for Students)
 CREATE TABLE IF NOT EXISTS public.trip_assignments (
   user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,

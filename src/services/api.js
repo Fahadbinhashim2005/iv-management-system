@@ -67,6 +67,22 @@ export const api = {
 
         if (existingProfile) {
           if (existingProfile.approval_status === 'pending') {
+            // Check if local admin approval exists in browser storage
+            const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+            const localApproved = offlineUsers.find(
+              (u) => u.email?.toLowerCase() === cleanEmail && u.approval_status === 'approved'
+            );
+            if (localApproved) {
+              // Auto-sync approved status to Supabase
+              try {
+                await supabase
+                  .from('profiles')
+                  .update({ approval_status: 'approved', is_active: true })
+                  .eq('email', cleanEmail);
+              } catch (syncErr) {}
+              return { status: 'approved', exists: true, role: existingProfile.role };
+            }
+
             return { status: 'pending', exists: true, role: existingProfile.role };
           }
           if (existingProfile.approval_status === 'rejected') {
@@ -262,14 +278,21 @@ export const api = {
     return { success: true, count: requestsList.length, requests: requestsList };
   },
 
-  async approveAccessRequest(id) {
+  async approveAccessRequest(id, email) {
     // 1. Direct Supabase update
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase
+        let q = supabase
           .from('profiles')
-          .update({ approval_status: 'approved', is_active: true })
-          .eq('id', id);
+          .update({ approval_status: 'approved', is_active: true });
+
+        if (email) {
+          await q.eq('email', email.trim().toLowerCase());
+        } else if (id && id.includes('-')) {
+          await q.eq('id', id);
+        } else {
+          await q.eq('id', id);
+        }
       } catch (e) {
         console.warn('[approveAccessRequest Supabase error]:', e);
       }
@@ -279,12 +302,13 @@ export const api = {
     try {
       await request(`/admin/users/requests/${id}/approve`, {
         method: 'POST',
+        body: JSON.stringify({ email }),
       });
     } catch (e) {}
 
     // 3. Sync offline store
     const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-    const found = offlineUsers.find((u) => u.id === id);
+    const found = offlineUsers.find((u) => u.id === id || (email && u.email?.toLowerCase() === email.toLowerCase()));
     if (found) {
       found.approval_status = 'approved';
       found.is_active = true;

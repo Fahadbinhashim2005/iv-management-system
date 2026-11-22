@@ -94,7 +94,7 @@ export default function AdminStudents() {
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
     try {
-      await api.approveAccessRequest(req.id);
+      await api.approveAccessRequest(req.id, req.email);
       showToast(`Approved ${req.full_name} (${req.email}). They can now sign in!`);
       loadAllData();
     } catch (err) {

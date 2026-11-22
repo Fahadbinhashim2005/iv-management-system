@@ -84,9 +84,10 @@ router.get('/requests', async (req, res) => {
 router.post('/requests/:id/approve', async (req, res) => {
   try {
     const { id } = req.params;
+    const { email } = req.body || {};
 
     // Update in-memory store
-    const memUser = db.users.find((u) => u.id === id);
+    const memUser = db.users.find((u) => u.id === id || (email && u.email?.toLowerCase() === email.toLowerCase()));
     if (memUser) {
       memUser.approval_status = 'approved';
       memUser.is_active = true;
@@ -100,32 +101,41 @@ router.post('/requests/:id/approve', async (req, res) => {
       });
     }
 
-    // Update Supabase
-    let { data: updatedProfile, error: pErr } = await supabaseAdmin
+    // Update Supabase (match by UUID or email)
+    let updateQuery = supabaseAdmin
       .from('profiles')
       .update({
         approval_status: 'approved',
         is_active: true,
-      })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
+      });
+
+    if (id && id.includes('-')) {
+      updateQuery = updateQuery.eq('id', id);
+    } else if (email) {
+      updateQuery = updateQuery.eq('email', email.trim().toLowerCase());
+    } else {
+      updateQuery = updateQuery.eq('id', id);
+    }
+
+    let { data: updatedProfile, error: pErr } = await updateQuery.select().maybeSingle();
 
     if (pErr && pErr.message?.includes('column')) {
-      const fallback = await supabaseAdmin
-        .from('profiles')
-        .update({ is_active: true })
-        .eq('id', id)
-        .select()
-        .maybeSingle();
+      let fb = supabaseAdmin.from('profiles').update({ is_active: true });
+      if (id && id.includes('-')) fb = fb.eq('id', id);
+      else if (email) fb = fb.eq('email', email.trim().toLowerCase());
+      else fb = fb.eq('id', id);
+      const fallback = await fb.select().maybeSingle();
       updatedProfile = fallback.data;
     }
 
     try {
-      await supabaseAdmin.auth.admin.updateUserById(id, {
-        email_confirm: true,
-        ban_duration: 'none',
-      });
+      const targetUserId = updatedProfile?.id || (id.includes('-') ? id : null);
+      if (targetUserId) {
+        await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+          email_confirm: true,
+          ban_duration: 'none',
+        });
+      }
     } catch (e) {}
 
     await logAdminAction(req.user?.id, 'APPROVE_USER_REQUEST', 'user', id, {

@@ -79,7 +79,7 @@ export default function AdminCoordinators() {
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
     try {
-      await api.approveAccessRequest(req.id);
+      await api.approveAccessRequest(req.id, req.email);
       showToast(`Approved coordinator ${req.full_name} (${req.email}). They can now log in!`);
       loadAllData();
     } catch (err) {
