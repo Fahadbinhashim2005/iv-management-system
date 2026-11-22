@@ -1,15 +1,14 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
+const RAILWAY_PROD_URL = 'https://iv-management-system-production.up.railway.app/api';
+
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api` 
-  : '/api';
+  : (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1'))
+    ? RAILWAY_PROD_URL
+    : '/api';
 
 async function request(endpoint, options = {}) {
-  // If in production without a custom API URL, don't attempt calling local /api (which Vercel rewrites to index.html)
-  if (!import.meta.env.VITE_API_URL && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    throw new Error('No custom backend server URL provided.');
-  }
-
   const token = localStorage.getItem('iv_auth_token');
   const headers = {
     'Content-Type': 'application/json',
@@ -43,6 +42,14 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // Backend Login Endpoint
+  async login(email, password) {
+    return await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
   // Access Request Gateway
   async signInOrRequest(email, password, role, fullName) {
     const cleanEmail = email.trim().toLowerCase();
@@ -198,6 +205,9 @@ export const api = {
 
   // Admin Access Request Approvals
   async getAccessRequests(role) {
+    const requestsList = [];
+    const seenEmails = new Set();
+
     // 1. Direct Supabase query
     if (isSupabaseConfigured && supabase) {
       try {
@@ -209,49 +219,57 @@ export const api = {
 
         if (role) query = query.eq('role', role.toLowerCase());
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          return { success: true, count: data.length, requests: data };
+        if (!error && Array.isArray(data)) {
+          data.forEach((r) => {
+            if (r.email && !seenEmails.has(r.email.toLowerCase())) {
+              seenEmails.add(r.email.toLowerCase());
+              requestsList.push(r);
+            }
+          });
         }
       } catch (e) {
         console.warn('[getAccessRequests Supabase error]:', e);
       }
     }
 
-    // 2. Backend API
+    // 2. Backend API (Railway / Localhost)
     try {
       const query = role ? `?role=${encodeURIComponent(role)}` : '';
-      return await request(`/admin/users/requests${query}`);
-    } catch {
-      // 3. Offline localStorage fallback
-      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-      let pending = offlineUsers.filter((u) => u.approval_status === 'pending');
-      if (role) {
-        pending = pending.filter((u) => u.role.toLowerCase() === role.toLowerCase());
+      const backendRes = await request(`/admin/users/requests${query}`);
+      if (backendRes?.requests && Array.isArray(backendRes.requests)) {
+        backendRes.requests.forEach((r) => {
+          if (r.email && !seenEmails.has(r.email.toLowerCase())) {
+            seenEmails.add(r.email.toLowerCase());
+            requestsList.push(r);
+          }
+        });
       }
-      return { success: true, count: pending.length, requests: pending };
+    } catch (e) {}
+
+    // 3. Offline localStorage fallback
+    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+    let pending = offlineUsers.filter((u) => u.approval_status === 'pending');
+    if (role) {
+      pending = pending.filter((u) => u.role?.toLowerCase() === role.toLowerCase());
     }
+    pending.forEach((r) => {
+      if (r.email && !seenEmails.has(r.email.toLowerCase())) {
+        seenEmails.add(r.email.toLowerCase());
+        requestsList.push(r);
+      }
+    });
+
+    return { success: true, count: requestsList.length, requests: requestsList };
   },
 
   async approveAccessRequest(id) {
     // 1. Direct Supabase update
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase
+        await supabase
           .from('profiles')
           .update({ approval_status: 'approved', is_active: true })
           .eq('id', id);
-
-        if (!error) {
-          // Also sync offline store
-          const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-          const found = offlineUsers.find((u) => u.id === id);
-          if (found) {
-            found.approval_status = 'approved';
-            found.is_active = true;
-            localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
-          }
-          return { success: true, message: 'User approved.' };
-        }
       } catch (e) {
         console.warn('[approveAccessRequest Supabase error]:', e);
       }
@@ -259,63 +277,57 @@ export const api = {
 
     // 2. Backend API
     try {
-      return await request(`/admin/users/requests/${id}/approve`, {
+      await request(`/admin/users/requests/${id}/approve`, {
         method: 'POST',
       });
-    } catch {
-      // 3. Offline store
-      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-      const found = offlineUsers.find((u) => u.id === id);
-      if (found) {
-        found.approval_status = 'approved';
-        found.is_active = true;
-        localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
-      }
-      return { success: true, message: 'User approved.' };
+    } catch (e) {}
+
+    // 3. Sync offline store
+    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+    const found = offlineUsers.find((u) => u.id === id);
+    if (found) {
+      found.approval_status = 'approved';
+      found.is_active = true;
+      localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
     }
+
+    return { success: true, message: 'User approved.' };
   },
 
   async rejectAccessRequest(id) {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase
+        await supabase
           .from('profiles')
           .update({ approval_status: 'rejected', is_active: false })
           .eq('id', id);
-
-        if (!error) {
-          const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-          const found = offlineUsers.find((u) => u.id === id);
-          if (found) {
-            found.approval_status = 'rejected';
-            found.is_active = false;
-            localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
-          }
-          return { success: true, message: 'User request rejected.' };
-        }
       } catch (e) {
         console.warn('[rejectAccessRequest Supabase error]:', e);
       }
     }
 
     try {
-      return await request(`/admin/users/requests/${id}/reject`, {
+      await request(`/admin/users/requests/${id}/reject`, {
         method: 'POST',
       });
-    } catch {
-      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-      const found = offlineUsers.find((u) => u.id === id);
-      if (found) {
-        found.approval_status = 'rejected';
-        found.is_active = false;
-        localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
-      }
-      return { success: true, message: 'User request declined.' };
+    } catch (e) {}
+
+    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+    const found = offlineUsers.find((u) => u.id === id);
+    if (found) {
+      found.approval_status = 'rejected';
+      found.is_active = false;
+      localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
     }
+
+    return { success: true, message: 'User request declined.' };
   },
 
   // Admin User Directory
   async getAdminUsers(role, status = 'approved') {
+    const usersList = [];
+    const seenEmails = new Set();
+
     // 1. Direct Supabase query
     if (isSupabaseConfigured && supabase) {
       try {
@@ -328,8 +340,13 @@ export const api = {
         if (role) query = query.eq('role', role.toLowerCase());
 
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          return { success: true, count: data.length, users: data };
+        if (!error && Array.isArray(data)) {
+          data.forEach((u) => {
+            if (u.email && !seenEmails.has(u.email.toLowerCase())) {
+              seenEmails.add(u.email.toLowerCase());
+              usersList.push(u);
+            }
+          });
         }
       } catch (e) {
         console.warn('[getAdminUsers Supabase error]:', e);
@@ -341,20 +358,30 @@ export const api = {
       const params = new URLSearchParams();
       if (role) params.append('role', role);
       if (status) params.append('status', status);
-      const query = params.toString() ? `?${params.toString()}` : '';
-      return await request(`/admin/users${query}`);
-    } catch {
-      // 3. Offline store
-      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-      let filtered = offlineUsers;
-      if (status && status !== 'all') {
-        filtered = filtered.filter((u) => u.approval_status === status);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const backendRes = await request(`/admin/users${queryString}`);
+      if (backendRes?.users && Array.isArray(backendRes.users)) {
+        backendRes.users.forEach((u) => {
+          if (u.email && !seenEmails.has(u.email.toLowerCase())) {
+            seenEmails.add(u.email.toLowerCase());
+            usersList.push(u);
+          }
+        });
       }
-      if (role) {
-        filtered = filtered.filter((u) => u.role.toLowerCase() === role.toLowerCase());
+    } catch (e) {}
+
+    // 3. Fallback
+    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+    let fallback = offlineUsers.filter((u) => u.approval_status === status);
+    if (role) fallback = fallback.filter((u) => u.role?.toLowerCase() === role.toLowerCase());
+    fallback.forEach((u) => {
+      if (u.email && !seenEmails.has(u.email.toLowerCase())) {
+        seenEmails.add(u.email.toLowerCase());
+        usersList.push(u);
       }
-      return { success: true, count: filtered.length, users: filtered };
-    }
+    });
+
+    return { success: true, count: usersList.length, users: usersList };
   },
 
   async createAdminUser(userData) {

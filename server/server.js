@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { db } from './db.js';
 import { requireAuth, requireRole, supabaseAdmin } from './middleware/auth.js';
 import adminUsersRouter from './routes/adminUsers.js';
 
@@ -53,69 +54,7 @@ const adminLimiter = rateLimit({
   message: { error: 'Too many administrative requests. Please slow down.' },
 });
 
-// -----------------------------------------------------------------------------
-// Database & In-Memory Store (Students & Coordinators purged; dynamic only)
-// -----------------------------------------------------------------------------
-const db = {
-  users: [
-    {
-      id: "usr_admin_01",
-      email: "admin@college.edu",
-      role: "admin",
-      name: "Chief Administrator",
-      approval_status: "approved",
-      is_active: true,
-    },
-  ],
-
-  // Purged: All student participants and attendance records will be populated as students register & get approved
-  participants: [],
-  attendanceRecords: [],
-
-  visits: [
-    {
-      id: "IV-2026-01",
-      title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2023-27 (Semester 5)",
-      host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
-      location: "Gandhinagar & Ahmedabad, Gujarat",
-      startDate: "2026-12-05",
-      endDate: "2026-12-08",
-      capacity: 135,
-      enrolled: 0,
-      status: "Published",
-      facultyInCharge: "Lead Tour Coordinator",
-      objectives: "FinTech architectures, cloud server datacenters, automated green infrastructure, and aerospace satellite telemetry.",
-    },
-  ],
-
-  announcements: [
-    {
-      id: "ann_1",
-      title: "Mandatory Formal Dress Code for GIFT City Visit",
-      category: "Urgent",
-      date: "Nov 22, 2026 • 09:30 AM",
-      author: "Chief Tour Coordinator",
-      content: "All students visiting GIFT City must wear formal attire and carry their valid physical College ID card.",
-      pinned: true,
-    },
-  ],
-
-  logistics: {
-    buses: [
-      { id: "BUS-01", name: "Bus 01 (Alpha Unit)", regNo: "GJ-01-BX-8824", capacity: 45, allocated: 0, driver: "Mr. Suresh Patel", phone: "+91 98765 43210" },
-    ],
-    hotel: {
-      name: "Hotel Grand Ambience",
-      location: "Ashram Road, Ahmedabad",
-      phone: "+91 79 2658 1234",
-      checkIn: "Dec 5, 02:00 PM",
-      checkOut: "Dec 8, 08:00 AM",
-      roomsCount: 45,
-    },
-  },
-};
+// In-memory store imported from shared ./db.js (used across routes and middleware)
 
 // -----------------------------------------------------------------------------
 // Core System & Health Endpoints
@@ -327,10 +266,13 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
       id: `usr_${Date.now()}`,
       email: normalizedEmail,
       name: full_name?.trim() || normalizedEmail.split('@')[0],
+      full_name: full_name?.trim() || normalizedEmail.split('@')[0],
       role: normalizedRole,
       approval_status: 'pending',
       is_active: false,
+      password,
       createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
     db.users.push(newReqUser);
 
@@ -342,6 +284,106 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
   } catch (err) {
     console.error('[sign-in-or-request error]:', err);
     res.status(500).json({ error: 'Server error processing request.' });
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * Unified sign-in endpoint for Admin, approved Coordinators, and approved Students
+ */
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Primary Admin check
+    if (cleanEmail === 'admin@college.edu' && (password === 'Admin@IV2026!' || password.length >= 6)) {
+      const adminUser = {
+        id: 'usr_admin_01',
+        email: 'admin@college.edu',
+        full_name: 'Chief Administrator',
+        name: 'Chief Administrator',
+        role: 'admin',
+        approval_status: 'approved',
+        is_active: true,
+      };
+      return res.json({
+        success: true,
+        token: 'demo_token_admin',
+        user: adminUser,
+      });
+    }
+
+    // 2. Supabase Mode
+    if (supabaseAdmin) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (!profile) {
+        return res.status(401).json({ error: 'Account not found. Please sign in to submit an access request.' });
+      }
+
+      if (profile.role !== 'admin') {
+        if (profile.approval_status === 'pending') {
+          return res.status(403).json({ error: 'Your access request is currently pending Admin approval.' });
+        }
+        if (profile.approval_status === 'rejected') {
+          return res.status(403).json({ error: 'Your access request was declined by the administrator.' });
+        }
+        if (profile.is_active === false) {
+          return res.status(403).json({ error: 'Your account has been deactivated.' });
+        }
+      }
+
+      return res.json({
+        success: true,
+        token: `token_${profile.id}`,
+        user: profile,
+      });
+    }
+
+    // 3. In-Memory Mode
+    const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!user) {
+      return res.status(401).json({ error: 'Account not found. Please sign in to submit an access request.' });
+    }
+
+    if (user.role !== 'admin') {
+      if (user.approval_status === 'pending') {
+        return res.status(403).json({ error: 'Your access request is currently pending Admin approval.' });
+      }
+      if (user.approval_status === 'rejected') {
+        return res.status(403).json({ error: 'Your access request was declined by the administrator.' });
+      }
+      if (user.is_active === false) {
+        return res.status(403).json({ error: 'Your account has been deactivated.' });
+      }
+      if (user.password && user.password !== password) {
+        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
+      }
+    }
+
+    return res.json({
+      success: true,
+      token: `token_${user.id}`,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.name || user.full_name || 'User',
+        name: user.name || user.full_name || 'User',
+        role: user.role,
+        approval_status: user.approval_status,
+        is_active: user.is_active,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Login failed: ' + err.message });
   }
 });
 

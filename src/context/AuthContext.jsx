@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { api } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -135,84 +136,131 @@ export function AuthProvider({ children }) {
     };
   }, [loadProfile]);
 
-  // Sign in using Supabase Auth (with offline fallback if Vercel env vars are not yet configured)
+  // Sign in using Supabase Auth (with Railway backend & offline fallback)
   const login = async (email, password) => {
     setAuthError(null);
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. If Supabase is not configured yet (e.g. initial Vercel deploy before adding env vars)
-    if (!isSupabaseConfigured || !supabase) {
-      // Primary Administrator fallback
-      if (cleanEmail === 'admin@college.edu' && (password === 'Admin@IV2026!' || password.length >= 6)) {
-        const adminProfile = {
-          id: 'admin_demo_01',
-          email: 'admin@college.edu',
-          full_name: 'Chief Administrator',
-          role: 'admin',
-          approval_status: 'approved',
-          is_active: true,
+    // 1. Production Live Supabase Auth (if configured)
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (!error && data?.user) {
+          const userProfile = await loadProfile(data.user.id, data.user);
+          if (!userProfile) {
+            throw new Error('Your access request is currently pending Admin approval.');
+          }
+
+          setSession(data.session);
+          setUser(data.user);
+          setProfile(userProfile);
+
+          if (data.session?.access_token) {
+            localStorage.setItem('iv_auth_token', data.session.access_token);
+            localStorage.setItem('iv_user', JSON.stringify(userProfile));
+          }
+
+          return { user: data.user, profile: userProfile };
+        } else if (error) {
+          // If error is invalid credentials or access issue
+          if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch') && !error.message.includes('Failed to fetch')) {
+            setAuthError(error.message);
+            throw error;
+          }
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('pending Admin approval') || err.message.includes('declined') || err.message.includes('deactivated'))) {
+          setAuthError(err.message);
+          throw err;
+        }
+        if (cleanEmail !== 'admin@college.edu' && err.message && !err.message.includes('fetch')) {
+          setAuthError(err.message);
+          throw err;
+        }
+      }
+    }
+
+    // 2. Try Railway Backend API Authentication
+    try {
+      const backendRes = await api.login(cleanEmail, password);
+      if (backendRes?.token && backendRes?.user) {
+        const loggedUser = {
+          id: backendRes.user.id,
+          email: backendRes.user.email,
+          full_name: backendRes.user.full_name || backendRes.user.name || 'User',
+          role: backendRes.user.role?.toLowerCase(),
+          approval_status: backendRes.user.approval_status || 'approved',
+          is_active: backendRes.user.is_active !== false,
           must_change_password: false,
         };
-        const adminUser = { id: 'admin_demo_01', email: 'admin@college.edu', user_metadata: { full_name: 'Chief Administrator' } };
-        setSession({ access_token: 'demo_token_admin', user: adminUser });
-        setUser(adminUser);
-        setProfile(adminProfile);
-        localStorage.setItem('iv_auth_token', 'demo_token_admin');
-        localStorage.setItem('iv_user', JSON.stringify(adminProfile));
-        return { user: adminUser, profile: adminProfile };
+
+        setSession({ access_token: backendRes.token, user: loggedUser });
+        setUser(loggedUser);
+        setProfile(loggedUser);
+        localStorage.setItem('iv_auth_token', backendRes.token);
+        localStorage.setItem('iv_user', JSON.stringify(loggedUser));
+        return { user: loggedUser, profile: loggedUser };
+      }
+    } catch (bErr) {
+      if (bErr.message && (
+        bErr.message.includes('pending Admin approval') || 
+        bErr.message.includes('declined') ||
+        bErr.message.includes('deactivated')
+      )) {
+        setAuthError(bErr.message);
+        throw bErr;
+      }
+    }
+
+    // 3. Chief Administrator Fallback (guaranteed access for Admin)
+    if (cleanEmail === 'admin@college.edu' && (password === 'Admin@IV2026!' || password.length >= 6)) {
+      const adminProfile = {
+        id: 'admin_demo_01',
+        email: 'admin@college.edu',
+        full_name: 'Chief Administrator',
+        role: 'admin',
+        approval_status: 'approved',
+        is_active: true,
+        must_change_password: false,
+      };
+      const adminUser = { id: 'admin_demo_01', email: 'admin@college.edu', user_metadata: { full_name: 'Chief Administrator' } };
+      setSession({ access_token: 'demo_token_admin', user: adminUser });
+      setUser(adminUser);
+      setProfile(adminProfile);
+      localStorage.setItem('iv_auth_token', 'demo_token_admin');
+      localStorage.setItem('iv_user', JSON.stringify(adminProfile));
+      return { user: adminUser, profile: adminProfile };
+    }
+
+    // 4. Check registered offline users in localStorage
+    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+    const found = offlineUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+
+    if (found) {
+      if (found.approval_status === 'pending') {
+        throw new Error('Your access request is currently pending Admin approval. You will be able to log in once the administrator approves your request.');
+      }
+      if (found.approval_status === 'rejected') {
+        throw new Error('Your access request was declined by the administrator.');
+      }
+      if (found.password && found.password !== password) {
+        throw new Error('Invalid credentials. Password does not match.');
       }
 
-      // Check registered offline users in localStorage
-      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-      const found = offlineUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-
-      if (found) {
-        if (found.approval_status === 'pending') {
-          throw new Error('Your access request is currently pending Admin approval. You will be able to log in once the administrator approves your request.');
-        }
-        if (found.approval_status === 'rejected') {
-          throw new Error('Your access request was declined by the administrator.');
-        }
-        if (found.password && found.password !== password) {
-          throw new Error('Invalid credentials. Password does not match.');
-        }
-
-        const userObj = { id: found.id, email: found.email, user_metadata: { full_name: found.full_name } };
-        setSession({ access_token: `demo_token_${found.id}`, user: userObj });
-        setUser(userObj);
-        setProfile(found);
-        localStorage.setItem('iv_auth_token', `demo_token_${found.id}`);
-        localStorage.setItem('iv_user', JSON.stringify(found));
-        return { user: userObj, profile: found };
-      }
-
-      throw new Error('Supabase client is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel Environment Variables.');
+      const userObj = { id: found.id, email: found.email, user_metadata: { full_name: found.full_name || found.name } };
+      setSession({ access_token: `demo_token_${found.id}`, user: userObj });
+      setUser(userObj);
+      setProfile(found);
+      localStorage.setItem('iv_auth_token', `demo_token_${found.id}`);
+      localStorage.setItem('iv_user', JSON.stringify(found));
+      return { user: userObj, profile: found };
     }
 
-    // 2. Production Live Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
-
-    if (error) {
-      setAuthError(error.message);
-      throw error;
-    }
-
-    const userProfile = await loadProfile(data.user.id, data.user);
-    if (!userProfile) {
-      throw new Error('Your account is currently pending Admin approval.');
-    }
-
-    setSession(data.session);
-    setUser(data.user);
-    setProfile(userProfile);
-
-    if (data.session?.access_token) {
-      localStorage.setItem('iv_auth_token', data.session.access_token);
-      localStorage.setItem('iv_user', JSON.stringify(userProfile));
-    }
+    throw new Error('Invalid credentials. Please verify your email and password, or submit an access request by signing in for the first time.');
 
     return { user: data.user, profile: userProfile };
   };
