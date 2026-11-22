@@ -171,6 +171,27 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
 
   try {
+    // 0. Root info route
+    if (path === '/' && method === 'GET') {
+      return sendJson(res, 200, {
+        service: 'IV Connect Core API',
+        status: 'online',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        endpoints: [
+          '/api/health',
+          '/api/auth/login',
+          '/api/auth/me',
+          '/api/visits',
+          '/api/participants',
+          '/api/attendance',
+          '/api/attendance/check-in',
+          '/api/announcements',
+          '/api/logistics',
+        ],
+      });
+    }
+
     // 1. Health check
     if (path === '/api/health' && method === 'GET') {
       return sendJson(res, 200, {
