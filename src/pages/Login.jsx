@@ -1,12 +1,36 @@
-import { Mail, LockKeyhole, Smartphone, GraduationCap, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { Mail, LockKeyhole, Smartphone, GraduationCap, ShieldCheck, Crown, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 function Login() {
+    const navigate = useNavigate();
     const [selectedRole, setSelectedRole] = useState("Student");
     const [showPassword, setShowPassword] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
+    const handleSubmit = (e) => {
+        if (e) e.preventDefault();
+        if (selectedRole === "Admin") {
+            navigate("/admin/dashboard");
+        } else if (selectedRole === "Coordinator") {
+            navigate("/coordinator/dashboard");
+        } else {
+            navigate("/student/dashboard");
+        }
+    };
+
     return (
         <main className="login-page">
             <img src="/images/login-overlay.png" alt="" className="login-overlay" aria-hidden="true"/>
-            <div className="brand-logo">
+            <div 
+                className="brand-logo" 
+                style={{ cursor: "pointer" }}
+                onClick={() => navigate("/")}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate('/'); }}
+            >
                 <h1>IV Connect</h1>
                 <p>Industrial Visit Management System</p>
             </div>
@@ -47,7 +71,7 @@ function Login() {
                             className={`role-option ${selectedRole === "Student" ? "active" : ""}`}
                             onClick={() => setSelectedRole("Student")}
                         >
-                            <GraduationCap size={24} />
+                            <GraduationCap size={20} />
                             <span>Student</span>
                         </button>
 
@@ -56,17 +80,28 @@ function Login() {
                             className={`role-option ${selectedRole === "Coordinator" ? "active" : ""}`}
                             onClick={() => setSelectedRole("Coordinator")}
                         >
-                            <ShieldCheck size={24} />
+                            <ShieldCheck size={20} />
                             <span>Coordinator</span>
                         </button>
+
+                        <button
+                            type="button"
+                            className={`role-option ${selectedRole === "Admin" ? "active" : ""}`}
+                            onClick={() => setSelectedRole("Admin")}
+                        >
+                            <Crown size={20} />
+                            <span>Admin</span>
+                        </button>
                     </div>
-                    <form className="login-form">
+                    <form className="login-form" onSubmit={handleSubmit}>
                         <div className="form-group">
                             <Mail className="input-icon" size={19} strokeWidth={1.7} />
                             <input 
                                 type="email"
                                 id="email"
                                 name="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 placeholder="Email / College ID"
                                 autoComplete="email" 
                             />
@@ -77,6 +112,8 @@ function Login() {
                                 type={showPassword ? "text" : "password"}
                                 name="password" 
                                 id="password" 
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Password" 
                                 autoComplete="current-password"
                             />
@@ -97,8 +134,7 @@ function Login() {
                                 />
                                 Remember Me
                             </label>
-
-                            <a href="#" className="forgot-password">
+                            <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); alert("Please contact your department coordinator to reset your password."); }}>
                                 Forgot Password?
                             </a>
                         </div>
@@ -120,6 +156,7 @@ function Login() {
                         <button 
                             className="social-login-button"
                             type="button"
+                            onClick={handleSubmit}
                         >
                             <svg className="google-icon" viewBox="0 0 48 48" width="20" height="20" aria-label="Google"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44z"/><path fill="#FBBC05" d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.3H5.8a20 20 0 0 0 0 17.8l6.8-5.3z"/><path fill="#EA4335" d="M24 11.9c3 0 5.7 1 7.8 3.1l5.8-5.8C34.1 5.9 29.5 4 24 4A20 20 0 0 0 5.8 15.1l6.8 5.3c1.6-4.9 6.1-8.5 11.4-8.5z"/></svg>
                             Google
@@ -127,6 +164,7 @@ function Login() {
                         <button 
                             className="social-login-button"
                             type="button"
+                            onClick={handleSubmit}
                         >
                             <span className="mobile-icon" aria-hidden="true"><Smartphone size={19} strokeWidth={1.8} /></span>
                             Mobile OTP
@@ -135,7 +173,7 @@ function Login() {
                     <div className="request-access">
                         <p>
                             New here?
-                            <a href="#" className="request-access-link">
+                            <a href="#" className="request-access-link" onClick={(e) => { e.preventDefault(); alert("Contact your college department admin to be added to the Industrial Visit roster."); }}>
                                 Request Access
                             </a>
                         </p>

@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Bus,
   BedDouble,
+  Bell,
   MessageCircle,
   Images,
   Settings,
@@ -17,6 +18,7 @@ const activeNavItems = [
   { to: "/student/attendance", label: "Attendance", icon: ClipboardCheck },
   { to: "/student/transport", label: "Transport", icon: Bus },
   { to: "/student/accommodation", label: "Accommodation", icon: BedDouble },
+  { to: "/student/announcements", label: "Updates", icon: Bell },
   { to: "/student/profile", label: "Settings", icon: Settings },
 ];
 
@@ -30,9 +32,9 @@ export default function StudentLayout() {
     <main className="min-h-screen bg-[#F4F8F5] text-[#163D2B]">
       <div className="min-h-screen lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col bg-white p-5 shadow-sm">
+        <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col bg-white p-5 shadow-sm border-r border-gray-100">
           <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 font-bold text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 font-bold text-white shadow-sm">
               IV
             </div>
             <div>
@@ -41,7 +43,7 @@ export default function StudentLayout() {
             </div>
           </div>
 
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-2 flex-1">
             {activeNavItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
