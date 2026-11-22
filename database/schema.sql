@@ -1,9 +1,9 @@
 -- ==============================================================================
--- IV CONNECT — COMPLETE POSTGRESQL & SUPABASE DATABASE SCHEMA
+-- IV CONNECT — COMPLETE POSTGRESQL & SUPABASE DATABASE SCHEMA (V1.1 BUGFIX)
 -- ==============================================================================
 -- Run this script in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 
--- 1. Enable UUID Extension
+-- 1. Enable UUID Extension (or use native gen_random_uuid())
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. ENUMS
@@ -39,7 +39,7 @@ END $$;
 
 -- 3. PROFILES TABLE (Extends Supabase auth.users or standalone)
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     role user_role NOT NULL DEFAULT 'student',
@@ -55,9 +55,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure id column has DEFAULT gen_random_uuid() even if table was created previously without default
+ALTER TABLE public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 -- 4. MASTER INDUSTRIAL VISITS TABLE
 CREATE TABLE IF NOT EXISTS public.industrial_visits (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code TEXT UNIQUE NOT NULL,
     title TEXT NOT NULL,
     department TEXT NOT NULL,
@@ -79,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.industrial_visits (
 
 -- 5. VISIT COORDINATOR DELEGATIONS
 CREATE TABLE IF NOT EXISTS public.visit_coordinators (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     faculty_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     delegation_role TEXT NOT NULL DEFAULT 'Field Coordinator',
@@ -89,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.visit_coordinators (
 
 -- 6. ITINERARY DAYS & ACTIVITIES
 CREATE TABLE IF NOT EXISTS public.visit_days (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     day_number INT NOT NULL,
     date DATE NOT NULL,
@@ -98,7 +101,7 @@ CREATE TABLE IF NOT EXISTS public.visit_days (
 );
 
 CREATE TABLE IF NOT EXISTS public.itinerary_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     day_id UUID NOT NULL REFERENCES public.visit_days(id) ON DELETE CASCADE,
     sequence_no INT NOT NULL,
     scheduled_time TEXT NOT NULL,
@@ -112,7 +115,7 @@ CREATE TABLE IF NOT EXISTS public.itinerary_items (
 
 -- 7. STUDENT ENROLLMENTS
 CREATE TABLE IF NOT EXISTS public.visit_enrollments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     status enrollment_status NOT NULL DEFAULT 'pending',
@@ -127,7 +130,7 @@ CREATE TABLE IF NOT EXISTS public.visit_enrollments (
 
 -- 8. LOGISTICS: VEHICLES & HOTEL ROOMS
 CREATE TABLE IF NOT EXISTS public.vehicles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     identifier TEXT NOT NULL,
     vehicle_model TEXT NOT NULL,
@@ -140,7 +143,7 @@ CREATE TABLE IF NOT EXISTS public.vehicles (
 );
 
 CREATE TABLE IF NOT EXISTS public.transport_allocations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vehicle_id UUID NOT NULL REFERENCES public.vehicles(id) ON DELETE CASCADE,
     enrollment_id UUID NOT NULL REFERENCES public.visit_enrollments(id) ON DELETE CASCADE,
     seat_number TEXT NOT NULL,
@@ -150,7 +153,7 @@ CREATE TABLE IF NOT EXISTS public.transport_allocations (
 );
 
 CREATE TABLE IF NOT EXISTS public.accommodations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     hotel_name TEXT NOT NULL,
     address TEXT NOT NULL,
@@ -161,7 +164,7 @@ CREATE TABLE IF NOT EXISTS public.accommodations (
 );
 
 CREATE TABLE IF NOT EXISTS public.room_allocations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     accommodation_id UUID NOT NULL REFERENCES public.accommodations(id) ON DELETE CASCADE,
     room_number TEXT NOT NULL,
     floor TEXT NOT NULL,
@@ -173,7 +176,7 @@ CREATE TABLE IF NOT EXISTS public.room_allocations (
 
 -- 9. ATTENDANCE SESSIONS & SCAN RECORDS
 CREATE TABLE IF NOT EXISTS public.attendance_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID NOT NULL REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     checkpoint_name TEXT NOT NULL,
     scheduled_time TIMESTAMPTZ NOT NULL,
@@ -183,7 +186,7 @@ CREATE TABLE IF NOT EXISTS public.attendance_sessions (
 );
 
 CREATE TABLE IF NOT EXISTS public.attendance_records (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES public.attendance_sessions(id) ON DELETE CASCADE,
     enrollment_id UUID NOT NULL REFERENCES public.visit_enrollments(id) ON DELETE CASCADE,
     status attendance_status NOT NULL DEFAULT 'present',
@@ -195,7 +198,7 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
 
 -- 10. ANNOUNCEMENTS & CIRCULARS
 CREATE TABLE IF NOT EXISTS public.announcements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     visit_id UUID REFERENCES public.industrial_visits(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -207,7 +210,7 @@ CREATE TABLE IF NOT EXISTS public.announcements (
 
 -- 11. AUDIT LOGS
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     action TEXT NOT NULL,
     resource_type TEXT NOT NULL,
     resource_id TEXT,
@@ -217,11 +220,16 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 );
 
 -- ==============================================================================
--- 12. SEED INITIAL SAMPLE DATA
+-- 12. SEED INITIAL SAMPLE DATA (EXPLICIT ID WITH gen_random_uuid())
 -- ==============================================================================
-INSERT INTO public.profiles (email, full_name, role, department, academic_batch, roll_number)
+INSERT INTO public.profiles (id, email, full_name, role, department, academic_batch, roll_number)
 VALUES 
-    ('fahad@college.edu', 'Fahad Bin Hashim', 'student', 'Computer Science & Engineering', 'Batch 2023-27 (Semester 5)', 'CS-2026-084'),
-    ('coordinator@college.edu', 'Dr. Rajesh Kumar', 'coordinator', 'Computer Science & Engineering', 'Faculty', 'FAC-CSE-012'),
-    ('admin@college.edu', 'Prof. K. S. Venkatesh', 'admin', 'Academic Affairs', 'Dean', 'ADM-DEAN-001')
-ON CONFLICT (email) DO NOTHING;
+    (gen_random_uuid(), 'fahad@college.edu', 'Fahad Bin Hashim', 'student', 'Computer Science & Engineering', 'Batch 2023-27 (Semester 5)', 'CS-2026-084'),
+    (gen_random_uuid(), 'coordinator@college.edu', 'Dr. Rajesh Kumar', 'coordinator', 'Computer Science & Engineering', 'Faculty', 'FAC-CSE-012'),
+    (gen_random_uuid(), 'admin@college.edu', 'Prof. K. S. Venkatesh', 'admin', 'Academic Affairs', 'Dean', 'ADM-DEAN-001')
+ON CONFLICT (email) DO UPDATE SET 
+    full_name = EXCLUDED.full_name,
+    role = EXCLUDED.role,
+    department = EXCLUDED.department,
+    academic_batch = EXCLUDED.academic_batch,
+    roll_number = EXCLUDED.roll_number;
