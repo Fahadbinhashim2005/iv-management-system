@@ -345,9 +345,11 @@ CREATE POLICY "trip_assignments_admin_all"
   );
 
 -- ==============================================================================
--- 8. STORAGE BUCKET CONFIGURATION (PHASE 2: AVATARS)
+-- 8. STORAGE BUCKET: AVATARS (PHASE 2)
 -- ==============================================================================
--- Create the 'avatars' public bucket with 2MB file size limit & image mime types
+-- Insert the public avatars bucket directly into storage.buckets.
+-- (Note: Do not run ALTER TABLE or CREATE POLICY on storage.objects from SQL Editor
+--  as storage.objects is owned by supabase_storage_admin).
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'avatars',
@@ -361,41 +363,3 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = 2097152,
   allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
--- Enable RLS on storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
--- 8.1 Public Read Policy (Anyone can read avatars)
-DROP POLICY IF EXISTS "Avatar public read" ON storage.objects;
-CREATE POLICY "Avatar public read"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'avatars');
-
--- 8.2 User Upload Policy (Students can only write to their own user_id directory)
-DROP POLICY IF EXISTS "Avatar user insert" ON storage.objects;
-CREATE POLICY "Avatar user insert"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    bucket_id = 'avatars' 
-    AND (auth.uid())::text = (storage.foldername(name))[1]
-  );
-
--- 8.3 User Update Policy
-DROP POLICY IF EXISTS "Avatar user update" ON storage.objects;
-CREATE POLICY "Avatar user update"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (
-    bucket_id = 'avatars' 
-    AND (auth.uid())::text = (storage.foldername(name))[1]
-  );
-
--- 8.4 User Delete Policy
-DROP POLICY IF EXISTS "Avatar user delete" ON storage.objects;
-CREATE POLICY "Avatar user delete"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (
-    bucket_id = 'avatars' 
-    AND (auth.uid())::text = (storage.foldername(name))[1]
-  );
