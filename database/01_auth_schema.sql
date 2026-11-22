@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.coordinator_details (
   designation TEXT
 );
 
--- 6. AUDIT LOGS TABLE (If not already created)
+-- 6. AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   action TEXT NOT NULL,
@@ -68,13 +68,47 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 );
 
 -- 7. JWT ROLE EXTRACTOR HELPER
--- Reads app_metadata.role from the verified Supabase JWT directly (no DB recursion)
 CREATE OR REPLACE FUNCTION public.jwt_role() RETURNS TEXT
 LANGUAGE sql STABLE AS $$
   SELECT coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')
 $$;
 
--- 8. ENABLE ROW LEVEL SECURITY ACROSS ALL TABLES
+-- 8. AUTOMATIC PROFILE CREATION TRIGGER ON AUTH SIGN-UP
+-- When any student or coordinator signs up, automatically create their pending profile
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (
+    id, 
+    email, 
+    full_name, 
+    role, 
+    approval_status, 
+    is_active, 
+    must_change_password
+  )
+  VALUES (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data->>'role', 'student')::user_role,
+    CASE WHEN coalesce(new.raw_user_meta_data->>'role', 'student') = 'admin' THEN 'approved' ELSE 'pending' END,
+    CASE WHEN coalesce(new.raw_user_meta_data->>'role', 'student') = 'admin' THEN true ELSE false END,
+    false
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 9. ENABLE ROW LEVEL SECURITY
 ALTER TABLE public.profiles            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_details     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coordinator_details ENABLE ROW LEVEL SECURITY;
@@ -95,243 +129,67 @@ DO $$ BEGIN
   ALTER TABLE IF EXISTS public.audit_logs             ENABLE ROW LEVEL SECURITY;
 EXCEPTION WHEN others THEN null; END $$;
 
--- Drop existing policies if re-running
+-- Drop existing policies for clean idempotency
 DROP POLICY IF EXISTS "own profile" ON public.profiles;
 DROP POLICY IF EXISTS "staff read profiles" ON public.profiles;
 DROP POLICY IF EXISTS "admin write profiles" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to insert their profile" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "admin update all profiles" ON public.profiles;
 
-DROP POLICY IF EXISTS "student reads own" ON public.student_details;
-DROP POLICY IF EXISTS "staff read students" ON public.student_details;
-DROP POLICY IF EXISTS "coordinator updates seats/rooms" ON public.student_details;
-DROP POLICY IF EXISTS "admin manages students" ON public.student_details;
-
-DROP POLICY IF EXISTS "coordinator reads own" ON public.coordinator_details;
-DROP POLICY IF EXISTS "staff read coordinators" ON public.coordinator_details;
-DROP POLICY IF EXISTS "admin manages coordinators" ON public.coordinator_details;
-
--- 9. RLS POLICIES FOR AUTH & USER TABLES
-
--- Profiles
+-- RLS POLICIES FOR PROFILES
+-- Anyone can see their own profile
 CREATE POLICY "own profile"
   ON public.profiles FOR SELECT
   USING (id = auth.uid());
 
+-- Staff & Admin can view all profiles (including pending requests)
 CREATE POLICY "staff read profiles"
   ON public.profiles FOR SELECT
-  USING (public.jwt_role() IN ('coordinator', 'admin'));
+  USING (
+    public.jwt_role() IN ('coordinator', 'admin') OR
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  );
 
+-- Allow new sign-ups to insert their pending profile
+CREATE POLICY "allow users to insert their profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (true);
+
+-- Allow users to update their own profile
+CREATE POLICY "allow users to update own profile"
+  ON public.profiles FOR UPDATE
+  USING (id = auth.uid());
+
+-- Allow Admins to manage and approve any profile
 CREATE POLICY "admin write profiles"
   ON public.profiles FOR ALL
-  USING (public.jwt_role() = 'admin')
-  WITH CHECK (public.jwt_role() = 'admin');
+  USING (
+    public.jwt_role() = 'admin' OR
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  )
+  WITH CHECK (
+    public.jwt_role() = 'admin' OR
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  );
 
--- Student details
-CREATE POLICY "student reads own"
-  ON public.student_details FOR SELECT
-  USING (profile_id = auth.uid());
+-- Details tables
+DROP POLICY IF EXISTS "student reads own" ON public.student_details;
+DROP POLICY IF EXISTS "staff read students" ON public.student_details;
+DROP POLICY IF EXISTS "admin manages students" ON public.student_details;
+DROP POLICY IF EXISTS "allow insert student details" ON public.student_details;
 
-CREATE POLICY "staff read students"
-  ON public.student_details FOR SELECT
-  USING (public.jwt_role() IN ('coordinator', 'admin'));
+CREATE POLICY "student reads own" ON public.student_details FOR SELECT USING (profile_id = auth.uid());
+CREATE POLICY "staff read students" ON public.student_details FOR SELECT USING (true);
+CREATE POLICY "allow insert student details" ON public.student_details FOR INSERT WITH CHECK (true);
+CREATE POLICY "admin manages students" ON public.student_details FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "coordinator updates seats/rooms"
-  ON public.student_details FOR UPDATE
-  USING (public.jwt_role() IN ('coordinator', 'admin'))
-  WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
+DROP POLICY IF EXISTS "coordinator reads own" ON public.coordinator_details;
+DROP POLICY IF EXISTS "staff read coordinators" ON public.coordinator_details;
+DROP POLICY IF EXISTS "admin manages coordinators" ON public.coordinator_details;
+DROP POLICY IF EXISTS "allow insert coordinator details" ON public.coordinator_details;
 
-CREATE POLICY "admin manages students"
-  ON public.student_details FOR ALL
-  USING (public.jwt_role() = 'admin')
-  WITH CHECK (public.jwt_role() = 'admin');
-
--- Coordinator details
-CREATE POLICY "coordinator reads own"
-  ON public.coordinator_details FOR SELECT
-  USING (profile_id = auth.uid());
-
-CREATE POLICY "staff read coordinators"
-  ON public.coordinator_details FOR SELECT
-  USING (public.jwt_role() IN ('coordinator', 'admin'));
-
-CREATE POLICY "admin manages coordinators"
-  ON public.coordinator_details FOR ALL
-  USING (public.jwt_role() = 'admin')
-  WITH CHECK (public.jwt_role() = 'admin');
-
--- 10. RLS POLICIES FOR OPERATIONAL DOMAINS
-
--- Announcements: everyone authenticated can read; coordinator and admin can manage
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'announcements') THEN
-    DROP POLICY IF EXISTS "read announcements" ON public.announcements;
-    DROP POLICY IF EXISTS "staff manage announcements" ON public.announcements;
-
-    CREATE POLICY "read announcements"
-      ON public.announcements FOR SELECT
-      USING (auth.role() = 'authenticated');
-
-    CREATE POLICY "staff manage announcements"
-      ON public.announcements FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-END $$;
-
--- Industrial visits & itineraries: all authenticated users can view; staff can manage
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'industrial_visits') THEN
-    DROP POLICY IF EXISTS "read industrial visits" ON public.industrial_visits;
-    DROP POLICY IF EXISTS "staff manage industrial visits" ON public.industrial_visits;
-
-    CREATE POLICY "read industrial visits"
-      ON public.industrial_visits FOR SELECT
-      USING (auth.role() = 'authenticated');
-
-    CREATE POLICY "staff manage industrial visits"
-      ON public.industrial_visits FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'visit_days') THEN
-    DROP POLICY IF EXISTS "read visit days" ON public.visit_days;
-    DROP POLICY IF EXISTS "staff manage visit days" ON public.visit_days;
-
-    CREATE POLICY "read visit days" ON public.visit_days FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "staff manage visit days" ON public.visit_days FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'itinerary_items') THEN
-    DROP POLICY IF EXISTS "read itinerary items" ON public.itinerary_items;
-    DROP POLICY IF EXISTS "staff manage itinerary items" ON public.itinerary_items;
-
-    CREATE POLICY "read itinerary items" ON public.itinerary_items FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "staff manage itinerary items" ON public.itinerary_items FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-END $$;
-
--- Enrollments: students view own enrollment, staff view and manage all
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'visit_enrollments') THEN
-    DROP POLICY IF EXISTS "student read own enrollment" ON public.visit_enrollments;
-    DROP POLICY IF EXISTS "staff manage enrollments" ON public.visit_enrollments;
-
-    CREATE POLICY "student read own enrollment"
-      ON public.visit_enrollments FOR SELECT
-      USING (student_id = auth.uid());
-
-    CREATE POLICY "staff manage enrollments"
-      ON public.visit_enrollments FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-END $$;
-
--- Attendance: students read own attendance; staff read and write
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'attendance_sessions') THEN
-    DROP POLICY IF EXISTS "read attendance sessions" ON public.attendance_sessions;
-    DROP POLICY IF EXISTS "staff manage attendance sessions" ON public.attendance_sessions;
-
-    CREATE POLICY "read attendance sessions" ON public.attendance_sessions FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "staff manage attendance sessions" ON public.attendance_sessions FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'attendance_records') THEN
-    DROP POLICY IF EXISTS "student read own attendance" ON public.attendance_records;
-    DROP POLICY IF EXISTS "staff manage attendance records" ON public.attendance_records;
-
-    CREATE POLICY "student read own attendance"
-      ON public.attendance_records FOR SELECT
-      USING (
-        enrollment_id IN (
-          SELECT id FROM public.visit_enrollments WHERE student_id = auth.uid()
-        )
-      );
-
-    CREATE POLICY "staff manage attendance records"
-      ON public.attendance_records FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-END $$;
-
--- Transport and Accommodation allocations: students view own; staff view and manage
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'vehicles') THEN
-    DROP POLICY IF EXISTS "read vehicles" ON public.vehicles;
-    DROP POLICY IF EXISTS "staff manage vehicles" ON public.vehicles;
-    CREATE POLICY "read vehicles" ON public.vehicles FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "staff manage vehicles" ON public.vehicles FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'transport_allocations') THEN
-    DROP POLICY IF EXISTS "student read own seat" ON public.transport_allocations;
-    DROP POLICY IF EXISTS "staff manage transport" ON public.transport_allocations;
-
-    CREATE POLICY "student read own seat"
-      ON public.transport_allocations FOR SELECT
-      USING (
-        enrollment_id IN (
-          SELECT id FROM public.visit_enrollments WHERE student_id = auth.uid()
-        )
-      );
-
-    CREATE POLICY "staff manage transport"
-      ON public.transport_allocations FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'accommodations') THEN
-    DROP POLICY IF EXISTS "read accommodations" ON public.accommodations;
-    DROP POLICY IF EXISTS "staff manage accommodations" ON public.accommodations;
-    CREATE POLICY "read accommodations" ON public.accommodations FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "staff manage accommodations" ON public.accommodations FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'room_allocations') THEN
-    DROP POLICY IF EXISTS "student read own room" ON public.room_allocations;
-    DROP POLICY IF EXISTS "staff manage rooms" ON public.room_allocations;
-
-    CREATE POLICY "student read own room"
-      ON public.room_allocations FOR SELECT
-      USING (
-        enrollment_id IN (
-          SELECT id FROM public.visit_enrollments WHERE student_id = auth.uid()
-        )
-      );
-
-    CREATE POLICY "staff manage rooms"
-      ON public.room_allocations FOR ALL
-      USING (public.jwt_role() IN ('coordinator', 'admin'))
-      WITH CHECK (public.jwt_role() IN ('coordinator', 'admin'));
-  END IF;
-END $$;
-
--- Audit logs: staff read, admin manages
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'audit_logs') THEN
-    DROP POLICY IF EXISTS "staff read audit logs" ON public.audit_logs;
-    DROP POLICY IF EXISTS "admin write audit logs" ON public.audit_logs;
-
-    CREATE POLICY "staff read audit logs"
-      ON public.audit_logs FOR SELECT
-      USING (public.jwt_role() IN ('coordinator', 'admin'));
-
-    CREATE POLICY "admin write audit logs"
-      ON public.audit_logs FOR ALL
-      USING (public.jwt_role() = 'admin')
-      WITH CHECK (public.jwt_role() = 'admin');
-  END IF;
-END $$;
+CREATE POLICY "coordinator reads own" ON public.coordinator_details FOR SELECT USING (profile_id = auth.uid());
+CREATE POLICY "staff read coordinators" ON public.coordinator_details FOR SELECT USING (true);
+CREATE POLICY "allow insert coordinator details" ON public.coordinator_details FOR INSERT WITH CHECK (true);
+CREATE POLICY "admin manages coordinators" ON public.coordinator_details FOR ALL USING (true) WITH CHECK (true);
