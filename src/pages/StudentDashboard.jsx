@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Avatar from "../components/Avatar";
 import { 
   Bell, 
   ClipboardCheck, 
@@ -9,7 +10,8 @@ import {
   Clock, 
   MapPin, 
   ShieldCheck,
-  Calendar
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 
 function StudentDashboard() {
@@ -18,6 +20,9 @@ function StudentDashboard() {
   const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
   const firstName = studentName.split(" ")[0] || "Student";
   const tripStatus = "upcoming";
+
+  // Check if student profile requires attention (Emergency details or trip consent)
+  const isProfileIncomplete = !profile?.consent_given || !profile?.emergency_phone || !profile?.blood_group;
 
   return (
     <div className="space-y-8">
@@ -49,13 +54,40 @@ function StudentDashboard() {
           <button
             type="button"
             onClick={() => navigate("/student/profile")}
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 font-bold text-white shadow-sm ring-2 ring-emerald-200 transition hover:bg-emerald-700 active:scale-95"
+            className="flex items-center justify-center rounded-2xl overflow-hidden shadow-sm ring-2 ring-emerald-200 transition hover:ring-emerald-400 active:scale-95"
             aria-label="View profile"
           >
-            {firstName[0].toUpperCase()}
+            <Avatar profile={profile} size="sm" />
           </button>
         </div>
       </header>
+
+      {/* Profile Incomplete Notification Banner */}
+      {isProfileIncomplete && (
+        <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-amber-900 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/80 text-amber-800">
+              <AlertCircle size={22} />
+            </div>
+            <div>
+              <h4 className="text-xs font-extrabold uppercase tracking-wide text-amber-950">
+                Action Required: Profile Incomplete
+              </h4>
+              <p className="text-xs text-amber-800">
+                Please provide your emergency phone, blood group, and trip consent before departure.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/student/profile")}
+            className="inline-flex items-center justify-center gap-1.5 self-start sm:self-auto rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition active:scale-95"
+          >
+            <span>Complete Profile</span>
+            <ArrowRight size={14} />
+          </button>
+        </section>
+      )}
 
       {/* Main Journey Hero Card */}
       <section>

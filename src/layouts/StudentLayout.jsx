@@ -16,6 +16,8 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import StudentBottomNav from "../components/navigation/StudentBottomNav";
+import { useAuth } from "../context/AuthContext";
+import Avatar from "../components/Avatar";
 
 const activeNavItems = [
   { to: "/student/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +37,20 @@ const upcomingNavItems = [
 export default function StudentLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { profile, user, logout } = useAuth();
+
+  const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
+  const studentRoll = profile?.roll_no || "CS-2026-Pending";
+  const studentSem = profile?.semester ? `Sem ${profile.semester}` : "Sem 5";
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // Ignore logout errors
+    }
+    navigate("/login");
+  };
 
   return (
     <main className="min-h-screen bg-[#F4F8F5] text-[#163D2B]">
@@ -78,10 +94,10 @@ export default function StudentLayout() {
           <button
             type="button"
             onClick={() => navigate("/student/profile")}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-xs"
+            className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-xs hover:ring-2 hover:ring-emerald-500/30 transition"
             aria-label="My Profile"
           >
-            F
+            <Avatar profile={profile} size="sm" />
           </button>
         </div>
       </header>
@@ -121,13 +137,17 @@ export default function StudentLayout() {
               </div>
 
               {/* User Identity Chip */}
-              <div className="mb-5 flex items-center gap-3 rounded-2xl bg-emerald-50/70 p-3 border border-emerald-100">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 font-black text-white text-sm">
-                  F
-                </div>
+              <div 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate("/student/profile");
+                }}
+                className="mb-5 flex items-center gap-3 rounded-2xl bg-emerald-50/70 p-3 border border-emerald-100 cursor-pointer hover:bg-emerald-100/60 transition"
+              >
+                <Avatar profile={profile} size="md" />
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-extrabold text-emerald-950">Fahad Bin Hashim</p>
-                  <p className="truncate text-[11px] text-gray-500 font-mono">CS-2026-084 • Sem 5</p>
+                  <p className="truncate text-xs font-extrabold text-emerald-950">{studentName}</p>
+                  <p className="truncate text-[11px] text-gray-500 font-mono">{studentRoll} • {studentSem}</p>
                 </div>
               </div>
 
@@ -185,10 +205,7 @@ export default function StudentLayout() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate("/login");
-                }}
+                onClick={handleLogout}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 transition"
               >
                 <LogOut size={14} />
@@ -251,11 +268,28 @@ export default function StudentLayout() {
             </nav>
           </div>
 
-          <div className="border-t border-gray-100 pt-4 space-y-2">
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            {/* Desktop User Profile Identity Tile */}
+            <div
+              onClick={() => navigate("/student/profile")}
+              className="flex items-center gap-3 rounded-2xl bg-emerald-50/60 p-2.5 border border-emerald-100/80 cursor-pointer hover:bg-emerald-100/70 transition group"
+              title="View & Edit My Profile"
+            >
+              <Avatar profile={profile} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-extrabold text-emerald-950 group-hover:text-emerald-800 transition">
+                  {studentName}
+                </p>
+                <p className="truncate text-[10px] text-gray-500 font-mono">
+                  {studentRoll} • {studentSem}
+                </p>
+              </div>
+            </div>
+
             <button
               type="button"
-              onClick={() => navigate("/login")}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50 transition active:scale-95"
             >
               <LogOut size={14} />
               <span>Sign Out</span>
