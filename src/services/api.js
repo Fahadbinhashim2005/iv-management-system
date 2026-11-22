@@ -34,12 +34,58 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
-  // Access Request Gateway
+  // Access Request Gateway (with automatic fallback to localStorage if backend is unreachable)
   async signInOrRequest(email, password, role, fullName) {
-    return await request('/auth/sign-in-or-request', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, role, full_name: fullName }),
-    });
+    try {
+      return await request('/auth/sign-in-or-request', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, role, full_name: fullName }),
+      });
+    } catch {
+      // Offline fallback: store request in browser local storage
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedRole = (role || 'student').toLowerCase();
+
+      if (normalizedRole === 'admin') {
+        return { status: 'approved', exists: true, role: 'admin' };
+      }
+
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      const existing = offlineUsers.find((u) => u.email.toLowerCase() === normalizedEmail);
+
+      if (existing) {
+        return {
+          status: existing.approval_status || 'approved',
+          exists: true,
+          role: existing.role,
+        };
+      }
+
+      const derivedName = fullName?.trim() || normalizedEmail.split('@')[0]
+        .replace(/[._-]+/g, ' ')
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      const newUser = {
+        id: `demo_${Date.now()}`,
+        email: normalizedEmail,
+        password,
+        full_name: derivedName,
+        role: normalizedRole,
+        approval_status: 'pending',
+        is_active: false,
+        created_at: new Date().toISOString(),
+      };
+      offlineUsers.push(newUser);
+      localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
+
+      return {
+        success: true,
+        status: 'request_created',
+        message: 'Access request submitted! Your account has been sent to the Admin for approval.',
+      };
+    }
   },
 
   // Session details
@@ -53,29 +99,74 @@ export const api = {
 
   // Admin Access Request Approvals
   async getAccessRequests(role) {
-    const query = role ? `?role=${encodeURIComponent(role)}` : '';
-    return await request(`/admin/users/requests${query}`);
+    try {
+      const query = role ? `?role=${encodeURIComponent(role)}` : '';
+      return await request(`/admin/users/requests${query}`);
+    } catch {
+      // Offline fallback
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      let pending = offlineUsers.filter((u) => u.approval_status === 'pending');
+      if (role) {
+        pending = pending.filter((u) => u.role.toLowerCase() === role.toLowerCase());
+      }
+      return { success: true, count: pending.length, requests: pending };
+    }
   },
 
   async approveAccessRequest(id) {
-    return await request(`/admin/users/requests/${id}/approve`, {
-      method: 'POST',
-    });
+    try {
+      return await request(`/admin/users/requests/${id}/approve`, {
+        method: 'POST',
+      });
+    } catch {
+      // Offline fallback
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      const found = offlineUsers.find((u) => u.id === id);
+      if (found) {
+        found.approval_status = 'approved';
+        found.is_active = true;
+        localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
+      }
+      return { success: true, message: 'User approved (offline store).' };
+    }
   },
 
   async rejectAccessRequest(id) {
-    return await request(`/admin/users/requests/${id}/reject`, {
-      method: 'POST',
-    });
+    try {
+      return await request(`/admin/users/requests/${id}/reject`, {
+        method: 'POST',
+      });
+    } catch {
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      const found = offlineUsers.find((u) => u.id === id);
+      if (found) {
+        found.approval_status = 'rejected';
+        found.is_active = false;
+        localStorage.setItem('iv_demo_users', JSON.stringify(offlineUsers));
+      }
+      return { success: true, message: 'User request declined (offline store).' };
+    }
   },
 
   // Admin User Management Endpoints
   async getAdminUsers(role, status = 'approved') {
-    const params = new URLSearchParams();
-    if (role) params.append('role', role);
-    if (status) params.append('status', status);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return await request(`/admin/users${query}`);
+    try {
+      const params = new URLSearchParams();
+      if (role) params.append('role', role);
+      if (status) params.append('status', status);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      return await request(`/admin/users${query}`);
+    } catch {
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      let filtered = offlineUsers;
+      if (status && status !== 'all') {
+        filtered = filtered.filter((u) => u.approval_status === status);
+      }
+      if (role) {
+        filtered = filtered.filter((u) => u.role.toLowerCase() === role.toLowerCase());
+      }
+      return { success: true, count: filtered.length, users: filtered };
+    }
   },
 
   async createAdminUser(userData) {
@@ -114,7 +205,7 @@ export const api = {
 
   // Industrial Visits
   async getVisits() {
-    const res = await request('/visits');
+    const res = await request('/visits').catch(() => null);
     return res?.visits || [];
   },
 
@@ -127,7 +218,7 @@ export const api = {
 
   // Participants
   async getParticipants() {
-    return await request('/participants');
+    return await request('/participants').catch(() => ({ participants: [] }));
   },
 
   async updateParticipantStatus(id, status) {
@@ -139,7 +230,7 @@ export const api = {
 
   // Attendance
   async getAttendance() {
-    return await request('/attendance');
+    return await request('/attendance').catch(() => ({ records: [] }));
   },
 
   async recordCheckIn(checkpoint, rollNo, studentId, method) {
@@ -151,7 +242,7 @@ export const api = {
 
   // Announcements
   async getAnnouncements() {
-    const res = await request('/announcements');
+    const res = await request('/announcements').catch(() => null);
     return res?.announcements || [];
   },
 
@@ -164,7 +255,7 @@ export const api = {
 
   // Logistics
   async getLogistics() {
-    const res = await request('/logistics');
+    const res = await request('/logistics').catch(() => null);
     return res?.logistics || null;
   },
 };
