@@ -1,7 +1,6 @@
 -- ==============================================================================
--- IV CONNECT — COMPLETE POSTGRESQL & SUPABASE DATABASE SCHEMA (V1.2 PRODUCTION)
+-- IV CONNECT — SUPABASE SETUP & SEED (NO RLS - OPEN DEV MODE)
 -- ==============================================================================
--- Run this script in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -49,8 +48,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Ensure id column has DEFAULT gen_random_uuid()
 ALTER TABLE IF EXISTS public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
--- CRITICAL FIX: Drop the auth.users foreign key constraint if it was previously created,
--- so profiles can be seeded and used flexibly without requiring auth.users entries first.
+-- Drop auth.users constraint so mock/seed profiles can be inserted without Supabase Auth
 ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 
 -- 4. MASTER INDUSTRIAL VISITS TABLE
@@ -215,28 +213,22 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 );
 
 -- ==============================================================================
--- 12. ROW LEVEL SECURITY (RLS) POLICIES
+-- 12. EXPLICITLY DISABLE RLS (OPEN ACCESS FOR CLIENT & API)
 -- ==============================================================================
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.industrial_visits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.visit_enrollments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public read profiles" ON public.profiles;
-CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public read visits" ON public.industrial_visits;
-CREATE POLICY "Public read visits" ON public.industrial_visits FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public read enrollments" ON public.visit_enrollments;
-CREATE POLICY "Public read enrollments" ON public.visit_enrollments FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public read attendance" ON public.attendance_records;
-CREATE POLICY "Public read attendance" ON public.attendance_records FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public read announcements" ON public.announcements;
-CREATE POLICY "Public read announcements" ON public.announcements FOR SELECT USING (true);
+ALTER TABLE IF EXISTS public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.industrial_visits DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.visit_coordinators DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.visit_days DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.itinerary_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.visit_enrollments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.vehicles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.transport_allocations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.accommodations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.room_allocations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.attendance_sessions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.attendance_records DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.announcements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.audit_logs DISABLE ROW LEVEL SECURITY;
 
 -- ==============================================================================
 -- 13. SEED INITIAL USERS & SAMPLE VISIT DATA
