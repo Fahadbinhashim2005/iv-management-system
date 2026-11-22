@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+seed-credentials.csv
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

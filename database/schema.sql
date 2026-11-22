@@ -233,12 +233,10 @@ ALTER TABLE IF EXISTS public.audit_logs DISABLE ROW LEVEL SECURITY;
 -- ==============================================================================
 -- 13. SEED INITIAL USERS & SAMPLE VISIT DATA
 -- ==============================================================================
--- Seed Profiles for Student, Coordinator, and Admin
+-- Seed Profile only for Admin (Student and Coordinator accounts require self-request & Admin approval)
 INSERT INTO public.profiles (id, email, full_name, role, department, academic_batch, roll_number)
 VALUES 
-    (gen_random_uuid(), 'fahad@college.edu', 'Fahad Bin Hashim', 'student', 'Computer Science & Engineering', 'Batch 2023-27 (Semester 5)', 'CS-2026-084'),
-    (gen_random_uuid(), 'coordinator@college.edu', 'Dr. Rajesh Kumar', 'coordinator', 'Computer Science & Engineering', 'Faculty', 'FAC-CSE-012'),
-    (gen_random_uuid(), 'admin@college.edu', 'Prof. K. S. Venkatesh', 'admin', 'Academic Affairs', 'Dean', 'ADM-DEAN-001')
+    (gen_random_uuid(), 'admin@college.edu', 'Prof. K. S. Venkatesh (Admin)', 'admin', 'Academic Affairs', 'Dean Office', 'ADM-DEAN-001')
 ON CONFLICT (email) DO UPDATE SET 
     full_name = EXCLUDED.full_name,
     role = EXCLUDED.role,

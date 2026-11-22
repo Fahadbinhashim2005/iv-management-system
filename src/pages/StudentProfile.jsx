@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { 
   Mail, 
   IdCard, 
@@ -10,15 +11,23 @@ import {
 
 export default function StudentProfile() {
   const navigate = useNavigate();
+  const { profile, user, logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
+  const studentEmail = profile?.email || user?.email || "student@college.edu";
+  const studentRoll = profile?.student_details?.roll_no || profile?.roll_number || "CS-2026-Pending";
+  const studentDept = profile?.student_details?.department || profile?.department || "Computer Science & Engineering";
+  const studentBatch = profile?.student_details?.batch || profile?.academic_batch || "Batch 2023-27";
 
   const handleSave = () => {
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
@@ -39,28 +48,28 @@ export default function StudentProfile() {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 sm:p-8">
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-3xl font-extrabold text-white shadow-md">
-            F
+            {studentName[0].toUpperCase()}
           </div>
           <div className="text-center sm:text-left flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <h2 className="text-2xl font-extrabold text-emerald-950">
-                Fahad Bin Hashim
+                {studentName}
               </h2>
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                 Active Student
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              B.Tech in Computer Science and Engineering (2023 - 2027)
+              {studentDept} ({studentBatch})
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-gray-600">
               <span className="flex items-center gap-1.5">
                 <IdCard size={15} className="text-emerald-600" />
-                Roll: CS-2026-084
+                Roll: {studentRoll}
               </span>
               <span className="flex items-center gap-1.5">
                 <Mail size={15} className="text-emerald-600" />
-                fahadbinhashim03@gmail.com
+                {studentEmail}
               </span>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, 
@@ -6,13 +6,23 @@ import {
   ShieldCheck, 
   Plus, 
   CheckCircle2, 
-  Lock
+  Lock,
+  Clock,
+  ArrowRight
 } from "lucide-react";
+import { api } from "../../services/api";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [registrationsLocked, setRegistrationsLocked] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  useEffect(() => {
+    api.getAccessRequests().then((res) => {
+      if (res?.count) setPendingRequestsCount(res.count);
+    }).catch(() => {});
+  }, []);
 
   const handleToggleLock = () => {
     setRegistrationsLocked(!registrationsLocked);
@@ -31,6 +41,36 @@ export default function AdminDashboard() {
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-900 border border-amber-400/50 px-4 py-3 text-xs font-bold text-white shadow-2xl">
           <CheckCircle2 size={16} className="text-amber-300" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Pending Access Requests Banner */}
+      {pendingRequestsCount > 0 && (
+        <div className="flex items-center justify-between rounded-2xl bg-amber-500/10 border border-amber-300 p-4 text-xs font-bold text-amber-950 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+              <Clock size={16} />
+            </span>
+            <div>
+              <p className="font-black text-amber-950 text-sm">
+                {pendingRequestsCount} Pending Access {pendingRequestsCount === 1 ? 'Request' : 'Requests'}
+              </p>
+              <p className="text-[11px] text-amber-800 font-medium">
+                New students or coordinators have signed in and require your administrative approval.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/students")}
+              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-black text-white hover:bg-amber-700 transition"
+            >
+              <span>Review Requests</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
         </div>
       )}
 

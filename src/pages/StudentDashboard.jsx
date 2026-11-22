@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { 
   Bell, 
   ClipboardCheck, 
@@ -13,6 +14,9 @@ import {
 
 function StudentDashboard() {
   const navigate = useNavigate();
+  const { profile, user } = useAuth();
+  const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
+  const firstName = studentName.split(" ")[0] || "Student";
   const tripStatus = "upcoming";
 
   return (
@@ -24,7 +28,7 @@ function StudentDashboard() {
             Welcome Back!
           </p>
           <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-            Good morning, Fahad 👋
+            Good morning, {firstName} 👋
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             Ready for your next industrial journey?
@@ -48,7 +52,7 @@ function StudentDashboard() {
             className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 font-bold text-white shadow-sm ring-2 ring-emerald-200 transition hover:bg-emerald-700 active:scale-95"
             aria-label="View profile"
           >
-            F
+            {firstName[0].toUpperCase()}
           </button>
         </div>
       </header>

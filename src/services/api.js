@@ -5,63 +5,117 @@ const API_BASE = import.meta.env.VITE_API_URL
   : '/api';
 
 async function request(endpoint, options = {}) {
-  try {
-    const token = localStorage.getItem('iv_auth_token');
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    };
+  const token = localStorage.getItem('iv_auth_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-    if (!res.ok) {
-      throw new Error(`API error: ${res.statusText}`);
-    }
-
-    return await res.json();
-  } catch (err) {
-    console.warn(`[IV Connect API Client] Falling back to local offline mock: ${endpoint}`, err);
-    return null;
+  if (res.status === 401) {
+    localStorage.removeItem('iv_auth_token');
+    localStorage.removeItem('iv_user');
+    console.warn(`[IV Connect API] 401 Unauthorized on ${endpoint}`);
   }
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const errorMsg = data?.error || `Request failed with status ${res.status}: ${res.statusText}`;
+    throw new Error(errorMsg);
+  }
+
+  return data;
 }
 
 export const api = {
-  // Authentication
-  async login(email, password, role) {
-    const res = await request('/auth/login', {
+  // Access Request Gateway
+  async signInOrRequest(email, password, role, fullName) {
+    return await request('/auth/sign-in-or-request', {
       method: 'POST',
-      body: JSON.stringify({ email, password, role }),
+      body: JSON.stringify({ email, password, role, full_name: fullName }),
     });
-
-    if (res?.token) {
-      localStorage.setItem('iv_auth_token', res.token);
-      localStorage.setItem('iv_user', JSON.stringify(res.user));
-    }
-
-    return res;
   },
 
+  // Session details
   async getCurrentUser() {
-    const res = await request('/auth/me');
-    if (res?.user) return res.user;
-
-    const stored = localStorage.getItem('iv_user');
-    return stored ? JSON.parse(stored) : null;
+    return await request('/auth/me');
   },
 
-  logout() {
-    localStorage.removeItem('iv_auth_token');
-    localStorage.removeItem('iv_user');
+  async notifyPasswordChanged() {
+    return await request('/auth/password-changed', { method: 'POST' });
   },
 
-  // Visits
+  // Admin Access Request Approvals
+  async getAccessRequests(role) {
+    const query = role ? `?role=${encodeURIComponent(role)}` : '';
+    return await request(`/admin/users/requests${query}`);
+  },
+
+  async approveAccessRequest(id) {
+    return await request(`/admin/users/requests/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async rejectAccessRequest(id) {
+    return await request(`/admin/users/requests/${id}/reject`, {
+      method: 'POST',
+    });
+  },
+
+  // Admin User Management Endpoints
+  async getAdminUsers(role, status = 'approved') {
+    const params = new URLSearchParams();
+    if (role) params.append('role', role);
+    if (status) params.append('status', status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return await request(`/admin/users${query}`);
+  },
+
+  async createAdminUser(userData) {
+    return await request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  },
+
+  async bulkCreateAdminUsers(users) {
+    return await request('/admin/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ users }),
+    });
+  },
+
+  async updateAdminUser(id, updates) {
+    return await request(`/admin/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async resetUserPassword(id, password) {
+    return await request(`/admin/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+  },
+
+  async deleteAdminUser(id) {
+    return await request(`/admin/users/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Industrial Visits
   async getVisits() {
     const res = await request('/visits');
-    return res?.visits || null;
+    return res?.visits || [];
   },
 
   async createVisit(visitData) {
@@ -98,7 +152,7 @@ export const api = {
   // Announcements
   async getAnnouncements() {
     const res = await request('/announcements');
-    return res?.announcements || null;
+    return res?.announcements || [];
   },
 
   async broadcastAnnouncement(announcement) {

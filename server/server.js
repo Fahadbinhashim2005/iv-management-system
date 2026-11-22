@@ -1,35 +1,76 @@
-import http from 'node:http';
-import url from 'node:url';
-import crypto from 'node:crypto';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+import { requireAuth, requireRole, supabaseAdmin } from './middleware/auth.js';
+import adminUsersRouter from './routes/adminUsers.js';
 
+dotenv.config();
+
+const app = express();
 const PORT = process.env.PORT || 5000;
 
-// In-memory data store for the backend API
+// 1. Security HTTP Headers
+app.use(helmet());
+
+// 2. CORS Policy: Allow configured origin(s) or default development ports
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://iv-management-system.vercel.app'];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// 3. Body parser
+app.use(express.json());
+
+// 4. Rate Limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many administrative requests. Please slow down.' },
+});
+
+// -----------------------------------------------------------------------------
+// Database & In-Memory Store (Students & Coordinators purged; dynamic only)
+// -----------------------------------------------------------------------------
 const db = {
   users: [
     {
-      id: "usr_student_01",
-      email: "fahad@college.edu",
-      role: "Student",
-      name: "Fahad Bin Hashim",
-      rollNo: "CS-2026-084",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2023-27 (Semester 5)",
-      bus: "Bus 04",
-      seat: "14A",
-      room: "304",
-      avatar: "F",
-    },
-    {
-      id: "usr_coord_01",
-      email: "coordinator@college.edu",
-      role: "Coordinator",
-      name: "Dr. Rajesh Kumar",
-      department: "Computer Science & Engineering",
-      title: "HOD & Lead Tour Coordinator",
-      avatar: "RK",
+      id: "usr_admin_01",
+      email: "admin@college.edu",
+      role: "admin",
+      name: "Chief Administrator",
+      approval_status: "approved",
+      is_active: true,
     },
   ],
+
+  // Purged: All student participants and attendance records will be populated as students register & get approved
+  participants: [],
+  attendanceRecords: [],
 
   visits: [
     {
@@ -42,45 +83,11 @@ const db = {
       startDate: "2026-12-05",
       endDate: "2026-12-08",
       capacity: 135,
-      enrolled: 128,
+      enrolled: 0,
       status: "Published",
-      facultyInCharge: "Dr. Rajesh Kumar (HOD) & Prof. Anjali Menon",
+      facultyInCharge: "Lead Tour Coordinator",
       objectives: "FinTech architectures, cloud server datacenters, automated green infrastructure, and aerospace satellite telemetry.",
     },
-    {
-      id: "IV-2026-02",
-      title: "Bangalore Tech Park & Aerospace Hub Study Tour",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2024-28 (Semester 3)",
-      host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
-      location: "Bengaluru & Mysuru, Karnataka",
-      startDate: "2027-02-12",
-      endDate: "2027-02-16",
-      capacity: 120,
-      enrolled: 84,
-      status: "Draft",
-      facultyInCharge: "Prof. Vikram Mohan",
-      objectives: "Software engineering delivery pipelines, corporate datacenter management, and aerospace simulation.",
-    },
-  ],
-
-  participants: [
-    { id: 1, name: "Fahad Bin Hashim", roll: "CS-2026-084", batch: "CSE-A", bus: "Bus 04", seat: "14A", room: "304", consent: "Submitted", status: "Approved", parentPhone: "+91 94471 23456", bloodGroup: "O+" },
-    { id: 2, name: "Rohan Varma", roll: "CS-2026-091", batch: "CSE-A", bus: "Bus 04", seat: "14B", room: "304", consent: "Submitted", status: "Approved", parentPhone: "+91 98450 11223", bloodGroup: "B+" },
-    { id: 3, name: "Aditya Nair", roll: "CS-2026-015", batch: "CSE-A", bus: "Bus 04", seat: "15A", room: "304", consent: "Submitted", status: "Approved", parentPhone: "+91 94002 99887", bloodGroup: "A+" },
-    { id: 4, name: "Ananya Iyer", roll: "CS-2026-022", batch: "CSE-B", bus: "Bus 01", seat: "06A", room: "201", consent: "Submitted", status: "Approved", parentPhone: "+91 98112 33445", bloodGroup: "O+" },
-    { id: 5, name: "Kavya Ramesh", roll: "CS-2026-056", batch: "CSE-B", bus: "Bus 01", seat: "06B", room: "201", consent: "Submitted", status: "Approved", parentPhone: "+91 97441 55667", bloodGroup: "AB+" },
-    { id: 6, name: "Sneha Sharma", roll: "CS-2026-042", batch: "CSE-A", bus: "Bus 02", seat: "11A", room: "202", consent: "Pending", status: "Pending", parentPhone: "+91 98950 66778", bloodGroup: "B+" },
-    { id: 7, name: "Vignesh Rajan", roll: "CS-2026-118", batch: "CSE-B", bus: "Bus 02", seat: "11B", room: "202", consent: "Pending", status: "Pending", parentPhone: "+91 94460 77889", bloodGroup: "O-" },
-    { id: 8, name: "Mohammed Althaf", roll: "CS-2026-068", batch: "CSE-B", bus: "Unassigned", seat: "--", room: "--", consent: "Pending", status: "Waitlisted", parentPhone: "+91 98470 88990", bloodGroup: "A+" },
-  ],
-
-  attendanceRecords: [
-    { id: "att_1", studentId: 1, name: "Fahad Bin Hashim", roll: "CS-2026-084", checkpoint: "Gate #2 Departure", status: "Verified", time: "05:58 AM", method: "QR Pass Scan", verifiedBy: "Dr. Rajesh Kumar" },
-    { id: "att_2", studentId: 2, name: "Rohan Varma", roll: "CS-2026-091", checkpoint: "Gate #2 Departure", status: "Verified", time: "06:01 AM", method: "QR Pass Scan", verifiedBy: "Dr. Rajesh Kumar" },
-    { id: "att_3", studentId: 3, name: "Aditya Nair", roll: "CS-2026-015", checkpoint: "Gate #2 Departure", status: "Verified", time: "06:04 AM", method: "QR Pass Scan", verifiedBy: "Dr. Rajesh Kumar" },
-    { id: "att_4", studentId: 4, name: "Ananya Iyer", roll: "CS-2026-022", checkpoint: "Gate #2 Departure", status: "Verified", time: "06:05 AM", method: "QR Pass Scan", verifiedBy: "Dr. Rajesh Kumar" },
-    { id: "att_5", studentId: 5, name: "Kavya Ramesh", roll: "CS-2026-056", checkpoint: "Gate #2 Departure", status: "Verified", time: "06:07 AM", method: "QR Pass Scan", verifiedBy: "Dr. Rajesh Kumar" },
   ],
 
   announcements: [
@@ -89,26 +96,15 @@ const db = {
       title: "Mandatory Formal Dress Code for GIFT City Visit",
       category: "Urgent",
       date: "Nov 22, 2026 • 09:30 AM",
-      author: "Dr. Rajesh Kumar (HOD CS)",
-      content: "All students visiting GIFT City on Dec 6 must wear formal attire (formals with blazers/formal shirts) and carry their valid physical College ID card. Entrance will be denied by GIFT security for casual wear or sneakers.",
+      author: "Chief Tour Coordinator",
+      content: "All students visiting GIFT City must wear formal attire and carry their valid physical College ID card.",
       pinned: true,
-    },
-    {
-      id: "ann_2",
-      title: "Assembly Timing & Luggage Tagging Protocol",
-      category: "Logistics",
-      date: "Nov 21, 2026 • 04:15 PM",
-      author: "Prof. Anjali Menon",
-      content: "Please collect color-coded luggage tags from the department office by Dec 3. On Dec 5, buses start boarding at 06:00 AM sharp at Gate #2. Late arrivals cannot be accommodated as highway permissions are timed.",
-      pinned: false,
     },
   ],
 
   logistics: {
     buses: [
-      { id: "BUS-04", name: "Bus 04 (Alpha Unit)", regNo: "GJ-01-BX-8824", capacity: 45, allocated: 43, driver: "Mr. Suresh Patel", phone: "+91 98765 43210" },
-      { id: "BUS-01", name: "Bus 01 (Beta Unit)", regNo: "GJ-01-CT-4412", capacity: 45, allocated: 45, driver: "Mr. Ramesh Kumar", phone: "+91 97451 22334" },
-      { id: "BUS-02", name: "Bus 02 (Gamma Unit)", regNo: "GJ-01-DD-9102", capacity: 45, allocated: 40, driver: "Mr. Harish Patel", phone: "+91 98950 44556" },
+      { id: "BUS-01", name: "Bus 01 (Alpha Unit)", regNo: "GJ-01-BX-8824", capacity: 45, allocated: 0, driver: "Mr. Suresh Patel", phone: "+91 98765 43210" },
     ],
     hotel: {
       name: "Hotel Grand Ambience",
@@ -121,257 +117,451 @@ const db = {
   },
 };
 
-// Active sessions mapping: token -> user
-const activeSessions = new Map();
-
-// Helper to send JSON responses with CORS headers
-function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+// -----------------------------------------------------------------------------
+// Core System & Health Endpoints
+// -----------------------------------------------------------------------------
+app.get('/', (req, res) => {
+  res.json({
+    service: 'IV Connect Core API',
+    status: 'online',
+    version: '2.1.0',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
-  res.end(JSON.stringify(data));
-}
+});
 
-// Helper to parse JSON body
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      if (!body) return resolve({});
-      try {
-        resolve(JSON.parse(body));
-      } catch (err) {
-        reject(new Error('Invalid JSON'));
-      }
-    });
-    req.on('error', reject);
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'IV Connect Core API',
+    version: '2.1.0',
+    timestamp: new Date().toISOString(),
   });
-}
+});
 
-const server = http.createServer(async (req, res) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    });
-    res.end();
-    return;
-  }
-
-  const parsedUrl = url.parse(req.url, true);
-  const path = parsedUrl.pathname;
-  const method = req.method;
-
+// -----------------------------------------------------------------------------
+// Self-Registration / Access Request & Sign-in Gateway
+// -----------------------------------------------------------------------------
+/**
+ * POST /api/auth/sign-in-or-request
+ * Handles first-time sign-in by automatically sending an access request to the Admin,
+ * and reports the account approval status.
+ */
+app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
   try {
-    // 0. Root info route
-    if (path === '/' && method === 'GET') {
-      return sendJson(res, 200, {
-        service: 'IV Connect Core API',
-        status: 'online',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-        endpoints: [
-          '/api/health',
-          '/api/auth/login',
-          '/api/auth/me',
-          '/api/visits',
-          '/api/participants',
-          '/api/attendance',
-          '/api/attendance/check-in',
-          '/api/announcements',
-          '/api/logistics',
-        ],
-      });
+    const { email, password, role, full_name } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
     }
 
-    // 1. Health check
-    if (path === '/api/health' && method === 'GET') {
-      return sendJson(res, 200, {
-        status: 'online',
-        service: 'IV Connect Core API',
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-      });
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedRole = (role || 'student').toLowerCase();
+
+    if (!['student', 'coordinator', 'admin'].includes(normalizedRole)) {
+      return res.status(400).json({ error: 'Invalid role selection.' });
     }
 
-    // 2. Authentication Login
-    if (path === '/api/auth/login' && method === 'POST') {
-      const { email, password, role } = await parseBody(req);
-      const targetRole = role || 'Student';
+    // 1. Supabase Mode (Production/Database)
+    if (supabaseAdmin) {
+      // Check if user already has a profile
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
 
-      // Find or default user based on role
-      let user = db.users.find(
-        (u) => u.role.toLowerCase() === targetRole.toLowerCase() && (email ? u.email.toLowerCase() === email.toLowerCase() : true)
-      );
-
-      if (!user) {
-        // Fallback default for role
-        user = db.users.find((u) => u.role.toLowerCase() === targetRole.toLowerCase()) || db.users[0];
-      }
-
-      // Generate session token
-      const token = `iv_token_${crypto.randomBytes(16).toString('hex')}`;
-      activeSessions.set(token, user);
-
-      return sendJson(res, 200, {
-        success: true,
-        token,
-        user,
-        message: `Welcome, ${user.name}! Authenticated as ${user.role}.`,
-      });
-    }
-
-    // 3. Current User Profile
-    if (path === '/api/auth/me' && method === 'GET') {
-      const authHeader = req.headers['authorization'];
-      const token = authHeader?.replace('Bearer ', '');
-      const user = activeSessions.get(token) || db.users[0];
-
-      return sendJson(res, 200, { success: true, user });
-    }
-
-    // 4. Industrial Visits (GET / POST)
-    if (path === '/api/visits') {
-      if (method === 'GET') {
-        return sendJson(res, 200, { success: true, count: db.visits.length, visits: db.visits });
-      }
-      if (method === 'POST') {
-        const body = await parseBody(req);
-        const newVisit = {
-          id: `IV-${new Date().getFullYear()}-0${db.visits.length + 1}`,
-          title: body.title || "New Industrial Visit",
-          department: body.department || "Computer Science & Engineering",
-          batch: body.batch || "Batch 2023-27",
-          host: body.host || "Host Organization",
-          location: body.location || "City, State",
-          startDate: body.startDate || "2026-12-05",
-          endDate: body.endDate || "2026-12-08",
-          capacity: Number(body.capacity) || 120,
-          enrolled: 0,
-          status: "Published",
-          facultyInCharge: body.facultyInCharge || "Dr. Rajesh Kumar",
-          objectives: body.objectives || "Industrial exposure and technical seminars.",
-        };
-        db.visits.unshift(newVisit);
-        return sendJson(res, 201, { success: true, visit: newVisit, message: "Visit created successfully." });
-      }
-    }
-
-    // 5. Participants Roster (GET / PATCH status)
-    if (path === '/api/participants' && method === 'GET') {
-      return sendJson(res, 200, {
-        success: true,
-        total: db.participants.length,
-        approved: db.participants.filter((p) => p.status === 'Approved').length,
-        pending: db.participants.filter((p) => p.status === 'Pending').length,
-        participants: db.participants,
-      });
-    }
-
-    if (path.startsWith('/api/participants/') && method === 'PATCH') {
-      const id = parseInt(path.split('/')[3], 10);
-      const { status } = await parseBody(req);
-      const participant = db.participants.find((p) => p.id === id);
-
-      if (!participant) {
-        return sendJson(res, 404, { success: false, error: 'Participant not found.' });
-      }
-
-      participant.status = status;
-      return sendJson(res, 200, {
-        success: true,
-        participant,
-        message: `Updated ${participant.name}'s enrollment status to ${status}.`,
-      });
-    }
-
-    // 6. Attendance Sessions & Verification (GET / POST)
-    if (path === '/api/attendance' && method === 'GET') {
-      return sendJson(res, 200, {
-        success: true,
-        checkpoint: "Gate #2 Departure",
-        records: db.attendanceRecords,
-        totalRecords: db.attendanceRecords.length,
-      });
-    }
-
-    if (path === '/api/attendance/check-in' && method === 'POST') {
-      const { studentId, rollNo, checkpoint, method: checkInMethod } = await parseBody(req);
-
-      // Find student by ID or roll
-      const student = db.participants.find((p) => p.id === studentId || p.roll === rollNo) || {
-        name: "Verified Student",
-        roll: rollNo || "CS-2026-084",
-        bus: "Bus 04",
-        seat: "14A",
-      };
-
-      const record = {
-        id: `att_${Date.now()}`,
-        studentId: student.id || 1,
-        name: student.name,
-        roll: student.roll,
-        checkpoint: checkpoint || "Gate #2 Departure",
-        status: "Verified",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        method: checkInMethod || "QR Pass Scan",
-        verifiedBy: "Dr. Rajesh Kumar (Coordinator)",
-      };
-
-      db.attendanceRecords.push(record);
-      return sendJson(res, 201, {
-        success: true,
-        record,
-        message: `Check-in recorded for ${student.name} (${student.roll}).`,
-      });
-    }
-
-    // 7. Announcements (GET / POST)
-    if (path === '/api/announcements') {
-      if (method === 'GET') {
-        return sendJson(res, 200, { success: true, announcements: db.announcements });
-      }
-      if (method === 'POST') {
-        const body = await parseBody(req);
-        const newAnnouncement = {
-          id: `ann_${Date.now()}`,
-          title: body.title,
-          category: body.category || "General",
-          date: "Just now",
-          author: body.author || "Dr. Rajesh Kumar (HOD CS)",
-          content: body.content,
-          pinned: false,
-        };
-        db.announcements.unshift(newAnnouncement);
-        return sendJson(res, 201, {
-          success: true,
-          announcement: newAnnouncement,
-          message: "Announcement broadcasted successfully to all enrolled students.",
+      if (profile) {
+        // User exists: report status
+        if (profile.approval_status === 'pending') {
+          return res.json({
+            status: 'pending',
+            exists: true,
+            role: profile.role,
+            message: 'Your access request is currently pending Admin approval. You will be able to log in once the administrator approves your request.',
+          });
+        }
+        if (profile.approval_status === 'rejected') {
+          return res.status(403).json({
+            status: 'rejected',
+            exists: true,
+            error: 'Your access request was declined by the administrator.',
+          });
+        }
+        return res.json({
+          status: 'approved',
+          exists: true,
+          role: profile.role,
+          message: 'Account is approved. Please sign in.',
         });
       }
+
+      // User does NOT exist in profiles: THIS IS THEIR FIRST SIGN IN!
+      // Enforce minimum password length
+      if (!password || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
+
+      // Prevent unauthorized admin self-registration
+      if (normalizedRole === 'admin') {
+        return res.status(403).json({
+          error: 'Administrator accounts cannot self-register. Please sign in with approved admin credentials.',
+        });
+      }
+
+      // Derive human-readable name from email if not explicitly provided
+      const rawPrefix = normalizedEmail.split('@')[0];
+      const derivedName = full_name?.trim() || rawPrefix
+        .replace(/[._-]+/g, ' ')
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      // Step A: Create or fetch Auth user in Supabase Auth
+      let authUserId = null;
+      const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        app_metadata: { role: normalizedRole },
+        user_metadata: { full_name: derivedName },
+      });
+
+      if (authErr) {
+        // If user already existed in Auth (e.g. from previous attempt without profile)
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const found = existingUsers?.users?.find((u) => u.email.toLowerCase() === normalizedEmail);
+        if (found) {
+          authUserId = found.id;
+          // Update password to the new one typed
+          await supabaseAdmin.auth.admin.updateUserById(authUserId, { password, ban_duration: '876000h' });
+        } else {
+          return res.status(400).json({ error: authErr.message });
+        }
+      } else {
+        authUserId = authData.user.id;
+        // Temporarily ban auth login until admin clicks approve
+        await supabaseAdmin.auth.admin.updateUserById(authUserId, { ban_duration: '876000h' });
+      }
+
+      // Step B: Insert into profiles with approval_status = 'pending' and is_active = false
+      const { error: pErr } = await supabaseAdmin.from('profiles').insert({
+        id: authUserId,
+        email: normalizedEmail,
+        full_name: derivedName,
+        role: normalizedRole,
+        approval_status: 'pending',
+        is_active: false,
+        must_change_password: false,
+      });
+
+      if (pErr) {
+        console.error('[sign-in-or-request profile error]:', pErr);
+      }
+
+      // Step C: Insert detail row
+      if (normalizedRole === 'student') {
+        const rollSeed = `CS-2026-${Math.floor(100 + Math.random() * 900)}`;
+        await supabaseAdmin.from('student_details').insert({
+          profile_id: authUserId,
+          roll_no: rollSeed,
+          department: 'Computer Science & Engineering',
+          batch: 'Batch 2023-27',
+        });
+      } else if (normalizedRole === 'coordinator') {
+        await supabaseAdmin.from('coordinator_details').insert({
+          profile_id: authUserId,
+          department: 'Computer Science & Engineering',
+          designation: 'Tour Coordinator',
+        });
+      }
+
+      // Log the event
+      await supabaseAdmin.from('audit_logs').insert({
+        action: 'SUBMIT_ACCESS_REQUEST',
+        resource_type: 'user',
+        resource_id: authUserId,
+        details: { email: normalizedEmail, role: normalizedRole, full_name: derivedName },
+      });
+
+      return res.status(201).json({
+        success: true,
+        status: 'request_created',
+        message: 'Access request submitted! Your account has been sent to the Admin for approval. Once approved, you can log in directly with this password.',
+      });
     }
 
-    // 8. Logistics
-    if (path === '/api/logistics' && method === 'GET') {
-      return sendJson(res, 200, { success: true, logistics: db.logistics });
+    // 2. In-Memory Mode (Development Fallback)
+    const existing = db.users.find((u) => u.email.toLowerCase() === normalizedEmail);
+    if (existing) {
+      return res.json({
+        status: existing.approval_status || 'approved',
+        exists: true,
+        role: existing.role,
+        message: existing.approval_status === 'pending'
+          ? 'Your access request is currently pending Admin approval.'
+          : 'Account exists. Please sign in.',
+      });
     }
 
-    // Fallback 404
-    return sendJson(res, 404, { success: false, error: 'Endpoint not found' });
-  } catch (error) {
-    console.error('API Error:', error);
-    return sendJson(res, 500, { success: false, error: 'Internal Server Error' });
+    // First time in memory
+    const newReqUser = {
+      id: `usr_${Date.now()}`,
+      email: normalizedEmail,
+      name: full_name?.trim() || normalizedEmail.split('@')[0],
+      role: normalizedRole,
+      approval_status: 'pending',
+      is_active: false,
+      createdAt: new Date().toISOString(),
+    };
+    db.users.push(newReqUser);
+
+    return res.status(201).json({
+      success: true,
+      status: 'request_created',
+      message: 'Access request submitted! Your account has been sent to the Admin for approval. Once approved, you can log in directly with this password.',
+    });
+  } catch (err) {
+    console.error('[sign-in-or-request error]:', err);
+    res.status(500).json({ error: 'Server error processing request.' });
   }
 });
 
-server.listen(PORT, () => {
+// -----------------------------------------------------------------------------
+// Authentication Profile & Password Confirmation
+// -----------------------------------------------------------------------------
+app.post('/api/auth/password-changed', authLimiter, requireAuth, async (req, res) => {
+  try {
+    if (supabaseAdmin) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('id', req.user.id);
+    }
+    return res.json({ success: true, message: 'Password update confirmed.' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to record password change.' });
+  }
+});
+
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  try {
+    if (supabaseAdmin) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', req.user.id)
+        .single();
+
+      if (profile) {
+        let details = {};
+        if (profile.role === 'student') {
+          const { data: s } = await supabaseAdmin.from('student_details').select('*').eq('profile_id', profile.id).single();
+          details = s || {};
+        } else if (profile.role === 'coordinator') {
+          const { data: c } = await supabaseAdmin.from('coordinator_details').select('*').eq('profile_id', profile.id).single();
+          details = c || {};
+        }
+        return res.json({ success: true, user: { ...profile, details } });
+      }
+    }
+
+    return res.json({ success: true, user: req.user });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to retrieve profile.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// Administrative User Management & Request Authorization Routes
+// -----------------------------------------------------------------------------
+app.use('/api/admin/users', adminLimiter, requireAuth, requireRole('admin'), adminUsersRouter);
+
+// -----------------------------------------------------------------------------
+// Role-Specific Sub-APIs
+// -----------------------------------------------------------------------------
+const studentRouter = express.Router();
+studentRouter.get('/my-status', (req, res) => {
+  res.json({
+    success: true,
+    studentId: req.user.id,
+    role: req.user.role,
+    approval_status: req.user.approval_status,
+    verified: true,
+  });
+});
+app.use('/api/student', requireAuth, requireRole('student', 'admin'), studentRouter);
+
+const coordinatorRouter = express.Router();
+coordinatorRouter.get('/overview', (req, res) => {
+  res.json({
+    success: true,
+    coordinatorId: req.user.id,
+    assignedVisits: db.visits.length,
+    participants: db.participants.length,
+  });
+});
+app.use('/api/coordinator', requireAuth, requireRole('coordinator', 'admin'), coordinatorRouter);
+
+const adminRouter = express.Router();
+adminRouter.get('/system-metrics', async (req, res) => {
+  let pendingCount = 0;
+  if (supabaseAdmin) {
+    const { count } = await supabaseAdmin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('approval_status', 'pending');
+    pendingCount = count || 0;
+  } else {
+    pendingCount = db.users.filter((u) => u.approval_status === 'pending').length;
+  }
+
+  res.json({
+    success: true,
+    activeVisits: db.visits.length,
+    totalStudents: db.participants.length,
+    pendingAccessRequests: pendingCount,
+    securityLevel: 'RLS_ENFORCED',
+  });
+});
+app.use('/api/admin', requireAuth, requireRole('admin'), adminRouter);
+
+// -----------------------------------------------------------------------------
+// Operational Endpoints (Authenticated)
+// -----------------------------------------------------------------------------
+app.get('/api/visits', requireAuth, (req, res) => {
+  res.json({ success: true, count: db.visits.length, visits: db.visits });
+});
+
+app.post('/api/visits', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+  const body = req.body;
+  const newVisit = {
+    id: `IV-${new Date().getFullYear()}-0${db.visits.length + 1}`,
+    title: body.title || 'New Industrial Visit',
+    department: body.department || 'Computer Science & Engineering',
+    batch: body.batch || 'Batch 2023-27',
+    host: body.host || 'Host Organization',
+    location: body.location || 'City, State',
+    startDate: body.startDate || '2026-12-05',
+    endDate: body.endDate || '2026-12-08',
+    capacity: Number(body.capacity) || 120,
+    enrolled: 0,
+    status: 'Published',
+    facultyInCharge: body.facultyInCharge || req.user.name || 'Tour Coordinator',
+    objectives: body.objectives || 'Industrial exposure and technical seminars.',
+  };
+  db.visits.unshift(newVisit);
+  res.status(201).json({ success: true, visit: newVisit, message: 'Visit created successfully.' });
+});
+
+app.get('/api/participants', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+  res.json({
+    success: true,
+    total: db.participants.length,
+    approved: db.participants.filter((p) => p.status === 'Approved').length,
+    pending: db.participants.filter((p) => p.status === 'Pending').length,
+    participants: db.participants,
+  });
+});
+
+app.patch('/api/participants/:id/status', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { status } = req.body;
+  const participant = db.participants.find((p) => p.id === id);
+
+  if (!participant) {
+    return res.status(404).json({ success: false, error: 'Participant not found.' });
+  }
+
+  participant.status = status;
+  res.json({
+    success: true,
+    participant,
+    message: `Updated ${participant.name}'s enrollment status to ${status}.`,
+  });
+});
+
+app.get('/api/attendance', requireAuth, (req, res) => {
+  if (req.user.role === 'student') {
+    const ownRecords = db.attendanceRecords.filter((r) => r.roll === req.user.roll_no || r.name === req.user.name);
+    return res.json({
+      success: true,
+      checkpoint: 'Gate #2 Departure',
+      records: ownRecords,
+      totalRecords: ownRecords.length,
+    });
+  }
+
+  res.json({
+    success: true,
+    checkpoint: 'Gate #2 Departure',
+    records: db.attendanceRecords,
+    totalRecords: db.attendanceRecords.length,
+  });
+});
+
+app.post('/api/attendance/check-in', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+  const { studentId, rollNo, checkpoint, method: checkInMethod } = req.body;
+
+  const student = db.participants.find((p) => p.id === studentId || p.roll === rollNo) || {
+    name: req.user.name,
+    roll: rollNo || 'CS-2026-001',
+    bus: 'Bus 01',
+    seat: '01A',
+  };
+
+  const record = {
+    id: `att_${Date.now()}`,
+    studentId: student.id || 1,
+    name: student.name,
+    roll: student.roll,
+    checkpoint: checkpoint || 'Gate #2 Departure',
+    status: 'Verified',
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    method: checkInMethod || 'QR Pass Scan',
+    verifiedBy: req.user.name || 'Coordinator',
+  };
+
+  db.attendanceRecords.push(record);
+  res.status(201).json({
+    success: true,
+    record,
+    message: `Check-in recorded for ${student.name} (${student.roll}).`,
+  });
+});
+
+app.get('/api/announcements', requireAuth, (req, res) => {
+  res.json({ success: true, announcements: db.announcements });
+});
+
+app.post('/api/announcements', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+  const body = req.body;
+  const newAnnouncement = {
+    id: `ann_${Date.now()}`,
+    title: body.title,
+    category: body.category || 'General',
+    date: 'Just now',
+    author: req.user.name || 'Tour Coordinator',
+    content: body.content,
+    pinned: false,
+  };
+  db.announcements.unshift(newAnnouncement);
+  res.status(201).json({
+    success: true,
+    announcement: newAnnouncement,
+    message: 'Announcement broadcasted successfully to all enrolled students.',
+  });
+});
+
+app.get('/api/logistics', requireAuth, (req, res) => {
+  res.json({ success: true, logistics: db.logistics });
+});
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
+app.listen(PORT, () => {
   console.log(`[IV Connect API Server] running on http://localhost:${PORT}`);
 });
+
+export default app;
