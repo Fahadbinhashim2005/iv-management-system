@@ -255,7 +255,26 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
       });
 
       if (pErr) {
-        console.error('[sign-in-or-request profile error]:', pErr);
+        console.warn('[sign-in-or-request profile fallback]:', pErr.message);
+        // Fallback if approval_status column does not exist yet in Supabase
+        await supabaseAdmin.from('profiles').upsert({
+          id: authUserId,
+          email: normalizedEmail,
+          full_name: derivedName,
+          role: normalizedRole,
+        });
+      }
+
+      // Sync in-memory store so it is immediately available across API routes
+      if (!db.users.some((u) => u.email === normalizedEmail)) {
+        db.users.push({
+          id: authUserId,
+          email: normalizedEmail,
+          name: derivedName,
+          role: normalizedRole,
+          approval_status: 'pending',
+          is_active: false,
+        });
       }
 
       // Step C: Insert detail row
