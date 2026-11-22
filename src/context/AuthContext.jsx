@@ -166,18 +166,21 @@ export function AuthProvider({ children }) {
 
           return { user: data.user, profile: userProfile };
         } else if (error) {
-          // If error is invalid credentials or access issue
-          if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch') && !error.message.includes('Failed to fetch')) {
+          // If error is "Email not confirmed", fall through to backend API to auto-confirm and log in
+          if (error.message?.toLowerCase().includes('email not confirmed')) {
+            console.warn('[AuthContext] Email not confirmed by Supabase client. Falling back to backend authentication...');
+          } else if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch') && !error.message.includes('Failed to fetch')) {
             setAuthError(error.message);
             throw error;
           }
         }
       } catch (err) {
-        if (err.message && (err.message.includes('pending Admin approval') || err.message.includes('declined') || err.message.includes('deactivated'))) {
+        if (err.message?.toLowerCase().includes('email not confirmed')) {
+          console.warn('[AuthContext] Catch: Email not confirmed. Falling back to backend authentication...');
+        } else if (err.message && (err.message.includes('pending Admin approval') || err.message.includes('declined') || err.message.includes('deactivated'))) {
           setAuthError(err.message);
           throw err;
-        }
-        if (cleanEmail !== 'admin@college.edu' && err.message && !err.message.includes('fetch')) {
+        } else if (cleanEmail !== 'admin@college.edu' && err.message && !err.message.includes('fetch')) {
           setAuthError(err.message);
           throw err;
         }

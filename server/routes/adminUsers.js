@@ -123,6 +123,7 @@ router.post('/requests/:id/approve', async (req, res) => {
 
     try {
       await supabaseAdmin.auth.admin.updateUserById(id, {
+        email_confirm: true,
         ban_duration: 'none',
       });
     } catch (e) {}

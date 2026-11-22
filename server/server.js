@@ -18,12 +18,22 @@ app.use(helmet());
 // 2. CORS Policy: Allow configured origin(s) or default development ports
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://iv-management-system.vercel.app'];
+  : [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'https://ivconnect.vercel.app',
+      'https://iv-management-system.vercel.app',
+    ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      if (
+        !origin || 
+        allowedOrigins.includes('*') || 
+        allowedOrigins.includes(origin) || 
+        origin.endsWith('.vercel.app')
+      ) {
         return callback(null, true);
       }
       return callback(null, true);
@@ -339,6 +349,16 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         if (profile.is_active === false) {
           return res.status(403).json({ error: 'Your account has been deactivated.' });
         }
+      }
+
+      // Auto-confirm user in Supabase auth.users to resolve "Email not confirmed"
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+          email_confirm: true,
+          ban_duration: 'none',
+        });
+      } catch (e) {
+        console.warn('[Auto-confirm user note]:', e.message);
       }
 
       return res.json({

@@ -14,9 +14,29 @@
 -- operations on `public.trip_assignments`, guaranteeing true database-level security.
 -- ==============================================================================
 
--- 1. EXTENSIONS
+-- 1. EXTENSIONS & EMAIL AUTO-CONFIRMATION
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- AUTO-CONFIRM ALL AUTH USERS (Eliminates "Email not confirmed" requirement)
+UPDATE auth.users 
+SET email_confirmed_at = NOW() 
+WHERE email_confirmed_at IS NULL;
+
+-- Automatically mark any future auth signup as email-confirmed
+CREATE OR REPLACE FUNCTION public.auto_confirm_auth_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.email_confirmed_at := coalesce(NEW.email_confirmed_at, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_auto_confirm_auth_user ON auth.users;
+CREATE TRIGGER trigger_auto_confirm_auth_user
+  BEFORE INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.auto_confirm_auth_user();
 
 -- 2. ENHANCE public.profiles TABLE (Student-Editable Attributes)
 CREATE TABLE IF NOT EXISTS public.profiles (
