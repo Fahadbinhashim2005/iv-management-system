@@ -5,7 +5,10 @@ import {
   Check, 
   Clock, 
   FileCheck,
-  CheckCircle2
+  CheckCircle2,
+  Phone,
+  Bus,
+  BedDouble
 } from "lucide-react";
 
 export default function CoordinatorParticipants() {
@@ -86,7 +89,7 @@ export default function CoordinatorParticipants() {
         <button
           type="button"
           onClick={exportCSV}
-          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95 self-start sm:self-auto"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95"
         >
           <Download size={16} className="text-emerald-800" />
           <span>Export Roster (CSV)</span>
@@ -99,14 +102,14 @@ export default function CoordinatorParticipants() {
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by student name or roll number..."
+            placeholder="Search student or roll no..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none shadow-2xs"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {["All", "Approved", "Pending", "Waitlisted"].map((status) => (
             <button
               key={status}
@@ -114,7 +117,7 @@ export default function CoordinatorParticipants() {
               onClick={() => setStatusFilter(status)}
               className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${
                 statusFilter === status
-                  ? "bg-emerald-800 text-white shadow-sm"
+                  ? "bg-emerald-800 text-white shadow-xs"
                   : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
               }`}
             >
@@ -124,8 +127,81 @@ export default function CoordinatorParticipants() {
         </div>
       </div>
 
-      {/* Roster Table */}
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
+      {/* Mobile Card View (Screens < 768px) */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {filtered.map((s) => (
+          <div key={s.id} className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-extrabold text-sm text-emerald-950">{s.name}</p>
+                <p className="font-mono text-xs text-gray-500">{s.roll} • {s.batch}</p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shrink-0 ${
+                  s.status === "Approved"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : s.status === "Pending"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-purple-100 text-purple-800"
+                }`}
+              >
+                {s.status === "Approved" && <CheckCircle2 size={11} />}
+                {s.status === "Pending" && <Clock size={11} />}
+                {s.status}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px] bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-1.5 text-gray-700">
+                <Bus size={13} className="text-emerald-700" />
+                <span>{s.bus} ({s.seat})</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-gray-700">
+                <BedDouble size={13} className="text-emerald-700" />
+                <span>{s.room === "--" ? "Room: --" : `Room ${s.room}`}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-gray-600 col-span-2">
+                <Phone size={13} className="text-gray-400" />
+                <span className="truncate">{s.parentPhone} • Blood: <strong className="text-red-700">{s.bloodGroup}</strong></span>
+              </div>
+            </div>
+
+            {/* Mobile Actions */}
+            <div className="pt-1 flex items-center justify-end gap-2 border-t border-gray-100">
+              {s.status === "Pending" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(s.id, "Waitlisted")}
+                    className="flex-1 rounded-xl bg-gray-100 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200 transition"
+                  >
+                    Waitlist
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(s.id, "Approved")}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-emerald-800 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-900 transition"
+                  >
+                    <Check size={14} />
+                    <span>Approve</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => updateStatus(s.id, s.status === "Approved" ? "Pending" : "Approved")}
+                  className="text-xs font-bold text-emerald-800 hover:underline"
+                >
+                  Change Status
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop & Tablet Table (Screens >= 768px) */}
+      <div className="hidden md:block overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">

@@ -4,7 +4,9 @@ import {
   Check, 
   CheckCircle2, 
   Clock, 
-  FileCheck
+  FileCheck,
+  Compass,
+  FileText
 } from "lucide-react";
 
 export default function AdminStudents() {
@@ -36,7 +38,7 @@ export default function AdminStudents() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Toast Alert */}
       {toastMsg && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-950 border border-amber-400 px-4 py-3 text-xs font-bold text-white shadow-2xl">
@@ -60,7 +62,7 @@ export default function AdminStudents() {
         <button
           type="button"
           onClick={handleBulkApprove}
-          className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-5 py-3 text-xs font-bold text-white shadow-md hover:bg-emerald-900 active:scale-95 self-start sm:self-auto"
+          className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-xl bg-emerald-800 px-5 py-3 text-xs font-bold text-white shadow-md hover:bg-emerald-900 active:scale-95"
         >
           <Check size={16} />
           <span>Bulk Authorize All Pending</span>
@@ -79,8 +81,52 @@ export default function AdminStudents() {
         />
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
+      {/* Mobile Card View (Screens < 768px) */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {filtered.map((s) => (
+          <div key={s.id} className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-black text-sm text-emerald-950">{s.name}</p>
+                <p className="font-mono text-xs text-gray-500">{s.roll} • {s.batch}</p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shrink-0 ${
+                  s.status === "Approved"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {s.status === "Approved" ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                {s.status}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-xs bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-1.5 text-gray-700">
+                <Compass size={13} className="text-emerald-700" />
+                <span className="font-semibold">{s.tour}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-[11px]">
+                <span className="flex items-center gap-1 text-gray-600">
+                  <FileText size={12} className="text-gray-400" />
+                  Parent Consent: <strong>{s.parentConsent}</strong>
+                </span>
+                <span
+                  className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                    s.feeCleared ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {s.feeCleared ? "Fee Paid" : "Fee Unpaid"}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop & Tablet Table (Screens >= 768px) */}
+      <div className="hidden md:block overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">

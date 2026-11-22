@@ -99,12 +99,12 @@ export default function CoordinatorAttendance() {
         </div>
 
         {/* Checkpoint selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
           <label className="text-xs font-bold text-gray-600">Active Checkpoint:</label>
           <select
             value={selectedCheckpoint}
             onChange={(e) => setSelectedCheckpoint(e.target.value)}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-emerald-950 focus:border-emerald-600 focus:outline-none shadow-sm"
+            className="w-full sm:w-auto rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-emerald-950 focus:border-emerald-600 focus:outline-none shadow-sm"
           >
             <option value="Gate #2 Departure">Checkpoint 1: Gate #2 Departure (Dec 5, 06:00 AM)</option>
             <option value="Highway Breakfast Stop">Checkpoint 2: Highway Breakfast Stop (Dec 5, 09:30 AM)</option>
@@ -250,11 +250,11 @@ export default function CoordinatorAttendance() {
               <div
                 key={student.id}
                 onClick={() => toggleManualStatus(student.id)}
-                className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 p-3 text-xs transition hover:bg-emerald-50/30"
+                className="flex cursor-pointer flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-gray-100 bg-gray-50/60 p-3 text-xs transition hover:bg-emerald-50/30"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold ${
                       student.status === "Present"
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-gray-200 text-gray-600"
@@ -262,18 +262,18 @@ export default function CoordinatorAttendance() {
                   >
                     {student.name[0]}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-emerald-950">{student.name}</p>
-                      <span className="font-mono text-[10px] text-gray-500">{student.roll}</span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="font-bold text-emerald-950 truncate">{student.name}</p>
+                      <span className="font-mono text-[10px] text-gray-500">({student.roll})</span>
                     </div>
-                    <p className="text-[11px] text-gray-500">
-                      {student.bus} • Seat {student.seat} • Recorded: {student.method}
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {student.bus} • Seat {student.seat}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                       student.status === "Present"
@@ -283,7 +283,7 @@ export default function CoordinatorAttendance() {
                   >
                     {student.status}
                   </span>
-                  <span className="text-xs font-semibold text-gray-400 w-16 text-right">
+                  <span className="text-xs font-semibold text-gray-400">
                     {student.time}
                   </span>
                 </div>

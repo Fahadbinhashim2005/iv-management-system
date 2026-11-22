@@ -31,7 +31,7 @@ function StudentDashboard() {
           </p>
         </section>
 
-        <div className="flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate("/student/announcements")}
@@ -133,11 +133,11 @@ function StudentDashboard() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate("/student/itinerary")}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-emerald-600 active:scale-95"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-emerald-600 active:scale-95"
               >
                 <span>View Full Itinerary</span>
                 <ArrowRight size={18} />
@@ -145,7 +145,7 @@ function StudentDashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/student/attendance")}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/15 px-5 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/15 px-5 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 active:scale-95"
               >
                 <ClipboardCheck size={18} />
                 <span>Check-in Status</span>

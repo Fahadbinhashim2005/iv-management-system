@@ -77,9 +77,9 @@ export default function AdminDashboard() {
       </header>
 
       {/* 4 Super Metrics */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Metric 1 */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
           <div className="flex items-center justify-between text-gray-400">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Total Sanctioned</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Metric 2 */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
           <div className="flex items-center justify-between text-gray-400">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Total Participants</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
