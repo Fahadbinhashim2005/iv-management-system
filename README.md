@@ -12,14 +12,14 @@ IV Connect strictly segregates operational and administrative responsibilities:
 1. **🎓 Student Portal (`/student/*`)**
    - Personal tour dashboard & countdown
    - Day-by-day interactive itinerary timeline
-   - Cryptographically verifiable digital QR attendance pass
+   - Live QR attendance scanner & attendance history
    - Allocated transport vehicle (Bus #04 Volvo AC) & seat number (14A)
    - Partner hotel accommodation (Hotel Grand Ambience) & room allocation (Room #304)
    - Circulars, push notices, and emergency contacts
 
 2. **🛡️ Coordinator Portal (`/coordinator/*`)**
    - Field operations & live tour oversight
-   - Optical camera QR scanner for student attendance verification
+   - Live rotating QR display & manual roll-call management for assigned visits
    - Passenger seat manifests for tour buses (Buses 01, 02, 04)
    - Real-time room occupancy rosters
    - Itinerary adjustments & instant push broadcasts to students
@@ -42,7 +42,8 @@ IV Connect strictly segregates operational and administrative responsibilities:
 | **Auth** | `/login` | 3-way Role Selector (`Student`, `Coordinator`, `Admin`) |
 | **Student** | `/student/dashboard` | Main trip overview & hero card |
 | **Student** | `/student/itinerary` | Multi-day schedule and timeline |
-| **Student** | `/student/attendance` | Personal digital QR check-in pass |
+| **Student** | `/student/attendance` | Active roll-call sessions & attendance history |
+| **Student** | `/student/attendance/scan` | Live camera QR scanner & `?t=` deep-link check-in |
 | **Student** | `/student/transport` | Bus details, driver phone, seat number |
 | **Student** | `/student/accommodation` | Room allotment & roommates |
 | **Student** | `/student/announcements` | Filterable circulars feed |
@@ -51,13 +52,16 @@ IV Connect strictly segregates operational and administrative responsibilities:
 | **Coordinator** | `/coordinator/visits` | Assigned tour programs |
 | **Coordinator** | `/coordinator/itinerary` | Real-time itinerary builder & broadcast |
 | **Coordinator** | `/coordinator/participants` | Student roster & approval queue |
-| **Coordinator** | `/coordinator/attendance` | Camera QR scanner & roll-call reconciliation |
+| **Coordinator** | `/coordinator/attendance` | Active & past attendance sessions for assigned visits |
+| **Coordinator** | `/coordinator/attendance/:sessionId` | Live rotating QR display, roster, manual marking & CSV export |
 | **Coordinator** | `/coordinator/transport` | Bus manifests & passenger seat allocations |
 | **Coordinator** | `/coordinator/accommodation` | Hotel room distribution & occupancy |
 | **Coordinator** | `/coordinator/announcements` | Publish circulars & SMS alerts |
 | **Coordinator** | `/coordinator/reports` | Field audit reports & compliance summaries |
 | **Admin** | `/admin/dashboard` | Master institutional oversight & KPIs |
 | **Admin** | `/admin/visits` | Master tour program registry & approvals |
+| **Admin** | `/admin/attendance` | Create & manage attendance sessions |
+| **Admin** | `/admin/attendance/:sessionId` | Live rotating QR, roster, lifecycle controls & audit trail |
 | **Admin** | `/admin/coordinators` | Faculty appointments & delegation roles |
 | **Admin** | `/admin/students` | Master student directory & bulk authorizations |
 | **Admin** | `/admin/logistics` | Commercial fleet & hotel vendor contracts |
@@ -93,4 +97,17 @@ npm run lint
 
 # Build production bundle
 npm run build
+
+# Run attendance unit & authorization tests
+node --test server/tests/attendance.test.js
 ```
+
+---
+
+## 📱 Attendance Module (QR Roll-Call)
+
+- **Role Flow:** Staff display, students scan. **Admin** creates an attendance session; **Admin** and assigned **Coordinators** display a live rotating HMAC-signed QR code (`v1.<sessionId>.<issuerId>.<slot>.<sig>`). **Students** scan via `/student/attendance/scan` (or their phone's native camera deep-link) to mark themselves Present.
+- **Note on Legacy Pages:** The earlier simulated student QR pass and coordinator camera scanner placeholders have been replaced by this live backend-verified flow.
+- **HTTPS Requirement for Camera:** Browser camera APIs (`html5-qrcode`) require **HTTPS** in production (Vercel) or `localhost` during local development.
+- **Environment Variables:** Configure `APP_PUBLIC_URL`, `ATTENDANCE_DEFAULT_ROTATE_SECONDS` (default `30`), and `ATTENDANCE_SCAN_RATE_PER_MIN` (default `10`) on the backend (see `.env.example`).
+- **Database Migration:** Apply `database/04_attendance.sql` in Supabase (idempotent, enables RLS on all attendance tables).
