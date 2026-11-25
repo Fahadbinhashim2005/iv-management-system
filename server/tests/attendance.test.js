@@ -48,6 +48,9 @@ function createMockStore() {
     sessions,
     records,
     audits,
+    async resolveActorUuid(req) {
+      return req.user.id;
+    },
     async getVisit(_req, visitId) {
       return visits.get(visitId) || null;
     },

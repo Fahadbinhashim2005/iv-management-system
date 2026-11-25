@@ -181,6 +181,7 @@ export function createAttendanceRouter({
         return sendError(res, 404, 'NOT_FOUND', 'Visit not found.');
       }
 
+      const actorId = await dataStore.resolveActorUuid(req);
       const session = await dataStore.createSession(req, {
         visitId,
         title: cleanTitle,
@@ -190,7 +191,7 @@ export function createAttendanceRouter({
         rotateSeconds: rot,
         requireLocation,
         geo: cleanGeo,
-        createdBy: req.user.id,
+        createdBy: actorId,
       });
 
       return sendOk(res, { ...session, effectiveStatus: computeEffectiveStatus(session) }, 201);
@@ -239,7 +240,8 @@ export function createAttendanceRouter({
         }
       }
 
-      const updated = await dataStore.updateSession(req, req.params.id, updates, req.user.id, 'session_updated');
+      const actorId = await dataStore.resolveActorUuid(req);
+      const updated = await dataStore.updateSession(req, req.params.id, updates, actorId, 'session_updated');
       return sendOk(res, { ...updated, effectiveStatus: computeEffectiveStatus(updated) });
     } catch (err) {
       console.error('[Attendance Patch Error]:', err);
@@ -254,15 +256,16 @@ export function createAttendanceRouter({
       const session = await dataStore.getSessionById(req, req.params.id);
       if (!session) return sendError(res, 404, 'NOT_FOUND');
 
+      const actorId = await dataStore.resolveActorUuid(req);
       const updated = await dataStore.updateSession(
         req,
         req.params.id,
         {
           status: 'closed',
           closed_at: new Date().toISOString(),
-          closed_by: req.user.id,
+          closed_by: actorId,
         },
-        req.user.id,
+        actorId,
         'session_closed'
       );
       return sendOk(res, { ...updated, effectiveStatus: computeEffectiveStatus(updated) });
@@ -288,6 +291,7 @@ export function createAttendanceRouter({
         closesAt = d.toISOString();
       }
 
+      const actorId = await dataStore.resolveActorUuid(req);
       const updated = await dataStore.updateSession(
         req,
         req.params.id,
@@ -297,7 +301,7 @@ export function createAttendanceRouter({
           closed_by: null,
           closes_at: closesAt,
         },
-        req.user.id,
+        actorId,
         'session_reopened'
       );
       return sendOk(res, { ...updated, effectiveStatus: computeEffectiveStatus(updated) });
@@ -314,15 +318,16 @@ export function createAttendanceRouter({
       const session = await dataStore.getSessionById(req, req.params.id);
       if (!session) return sendError(res, 404, 'NOT_FOUND');
 
+      const actorId = await dataStore.resolveActorUuid(req);
       const updated = await dataStore.updateSession(
         req,
         req.params.id,
         {
           status: 'cancelled',
           closed_at: new Date().toISOString(),
-          closed_by: req.user.id,
+          closed_by: actorId,
         },
-        req.user.id,
+        actorId,
         'session_cancelled'
       );
       return sendOk(res, { ...updated, effectiveStatus: computeEffectiveStatus(updated) });
@@ -419,9 +424,10 @@ export function createAttendanceRouter({
         return sendError(res, 500, 'INTERNAL_ERROR', 'Session signing secret missing.');
       }
 
+      const issuerId = await dataStore.resolveActorUuid(req);
       const token = signAttendanceToken({
         sessionId: session.id,
-        issuerId: req.user.id,
+        issuerId,
         slot,
         secret,
       });
@@ -605,11 +611,12 @@ export function createAttendanceRouter({
         return sendError(res, 400, 'NOT_ENROLLED', 'One or more students are not approved for this visit.');
       }
 
+      const actorId = await dataStore.resolveActorUuid(req);
       const uniqueIds = Array.from(new Set(studentIds));
       const result = await dataStore.manualMarkStudents(req, {
         sessionId: session.id,
         studentIds: uniqueIds,
-        markedBy: req.user.id,
+        markedBy: actorId,
         reason: reason ? reason.trim() : null,
       });
 
@@ -643,10 +650,11 @@ export function createAttendanceRouter({
           return sendError(res, 409, 'SESSION_CLOSED', 'Cancelled sessions cannot be modified.');
         }
 
+        const actorId = await dataStore.resolveActorUuid(req);
         const removed = await dataStore.manualUnmarkStudent(req, {
           sessionId: session.id,
           studentId: req.params.studentId,
-          actorId: req.user.id,
+          actorId,
           reason,
         });
         if (!removed) return sendError(res, 404, 'NOT_FOUND', 'Attendance record not found.');

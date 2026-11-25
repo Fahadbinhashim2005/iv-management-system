@@ -188,6 +188,31 @@ export function createSupabaseAttendanceStore(getClient) {
   const secretCache = new SecretCache(60_000);
 
   return {
+    async resolveActorUuid(req) {
+      if (UUID_REGEX.test(String(req.user?.id || ''))) {
+        return req.user.id;
+      }
+      const sb = getClient(req);
+      if (req.user?.email) {
+        const { data: byEmail } = await sb
+          .from('profiles')
+          .select('id')
+          .eq('email', req.user.email.toLowerCase())
+          .maybeSingle();
+        if (byEmail?.id) return byEmail.id;
+      }
+      if (req.user?.role === 'admin') {
+        const { data: anyAdmin } = await sb
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .limit(1)
+          .maybeSingle();
+        if (anyAdmin?.id) return anyAdmin.id;
+      }
+      throw new Error('Could not resolve a valid profile UUID for the current user.');
+    },
+
     async listVisits(req) {
       const sb = getClient(req);
       const { data, error } = await sb
