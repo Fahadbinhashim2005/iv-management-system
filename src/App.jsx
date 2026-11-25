@@ -40,6 +40,8 @@ import AdminLogistics from './pages/admin/AdminLogistics';
 import AdminFinances from './pages/admin/AdminFinances';
 import AdminCompliance from './pages/admin/AdminCompliance';
 import AdminLogs from './pages/admin/AdminLogs';
+import AdminAttendanceList from './features/attendance/pages/AdminAttendanceList';
+import AdminAttendanceSession from './features/attendance/pages/AdminAttendanceSession';
 
 function App() {
   return (
@@ -94,6 +96,8 @@ function App() {
               <Route path="finances" element={<AdminFinances />} />
               <Route path="compliance" element={<AdminCompliance />} />
               <Route path="logs" element={<AdminLogs />} />
+              <Route path="attendance" element={<AdminAttendanceList />} />
+              <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
             </Route>
           </Route>
 

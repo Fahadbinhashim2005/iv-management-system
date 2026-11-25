@@ -9,6 +9,7 @@ import {
   Coins,
   ShieldCheck,
   Activity,
+  QrCode,
   LogOut,
   ArrowLeftRight,
   Crown,
@@ -21,6 +22,7 @@ import { useAuth } from "../context/AuthContext";
 const adminNavItems = [
   { to: "/admin/dashboard", label: "System Overview", icon: LayoutDashboard },
   { to: "/admin/visits", label: "Master Tour Registry", icon: Compass },
+  { to: "/admin/attendance", label: "Live Attendance", icon: QrCode },
   { to: "/admin/coordinators", label: "Faculty & Coordinators", icon: Users },
   { to: "/admin/students", label: "Student Master Roster", icon: GraduationCap },
   { to: "/admin/logistics", label: "Fleet & Vendor Contracts", icon: Bus },

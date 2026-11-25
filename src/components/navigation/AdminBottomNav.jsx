@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Compass, Users, Coins, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Compass, Users, Coins, QrCode } from "lucide-react";
+import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 
 function AdminBottomNav() {
+  const { hasActive } = useActiveSessions({ mode: "staff", pollIntervalMs: 10000 });
   const navLinkClass = ({ isActive }) =>
     `flex flex-col items-center gap-1 transition ${
       isActive ? "font-bold text-amber-600" : "text-gray-500 hover:text-amber-600"
@@ -38,15 +40,18 @@ function AdminBottomNav() {
       </div>
 
       <NavLink
-        to="/admin/compliance"
-        aria-label="Compliance & Permits"
+        to="/admin/attendance"
+        aria-label="Live Attendance"
         className={({ isActive }) =>
           `absolute -top-7 left-1/2 flex h-[64px] w-[64px] -translate-x-1/2 items-center justify-center rounded-full border-4 border-white text-white shadow-lg transition active:scale-95 ${
             isActive ? "bg-amber-600 ring-2 ring-amber-400" : "bg-emerald-900 hover:bg-emerald-800"
           }`
         }
       >
-        <ShieldAlert size={28} />
+        <QrCode size={26} />
+        {hasActive && (
+          <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 animate-pulse" />
+        )}
       </NavLink>
     </nav>
   );
