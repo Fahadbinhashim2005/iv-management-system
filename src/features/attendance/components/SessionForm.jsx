@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, AlertTriangle, MapPin } from 'lucide-react';
-import { api } from '../../../services/api';
 import { PURPOSE_OPTIONS, attendanceApi } from '../api/attendanceApi';
 
 export default function SessionForm({ open, existingSessions = [], onCreated, onClose }) {
   const [visits, setVisits] = useState([]);
+  const [visitsLoading, setVisitsLoading] = useState(false);
   const [visitId, setVisitId] = useState('');
   const [title, setTitle] = useState('');
   const [purpose, setPurpose] = useState('boarding');
@@ -20,14 +20,28 @@ export default function SessionForm({ open, existingSessions = [], onCreated, on
 
   useEffect(() => {
     if (!open) return;
-    api.getVisits().then((list) => {
-      const valid = Array.isArray(list) ? list : [];
-      setVisits(valid);
-      if (valid.length > 0 && !visitId) {
-        setVisitId(valid[0].id);
+    let mounted = true;
+    const loadVisits = async () => {
+      setVisitsLoading(true);
+      try {
+        const list = await attendanceApi.listVisits();
+        if (!mounted) return;
+        const valid = Array.isArray(list) ? list : [];
+        setVisits(valid);
+        if (valid.length > 0) {
+          setVisitId((prev) => prev || valid[0].id);
+        }
+      } catch (err) {
+        if (mounted) setError(err.message || 'Failed to load industrial visits.');
+      } finally {
+        if (mounted) setVisitsLoading(false);
       }
-    });
-  }, [open, visitId]);
+    };
+    loadVisits();
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -121,14 +135,21 @@ export default function SessionForm({ open, existingSessions = [], onCreated, on
             <label className="block text-xs font-bold text-gray-700 mb-1">Industrial Visit</label>
             <select
               value={visitId}
+              disabled={visitsLoading || visits.length === 0}
               onChange={(e) => setVisitId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none disabled:bg-gray-50"
             >
-              {visits.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.title} ({v.code || v.id.slice(0, 8)})
-                </option>
-              ))}
+              {visitsLoading ? (
+                <option value="">Loading visits...</option>
+              ) : visits.length === 0 ? (
+                <option value="">No visits found in database</option>
+              ) : (
+                visits.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.title} ({v.code || v.id.slice(0, 8)})
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

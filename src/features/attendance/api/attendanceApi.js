@@ -76,6 +76,10 @@ async function attRequest(path, options = {}) {
 
 export const attendanceApi = {
   // Staff / Admin
+  listVisits() {
+    return attRequest('/visits');
+  },
+
   listSessions({ visitId, status } = {}) {
     const params = new URLSearchParams();
     if (visitId) params.set('visitId', visitId);

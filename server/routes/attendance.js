@@ -40,7 +40,13 @@ export function createAttendanceRouter({
   const router = Router();
   const dataStore =
     store ||
-    createSupabaseAttendanceStore((req) => req.supabase || supabaseAdmin || getSupabaseForRequest());
+    createSupabaseAttendanceStore((req) => {
+      const client = req.supabase || supabaseAdmin || getSupabaseForRequest();
+      if (!client) {
+        throw new Error('Database client unavailable. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.');
+      }
+      return client;
+    });
 
   const scanPerStudentMax = Number(process.env.ATTENDANCE_SCAN_RATE_PER_MIN) || 10;
   const scanStudentLimiter = new SlidingWindowLimiter({ windowMs: 60_000, max: scanPerStudentMax });
@@ -74,6 +80,17 @@ export function createAttendanceRouter({
   // ===========================================================================
   // ADMIN — SESSION MANAGEMENT
   // ===========================================================================
+
+  router.get('/visits', requireRoleMiddleware('admin'), async (req, res) => {
+    try {
+      if (req.user.role !== 'admin') return sendError(res, 403, 'FORBIDDEN');
+      const visits = await dataStore.listVisits(req);
+      return sendOk(res, visits);
+    } catch (err) {
+      console.error('[Attendance Visits Error]:', err);
+      return sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load industrial visits.');
+    }
+  });
 
   router.post('/sessions', requireRoleMiddleware('admin'), async (req, res) => {
     try {

@@ -188,6 +188,16 @@ export function createSupabaseAttendanceStore(getClient) {
   const secretCache = new SecretCache(60_000);
 
   return {
+    async listVisits(req) {
+      const sb = getClient(req);
+      const { data, error } = await sb
+        .from('industrial_visits')
+        .select('id, title, code, status, start_date, end_date')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
     async getVisit(req, visitId) {
       const sb = getClient(req);
       const { data, error } = await sb
