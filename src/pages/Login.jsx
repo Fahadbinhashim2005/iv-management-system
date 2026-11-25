@@ -1,5 +1,5 @@
 import { Mail, LockKeyhole, GraduationCap, ShieldCheck, Crown, Eye, EyeOff, AlertCircle, CheckCircle2, Clock } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
@@ -7,14 +7,30 @@ import { api } from "../services/api";
 function Login() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { login, logout } = useAuth();
+    const { login, logout, user, profile, loading } = useAuth();
 
-    const [selectedRole, setSelectedRole] = useState("Student");
+    const [selectedRole, setSelectedRole] = useState(
+        () => localStorage.getItem("iv_saved_role") || "Student"
+    );
     const [showPassword, setShowPassword] = useState(false);
-    const [email, setEmail] = useState("");
+    const [email, setEmail] = useState(
+        () => localStorage.getItem("iv_saved_email") || ""
+    );
     const [password, setPassword] = useState("");
     const [submitting, setSubmitting] = useState(false);
-    const [statusBanner, setStatusBanner] = useState(null); // { type: 'success' | 'pending' | 'error', message: string }
+    const [statusBanner, setStatusBanner] = useState(null);
+
+    // If user is already signed in, skip login screen on reload / direct visit
+    useEffect(() => {
+        if (loading || !user || !profile?.role || profile.is_active === false) return;
+        const returnTo = searchParams.get("returnTo");
+        const safeReturnTo =
+            returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+                ? returnTo
+                : null;
+        const role = String(profile.role).toLowerCase();
+        navigate(safeReturnTo || `/${role}/dashboard`, { replace: true });
+    }, [loading, user, profile, navigate, searchParams]); // { type: 'success' | 'pending' | 'error', message: string }
 
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -97,7 +113,10 @@ function Login() {
                 return;
             }
 
-            // Successfully approved and verified
+            // Successfully approved and verified — save convenience email/role for next login
+            localStorage.setItem("iv_saved_email", email.trim());
+            localStorage.setItem("iv_saved_role", selectedRole);
+
             const returnTo = searchParams.get("returnTo");
             const safeReturnTo =
                 returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")

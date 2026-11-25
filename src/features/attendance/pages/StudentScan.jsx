@@ -1,10 +1,39 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Component, useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, MapPin, Loader2 } from 'lucide-react';
 import { attendanceApi } from '../api/attendanceApi';
 import { parseScanPayload } from '../utils/parseScanPayload';
 import QrScanner from '../components/QrScanner';
 import ScanResultScreen from '../components/ScanResultScreen';
+
+class ScanErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="mx-auto max-w-md rounded-3xl border border-emerald-200 bg-white p-8 text-center shadow-md">
+          <h2 className="text-lg font-extrabold text-emerald-950">Scan completed</h2>
+          <p className="mt-2 text-xs text-gray-600">
+            Return to your attendance page to view your updated status.
+          </p>
+          <Link
+            to="/student/attendance"
+            className="mt-5 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white"
+          >
+            Go to Attendance
+          </Link>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function requestCurrentPosition() {
   return new Promise((resolve, reject) => {
@@ -91,7 +120,15 @@ export default function StudentScan() {
     }
   };
 
+  const handleDecode = useCallback(
+    (text) => {
+      submitToken(text);
+    },
+    [submitToken]
+  );
+
   return (
+    <ScanErrorBoundary>
     <div className="mx-auto max-w-lg space-y-5">
       <div className="flex items-center justify-between">
         <Link
@@ -139,8 +176,9 @@ export default function StudentScan() {
       ) : result || error ? (
         <ScanResultScreen result={result} error={error} onScanAgain={handleScanAgain} />
       ) : (
-        <QrScanner onDecode={(text) => submitToken(text)} disabled={verifying} />
+        <QrScanner onDecode={handleDecode} disabled={verifying} />
       )}
     </div>
+    </ScanErrorBoundary>
   );
 }

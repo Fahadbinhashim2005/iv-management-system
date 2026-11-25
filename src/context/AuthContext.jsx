@@ -128,8 +128,21 @@ export function AuthProvider({ children }) {
       if (storedUser && storedToken) {
         try {
           const parsed = JSON.parse(storedUser);
-          // Only restore backend/admin server tokens cleanly when Supabase session isn't present
-          if (storedToken.startsWith('ivsrv.') || storedToken.startsWith('demo_token_') || !isSupabaseConfigured) {
+          let isValidJwt = false;
+          if (storedToken.split('.').length === 3 && !storedToken.startsWith('ivsrv.')) {
+            try {
+              const payload = JSON.parse(atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+              isValidJwt = !payload.exp || payload.exp * 1000 > Date.now();
+            } catch {
+              isValidJwt = false;
+            }
+          }
+          if (
+            storedToken.startsWith('ivsrv.') ||
+            storedToken.startsWith('demo_token_') ||
+            isValidJwt ||
+            !isSupabaseConfigured
+          ) {
             setProfile(parsed);
             setUser({
               id: parsed.id,
@@ -147,10 +160,17 @@ export function AuthProvider({ children }) {
     };
 
     if (!isSupabaseConfigured || !supabase) {
-      restoreFallbackSession();
-      setLoading(false);
-      return;
+      Promise.resolve().then(() => {
+        if (!mounted) return;
+        restoreFallbackSession();
+        setLoading(false);
+      });
+      return () => {
+        mounted = false;
+      };
     }
+
+    let initialHydrationDone = false;
 
     supabase.auth
       .getSession()
@@ -164,17 +184,21 @@ export function AuthProvider({ children }) {
             localStorage.setItem('iv_auth_token', initialSession.access_token);
           }
           const userProfile = await loadProfile(initialSession.user.id, initialSession.user);
-          if (mounted) setProfile(userProfile);
+          if (mounted && userProfile) {
+            setProfile(userProfile);
+          }
         } else {
           // Restore signed server/admin fallback session across page refreshes
           restoreFallbackSession();
         }
+        initialHydrationDone = true;
         if (mounted) setLoading(false);
       })
       .catch((err) => {
         console.warn('[AuthContext] Session retrieval error:', err);
         if (mounted) {
           restoreFallbackSession();
+          initialHydrationDone = true;
           setLoading(false);
         }
       });
@@ -183,6 +207,11 @@ export function AuthProvider({ children }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!mounted) return;
+
+      // Let getSession() finish initial hydration + loadProfile before clearing loading
+      if (event === 'INITIAL_SESSION') {
+        return;
+      }
 
       if (event === 'SIGNED_OUT') {
         localStorage.removeItem('iv_auth_token');
@@ -209,7 +238,7 @@ export function AuthProvider({ children }) {
         }
       }
 
-      if (mounted) setLoading(false);
+      if (mounted && initialHydrationDone) setLoading(false);
     });
 
     return () => {

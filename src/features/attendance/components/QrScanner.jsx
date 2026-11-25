@@ -5,6 +5,12 @@ export default function QrScanner({ onDecode, disabled }) {
   const containerId = 'iv-qr-reader';
   const scannerRef = useRef(null);
   const decodedRef = useRef(false);
+  const stoppedRef = useRef(false);
+  const onDecodeRef = useRef(onDecode);
+
+  useEffect(() => {
+    onDecodeRef.current = onDecode;
+  }, [onDecode]);
 
   const [cameraError, setCameraError] = useState(null); // 'permission' | 'nocamera' | 'insecure' | 'generic'
   const [torchSupported, setTorchSupported] = useState(false);
@@ -15,6 +21,7 @@ export default function QrScanner({ onDecode, disabled }) {
   useEffect(() => {
     if (disabled) return;
     decodedRef.current = false;
+    stoppedRef.current = false;
 
     if (
       typeof window !== 'undefined' &&
@@ -28,6 +35,23 @@ export default function QrScanner({ onDecode, disabled }) {
 
     let cancelled = false;
     let instance = null;
+
+    const safeStop = async () => {
+      if (!instance || stoppedRef.current) return;
+      stoppedRef.current = true;
+      try {
+        await instance.stop();
+      } catch {
+        // Ignore stop errors
+      }
+      try {
+        if (document.getElementById(containerId)) {
+          instance.clear();
+        }
+      } catch {
+        // Ignore clear errors
+      }
+    };
 
     async function startScanner() {
       try {
@@ -45,14 +69,10 @@ export default function QrScanner({ onDecode, disabled }) {
             aspectRatio: 1,
           },
           async (decodedText) => {
-            if (decodedRef.current) return;
+            if (decodedRef.current || cancelled) return;
             decodedRef.current = true;
-            try {
-              await instance.stop();
-            } catch {
-              // Ignore stop errors
-            }
-            onDecode(decodedText);
+            await safeStop();
+            onDecodeRef.current?.(decodedText);
           },
           () => {
             // Ignore per-frame decode misses
@@ -86,14 +106,9 @@ export default function QrScanner({ onDecode, disabled }) {
 
     return () => {
       cancelled = true;
-      if (instance) {
-        instance
-          .stop()
-          .then(() => instance.clear())
-          .catch(() => {});
-      }
+      safeStop();
     };
-  }, [onDecode, disabled]);
+  }, [disabled]);
 
   const toggleTorch = async () => {
     try {
