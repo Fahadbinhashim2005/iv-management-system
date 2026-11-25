@@ -1,11 +1,13 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { QrCode, ArrowRight } from 'lucide-react';
 import { useActiveSessions } from '../hooks/useActiveSessions';
 
 export default function AttendanceBanner({ basePath = '/coordinator/attendance' }) {
+  const { pathname } = useLocation();
   const { sessions } = useActiveSessions({ mode: 'staff', pollIntervalMs: 5000 });
 
   if (!sessions || sessions.length === 0) return null;
+  if (pathname.startsWith(`${basePath}/`)) return null;
 
   const latest = sessions[0];
 

@@ -17,13 +17,14 @@ import {
 } from "lucide-react";
 import CoordinatorBottomNav from "../components/navigation/CoordinatorBottomNav";
 import { useAuth } from "../context/AuthContext";
+import AttendanceBanner from "../features/attendance/components/AttendanceBanner";
 
 const navItems = [
   { to: "/coordinator/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/coordinator/visits", label: "Industrial Visits", icon: Briefcase },
   { to: "/coordinator/itinerary", label: "Itinerary Planner", icon: CalendarCheck },
   { to: "/coordinator/participants", label: "Student Roster", icon: Users },
-  { to: "/coordinator/attendance", label: "Live Attendance Scanner", icon: ScanLine },
+  { to: "/coordinator/attendance", label: "Live Attendance", icon: ScanLine },
   { to: "/coordinator/transport", label: "Transport Allocation", icon: Bus },
   { to: "/coordinator/accommodation", label: "Accommodation & Rooms", icon: BedDouble },
   { to: "/coordinator/announcements", label: "Broadcast Notices", icon: Bell },
@@ -277,6 +278,7 @@ export default function CoordinatorLayout() {
 
         {/* Active Page Content with Responsive Mobile Padding */}
         <div className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-28 sm:pb-28 lg:pb-10">
+          <AttendanceBanner basePath="/coordinator/attendance" />
           <Outlet />
         </div>
       </div>

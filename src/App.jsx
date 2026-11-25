@@ -24,7 +24,8 @@ import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
 import CoordinatorVisits from './pages/coordinator/CoordinatorVisits';
 import CoordinatorItinerary from './pages/coordinator/CoordinatorItinerary';
 import CoordinatorParticipants from './pages/coordinator/CoordinatorParticipants';
-import CoordinatorAttendance from './pages/coordinator/CoordinatorAttendance';
+import CoordinatorAttendanceList from './features/attendance/pages/CoordinatorAttendanceList';
+import CoordinatorAttendanceSession from './features/attendance/pages/CoordinatorAttendanceSession';
 import CoordinatorTransport from './pages/coordinator/CoordinatorTransport';
 import CoordinatorAccommodation from './pages/coordinator/CoordinatorAccommodation';
 import CoordinatorAnnouncements from './pages/coordinator/CoordinatorAnnouncements';
@@ -76,7 +77,8 @@ function App() {
               <Route path="visits" element={<CoordinatorVisits />} />
               <Route path="itinerary" element={<CoordinatorItinerary />} />
               <Route path="participants" element={<CoordinatorParticipants />} />
-              <Route path="attendance" element={<CoordinatorAttendance />} />
+              <Route path="attendance" element={<CoordinatorAttendanceList />} />
+              <Route path="attendance/:sessionId" element={<CoordinatorAttendanceSession />} />
               <Route path="transport" element={<CoordinatorTransport />} />
               <Route path="accommodation" element={<CoordinatorAccommodation />} />
               <Route path="announcements" element={<CoordinatorAnnouncements />} />

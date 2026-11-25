@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Briefcase, ScanLine, Users, Menu } from "lucide-react";
+import { LayoutDashboard, Briefcase, QrCode, Users, Menu } from "lucide-react";
+import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 
 function CoordinatorBottomNav() {
+  const { hasActive } = useActiveSessions({ mode: "staff", pollIntervalMs: 10000 });
   const navLinkClass = ({ isActive }) =>
     `flex flex-col items-center gap-1 transition ${
       isActive ? "font-semibold text-emerald-700" : "text-gray-500 hover:text-emerald-700"
@@ -39,14 +41,17 @@ function CoordinatorBottomNav() {
 
       <NavLink
         to="/coordinator/attendance"
-        aria-label="Launch Attendance Scanner"
+        aria-label="Live Attendance"
         className={({ isActive }) =>
           `absolute -top-7 left-1/2 flex h-[68px] w-[68px] -translate-x-1/2 items-center justify-center rounded-full border-4 border-white text-white shadow-lg transition active:scale-95 ${
             isActive ? "bg-emerald-800 ring-2 ring-emerald-500" : "bg-emerald-700 hover:bg-emerald-800"
           }`
         }
       >
-        <ScanLine size={30} />
+        <QrCode size={28} />
+        {hasActive && (
+          <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-300 animate-pulse" />
+        )}
       </NavLink>
     </nav>
   );
