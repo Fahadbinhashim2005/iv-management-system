@@ -14,6 +14,7 @@ import {
 } from './middleware/auth.js';
 import adminUsersRouter from './routes/adminUsers.js';
 import attendanceRouter from './routes/attendance.js';
+import announcementsRouter from './routes/announcements.js';
 
 dotenv.config();
 
@@ -529,6 +530,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 // -----------------------------------------------------------------------------
 app.use('/api/admin/users', adminLimiter, requireAuth, requireRole('admin'), adminUsersRouter);
 app.use('/api/attendance', attendanceRouter);
+app.use('/api/announcements', announcementsRouter);
 
 // -----------------------------------------------------------------------------
 // Role-Specific Sub-APIs
@@ -681,29 +683,6 @@ app.post('/api/attendance/check-in', requireAuth, requireRole('coordinator', 'ad
     success: true,
     record,
     message: `Check-in recorded for ${student.name} (${student.roll}).`,
-  });
-});
-
-app.get('/api/announcements', requireAuth, (req, res) => {
-  res.json({ success: true, announcements: db.announcements });
-});
-
-app.post('/api/announcements', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
-  const body = req.body;
-  const newAnnouncement = {
-    id: `ann_${Date.now()}`,
-    title: body.title,
-    category: body.category || 'General',
-    date: 'Just now',
-    author: req.user.name || 'Tour Coordinator',
-    content: body.content,
-    pinned: false,
-  };
-  db.announcements.unshift(newAnnouncement);
-  res.status(201).json({
-    success: true,
-    announcement: newAnnouncement,
-    message: 'Announcement broadcasted successfully to all enrolled students.',
   });
 });
 

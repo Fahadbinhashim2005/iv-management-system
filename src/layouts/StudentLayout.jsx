@@ -18,6 +18,7 @@ import {
 import StudentBottomNav from "../components/navigation/StudentBottomNav";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
+import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
 
 const activeNavItems = [
   { to: "/student/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,6 +39,7 @@ export default function StudentLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { profile, user, logout } = useAuth();
+  useAnnouncementAlerts({ pollIntervalMs: 5000, enableAlerts: true });
 
   const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
   const studentRoll = profile?.roll_no || "CS-2026-Pending";
