@@ -3,7 +3,6 @@ import {
   requireAuth,
   requireRole,
   supabaseAdmin,
-  getSupabaseForRequest,
 } from '../middleware/auth.js';
 import {
   computeSlot,
@@ -41,11 +40,15 @@ export function createAttendanceRouter({
   const dataStore =
     store ||
     createSupabaseAttendanceStore((req) => {
-      const client = req.supabase || supabaseAdmin || getSupabaseForRequest();
-      if (!client) {
-        throw new Error('Database client unavailable. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.');
+      if (!supabaseAdmin) {
+        const err = new Error(
+          'Server missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (supabaseAdminReady=false). Configure both in Railway Variables.'
+        );
+        err.statusCode = 503;
+        err.code = 'SERVER_NOT_CONFIGURED';
+        throw err;
       }
-      return client;
+      return req.supabase || supabaseAdmin;
     });
 
   const scanPerStudentMax = Number(process.env.ATTENDANCE_SCAN_RATE_PER_MIN) || 10;
@@ -88,7 +91,7 @@ export function createAttendanceRouter({
       return sendOk(res, visits);
     } catch (err) {
       console.error('[Attendance Visits Error]:', err);
-      return sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load industrial visits.');
+      return sendError(res, err.statusCode || 500, err.code || 'INTERNAL_ERROR', err.message || 'Failed to load industrial visits.');
     }
   });
 
@@ -193,7 +196,7 @@ export function createAttendanceRouter({
       return sendOk(res, { ...session, effectiveStatus: computeEffectiveStatus(session) }, 201);
     } catch (err) {
       console.error('[Attendance Create Error]:', err);
-      return sendError(res, 500, 'INTERNAL_ERROR', 'Failed to create attendance session.');
+      return sendError(res, err.statusCode || 500, err.code || 'INTERNAL_ERROR', err.message || 'Failed to create attendance session.');
     }
   });
 
@@ -357,7 +360,7 @@ export function createAttendanceRouter({
       return sendOk(res, list);
     } catch (err) {
       console.error('[Attendance List Error]:', err);
-      return sendError(res, 500, 'INTERNAL_ERROR', 'Failed to load sessions.');
+      return sendError(res, err.statusCode || 500, err.code || 'INTERNAL_ERROR', err.message || 'Failed to load sessions.');
     }
   });
 
