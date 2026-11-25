@@ -1,8 +1,10 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ allowedRoles = [] }) {
   const { profile, loading, user } = useAuth();
+  const location = useLocation();
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   if (loading) {
     return (
@@ -17,7 +19,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
 
   // If unauthenticated, redirect to login
   if (!user || !profile) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
   }
 
   // If deactivated, redirect to login

@@ -1,11 +1,12 @@
 import { Mail, LockKeyhole, GraduationCap, ShieldCheck, Crown, Eye, EyeOff, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
 function Login() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { login, logout } = useAuth();
 
     const [selectedRole, setSelectedRole] = useState("Student");
@@ -97,7 +98,12 @@ function Login() {
             }
 
             // Successfully approved and verified
-            navigate(`/${userRole}/dashboard`, { replace: true });
+            const returnTo = searchParams.get("returnTo");
+            const safeReturnTo =
+                returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+                    ? returnTo
+                    : null;
+            navigate(safeReturnTo || `/${userRole}/dashboard`, { replace: true });
         } catch (err) {
             console.error("Login/Request error:", err);
             const errText = err.message || "Invalid credentials or unauthorized login.";

@@ -12,7 +12,8 @@ import ChangePassword from './pages/ChangePassword';
 import StudentLayout from './layouts/StudentLayout';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentItinerary from './pages/StudentItinerary';
-import StudentAttendance from './pages/StudentAttendance';
+import StudentAttendance from './features/attendance/pages/StudentAttendance';
+import StudentScan from './features/attendance/pages/StudentScan';
 import StudentTransport from './pages/StudentTransport';
 import StudentAccommodation from './pages/StudentAccommodation';
 import StudentAnnouncements from './pages/StudentAnnouncements';
@@ -62,6 +63,7 @@ function App() {
               <Route path="dashboard" element={<StudentDashboard />} />
               <Route path="itinerary" element={<StudentItinerary />} />
               <Route path="attendance" element={<StudentAttendance />} />
+              <Route path="attendance/scan" element={<StudentScan />} />
               <Route path="transport" element={<StudentTransport />} />
               <Route path="accommodation" element={<StudentAccommodation />} />
               <Route path="announcements" element={<StudentAnnouncements />} />

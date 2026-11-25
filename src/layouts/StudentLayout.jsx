@@ -22,7 +22,7 @@ import Avatar from "../components/Avatar";
 const activeNavItems = [
   { to: "/student/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/student/itinerary", label: "My Itinerary", icon: Map },
-  { to: "/student/attendance", label: "Attendance Pass", icon: ClipboardCheck },
+  { to: "/student/attendance", label: "Attendance", icon: ClipboardCheck },
   { to: "/student/transport", label: "Assigned Transport", icon: Bus },
   { to: "/student/accommodation", label: "Hotel & Rooms", icon: BedDouble },
   { to: "/student/announcements", label: "Notices & Updates", icon: Bell },

@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { Home, Map, Bell, UserRound, ScanQrCode } from "lucide-react";
+import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 
 function StudentBottomNav() {
+  const { hasUnmarked } = useActiveSessions({ mode: "student", pollIntervalMs: 10000 });
   const navLinkClass = ({ isActive }) =>
     `flex flex-col items-center gap-1 transition ${
       isActive ? "font-semibold text-emerald-600" : "text-gray-500 hover:text-emerald-600"
@@ -38,8 +40,8 @@ function StudentBottomNav() {
       </div>
 
       <NavLink
-        to="/student/attendance"
-        aria-label="Open QR Attendance"
+        to="/student/attendance/scan"
+        aria-label="Scan Attendance QR"
         className={({ isActive }) =>
           `absolute -top-7 left-1/2 flex h-[68px] w-[68px] -translate-x-1/2 items-center justify-center rounded-full border-4 border-white text-white shadow-lg transition active:scale-95 ${
             isActive ? "bg-emerald-700 ring-2 ring-emerald-500" : "bg-emerald-600 hover:bg-emerald-700"
@@ -47,6 +49,9 @@ function StudentBottomNav() {
         }
       >
         <ScanQrCode size={30} />
+        {hasUnmarked && (
+          <span className="absolute right-1 top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-amber-400 animate-pulse" />
+        )}
       </NavLink>
     </nav>
   );
