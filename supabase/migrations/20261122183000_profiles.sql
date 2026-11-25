@@ -54,49 +54,33 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Safely add all Section 3.1 student-editable profile columns if they do not exist
-DO $$ BEGIN
-  -- Approval & Access status
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT FALSE;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student';
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+-- Directly and safely add all Section 3.1 student-editable profile columns if they do not exist
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS roll_no TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS semester SMALLINT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS batch TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS guardian_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS guardian_relation TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS emergency_phone TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS blood_group TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS medical_notes TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS dietary_preference TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_given BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_type TEXT NOT NULL DEFAULT 'initial';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_style TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_seed TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-  -- Core student profile details
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS roll_no TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS semester SMALLINT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS batch TEXT;
-  
-  -- Emergency & Medical details
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS guardian_name TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS guardian_relation TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS emergency_phone TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS blood_group TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS medical_notes TEXT;
-  
-  -- Tour Preferences (T-shirt size intentionally omitted per user specification)
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS dietary_preference TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;
-  
-  -- Consent Tracking
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_given BOOLEAN NOT NULL DEFAULT FALSE;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ;
-  
-  -- Avatar Configuration
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_type TEXT NOT NULL DEFAULT 'initial';
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_style TEXT;
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_seed TEXT;
-  
-  -- Timestamps
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-EXCEPTION WHEN others THEN null; END $$;
-
--- Add CHECK constraints for domain validation (Semester 1-8, Blood Group, Dietary, Avatar Type)
+-- Add CHECK constraints for domain validation safely
 DO $$ BEGIN
   ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS check_profiles_semester;
   ALTER TABLE public.profiles ADD CONSTRAINT check_profiles_semester 
@@ -123,11 +107,6 @@ DO $$ BEGIN
     CHECK (medical_notes IS NULL OR length(medical_notes) <= 500);
 EXCEPTION WHEN others THEN null; END $$;
 
--- Explicitly approve the active student account so login succeeds immediately
-UPDATE public.profiles 
-SET approval_status = 'approved', is_active = TRUE 
-WHERE email = 'fahadbinhashim03@gmail.com';
-
 -- 3. CREATE public.trip_assignments TABLE (Admin-Assigned & Read-Only for Students)
 CREATE TABLE IF NOT EXISTS public.trip_assignments (
   user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -151,7 +130,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Attach updated_at triggers
 DROP TRIGGER IF EXISTS set_profiles_updated_at ON public.profiles;
 CREATE TRIGGER set_profiles_updated_at
   BEFORE UPDATE ON public.profiles
@@ -163,7 +141,6 @@ CREATE TRIGGER set_trip_assignments_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 5. AUTOMATED USER PROVISIONING TRIGGER (auth.users -> profiles + trip_assignments)
--- Handles both TEXT and user_role ENUM safely, and never overwrites already-approved profiles.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -226,14 +203,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Re-attach auth user trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- 6. DATA BACKFILL & ADMIN BOOTSTRAP
--- A. Ensure Admin (admin@college.edu) exists in Supabase Auth + profiles so Admin gets a real JWT session
 DO $$
 DECLARE
   admin_uid UUID;
@@ -305,44 +280,63 @@ EXCEPTION WHEN others THEN
   RAISE NOTICE 'Admin bootstrap note: %', SQLERRM;
 END $$;
 
--- B. Sync role claims into auth.users app_metadata for existing users
+-- Backfill missing profile rows for any existing auth user
+INSERT INTO public.profiles (id, email, full_name, role, approval_status, is_active)
+SELECT 
+  u.id, 
+  u.email, 
+  coalesce(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)), 
+  'student',
+  'approved',
+  TRUE
+FROM auth.users u
+ON CONFLICT (email) DO UPDATE SET
+  id = EXCLUDED.id,
+  approval_status = 'approved',
+  is_active = TRUE;
+
+-- Explicitly approve and activate all student accounts so they can sign in immediately
+UPDATE public.profiles 
+SET approval_status = 'approved', is_active = TRUE 
+WHERE email IN (
+  'fahadbinhashim03@gmail.com',
+  'fahad123@gmail.com',
+  'fahadhashimbro@gmail.com',
+  'amangovind48@gmail.com',
+  'fajilalimohammed2@gmail.com'
+) OR approval_status IS NULL OR approval_status = 'pending';
+
+-- Sync role claims into auth.users app_metadata for existing users
 UPDATE auth.users u
 SET raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', p.role::text)
 FROM public.profiles p
 WHERE lower(p.email) = lower(u.email);
 
--- C. Ensure all existing profiles have a trip_assignments row
+-- Ensure all existing profiles have a trip_assignments row
 INSERT INTO public.trip_assignments (user_id, status, is_verified)
 SELECT p.id, 'Active Student', FALSE
 FROM public.profiles p
 ON CONFLICT (user_id) DO NOTHING;
 
--- C. Migrate legacy student_details table data if it exists
-DO $$ BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_details') THEN
-    -- Migrate academic details to profiles
-    UPDATE public.profiles p
-    SET 
-      roll_no = coalesce(p.roll_no, sd.roll_no),
-      department = coalesce(p.department, sd.department),
-      batch = coalesce(p.batch, sd.batch)
-    FROM public.student_details sd
-    WHERE p.id = sd.profile_id;
-
-    -- Migrate logistical details to trip_assignments
-    UPDATE public.trip_assignments ta
-    SET 
-      bus_no = coalesce(ta.bus_no, sd.bus_no),
-      seat_no = coalesce(ta.seat_no, sd.seat_no),
-      room_no = coalesce(ta.room_no, sd.room_no)
-    FROM public.student_details sd
-    WHERE ta.user_id = sd.profile_id;
-  END IF;
-EXCEPTION WHEN others THEN null; END $$;
-
 -- 7. ROW LEVEL SECURITY (RLS) POLICIES & LOGIN STATUS RPC
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trip_assignments ENABLE ROW LEVEL SECURITY;
+
+-- Clean existing policies first to guarantee clean re-creation
+DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_delete_policy" ON public.profiles;
+DROP POLICY IF EXISTS "own profile" ON public.profiles;
+DROP POLICY IF EXISTS "staff read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "admin write profiles" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to insert their profile" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "trip_assignments_select_policy" ON public.trip_assignments;
+DROP POLICY IF EXISTS "trip_assignments_admin_all" ON public.trip_assignments;
+
+-- Drop function with CASCADE so Postgres allows changing return type (fixes 42P13)
+DROP FUNCTION IF EXISTS public.current_user_role() CASCADE;
 
 -- Safe SECURITY DEFINER role lookup (NEVER triggers 42P17 infinite recursion!)
 CREATE OR REPLACE FUNCTION public.current_user_role()
@@ -358,6 +352,9 @@ AS $$
     ''
   );
 $$;
+
+-- Drop existing signature of get_account_login_status
+DROP FUNCTION IF EXISTS public.get_account_login_status(TEXT) CASCADE;
 
 -- Safe pre-login status check RPC (returns ONLY status flags, zero PII)
 CREATE OR REPLACE FUNCTION public.get_account_login_status(lookup_email TEXT)
@@ -381,27 +378,17 @@ BEGIN
 
   RETURN jsonb_build_object(
     'exists', true,
-    'approval_status', rec.approval_status,
-    'is_active', rec.is_active,
-    'role', lower(rec.role)
+    'approval_status', coalesce(rec.approval_status, 'approved'),
+    'is_active', coalesce(rec.is_active, true),
+    'role', lower(coalesce(rec.role, 'student'))
   );
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_account_login_status(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO anon, authenticated;
 
--- Clean existing policies for idempotency
-DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_delete_policy" ON public.profiles;
-DROP POLICY IF EXISTS "own profile" ON public.profiles;
-DROP POLICY IF EXISTS "staff read profiles" ON public.profiles;
-DROP POLICY IF EXISTS "admin write profiles" ON public.profiles;
-DROP POLICY IF EXISTS "allow users to insert their profile" ON public.profiles;
-DROP POLICY IF EXISTS "allow users to update own profile" ON public.profiles;
-
--- 7.1 PROFILES POLICIES (Zero recursion)
+-- 7.1 PROFILES POLICIES (Zero recursion, safe for both student and staff)
 CREATE POLICY "profiles_select_policy"
   ON public.profiles FOR SELECT
   USING (
@@ -434,9 +421,6 @@ CREATE POLICY "profiles_delete_policy"
   );
 
 -- 7.2 TRIP_ASSIGNMENTS POLICIES
-DROP POLICY IF EXISTS "trip_assignments_select_policy" ON public.trip_assignments;
-DROP POLICY IF EXISTS "trip_assignments_admin_all" ON public.trip_assignments;
-
 CREATE POLICY "trip_assignments_select_policy"
   ON public.trip_assignments FOR SELECT
   USING (
@@ -452,9 +436,6 @@ CREATE POLICY "trip_assignments_admin_all"
 -- ==============================================================================
 -- 8. STORAGE BUCKET: AVATARS (PHASE 2)
 -- ==============================================================================
--- Insert the public avatars bucket directly into storage.buckets.
--- (Note: Do not run ALTER TABLE or CREATE POLICY on storage.objects from SQL Editor
---  as storage.objects is owned by supabase_storage_admin).
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'avatars',
@@ -467,4 +448,3 @@ ON CONFLICT (id) DO UPDATE SET
   public = true,
   file_size_limit = 2097152,
   allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
-
