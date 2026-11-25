@@ -13,6 +13,7 @@ import {
   issueServerToken,
 } from './middleware/auth.js';
 import adminUsersRouter from './routes/adminUsers.js';
+import attendanceRouter from './routes/attendance.js';
 
 dotenv.config();
 
@@ -527,6 +528,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 // Administrative User Management & Request Authorization Routes
 // -----------------------------------------------------------------------------
 app.use('/api/admin/users', adminLimiter, requireAuth, requireRole('admin'), adminUsersRouter);
+app.use('/api/attendance', attendanceRouter);
 
 // -----------------------------------------------------------------------------
 // Role-Specific Sub-APIs
