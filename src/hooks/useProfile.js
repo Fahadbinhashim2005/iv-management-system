@@ -258,8 +258,7 @@ export function useProfile() {
           .eq("id", user.id);
 
         if (updateErr) {
-          console.warn("[useProfile Supabase error]:", updateErr);
-          // If columns are missing or error occurs, fall back to offline storage
+          throw new Error(updateErr.message || "Failed to save profile to Supabase.");
         }
       }
 
@@ -304,10 +303,11 @@ export function useProfile() {
       setInitialData((prev) => ({ ...prev, ...avatarUpdates }));
 
       if (isSupabaseConfigured && supabase && user?.id) {
-        await supabase
+        const { error: avatarErr } = await supabase
           .from("profiles")
           .update(avatarUpdates)
           .eq("id", user.id);
+        if (avatarErr) throw new Error(avatarErr.message);
       }
 
       if (user?.id) {

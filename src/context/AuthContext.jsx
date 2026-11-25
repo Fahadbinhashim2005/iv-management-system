@@ -11,35 +11,61 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Helper to retrieve the full profile from public.profiles
+  // Retrieve full profile from public.profiles
   const loadProfile = useCallback(async (userId, authUser) => {
     if (!supabase || !userId) return null;
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
-        const metadataRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role || 'student';
-        return {
-          id: userId,
-          email: authUser?.email,
-          full_name: authUser?.user_metadata?.full_name || 'User',
-          role: String(metadataRole).toLowerCase(),
-          approval_status: 'approved',
-          is_active: true,
-          must_change_password: false,
-        };
+      // Fallback lookup by email if ID mismatch occurred from an older seed
+      if ((!data || error) && authUser?.email) {
+        const byEmail = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', authUser.email.toLowerCase())
+          .maybeSingle();
+        if (byEmail.data) {
+          data = byEmail.data;
+          error = null;
+        }
       }
 
-      // Check approval and active status (Admins are always authorized)
-      if (data.role !== 'admin') {
+      if (error) {
+        console.warn('[AuthContext] Error fetching profile:', error.message);
+        return null;
+      }
+
+      if (!data) {
+        // Profile missing despite valid auth user — treat safely based on metadata only if admin
+        const appRole = authUser?.app_metadata?.role;
+        if (appRole === 'admin') {
+          return {
+            id: userId,
+            email: authUser?.email,
+            full_name: authUser?.user_metadata?.full_name || 'Administrator',
+            role: 'admin',
+            approval_status: 'approved',
+            is_active: true,
+            must_change_password: false,
+          };
+        }
+        return null;
+      }
+
+      const normalizedRole = String(data.role || 'student').toLowerCase();
+
+      // Enforce approval & activation for students and coordinators
+      if (normalizedRole !== 'admin') {
         if (data.approval_status === 'pending') {
+          setAuthError(
+            'Your access request is currently pending Admin approval. You will be able to log in as soon as the administrator approves your request.'
+          );
           await supabase.auth.signOut();
-          setAuthError('Your access request is currently pending Admin approval. You will be able to log in as soon as the administrator approves your request.');
           setProfile(null);
           setSession(null);
           setUser(null);
@@ -47,17 +73,17 @@ export function AuthProvider({ children }) {
         }
 
         if (data.approval_status === 'rejected') {
-          await supabase.auth.signOut();
           setAuthError('Your access request was declined by the administrator.');
+          await supabase.auth.signOut();
           setProfile(null);
           setSession(null);
           setUser(null);
           return null;
         }
 
-        if (!data.is_active) {
-          await supabase.auth.signOut();
+        if (data.is_active === false) {
           setAuthError('Your account has been deactivated. Please contact your administrator.');
+          await supabase.auth.signOut();
           setProfile(null);
           setSession(null);
           setUser(null);
@@ -65,70 +91,111 @@ export function AuthProvider({ children }) {
         }
       }
 
-      return {
+      const resolved = {
         ...data,
-        role: String(data.role).toLowerCase(),
+        role: normalizedRole,
       };
+      localStorage.setItem('iv_user', JSON.stringify(resolved));
+      return resolved;
     } catch (err) {
       console.warn('[AuthContext] Error loading user profile:', err);
       return null;
     }
   }, []);
 
-  // Initial session hydration
+  // Initial session hydration & auth listener
   useEffect(() => {
     let mounted = true;
 
-    // Check if there was an active offline session saved
-    const storedUser = localStorage.getItem('iv_user');
-    const storedToken = localStorage.getItem('iv_auth_token');
-
-    if (!isSupabaseConfigured || !supabase) {
-      if (storedUser) {
+    const restoreFallbackSession = () => {
+      const storedUser = localStorage.getItem('iv_user');
+      const storedToken = localStorage.getItem('iv_auth_token');
+      if (storedUser && storedToken) {
         try {
           const parsed = JSON.parse(storedUser);
-          setProfile(parsed);
-          setUser({ id: parsed.id, email: parsed.email, user_metadata: { full_name: parsed.full_name } });
-          setSession({ access_token: storedToken || 'offline_token' });
+          // Only restore backend/admin server tokens cleanly when Supabase session isn't present
+          if (storedToken.startsWith('ivsrv.') || storedToken.startsWith('demo_token_') || !isSupabaseConfigured) {
+            setProfile(parsed);
+            setUser({
+              id: parsed.id,
+              email: parsed.email,
+              user_metadata: { full_name: parsed.full_name },
+            });
+            setSession({ access_token: storedToken });
+            return true;
+          }
         } catch (e) {
           console.warn('Error reading stored session:', e);
         }
       }
+      return false;
+    };
+
+    if (!isSupabaseConfigured || !supabase) {
+      restoreFallbackSession();
       setLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      if (!mounted) return;
-
-      if (initialSession?.user) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        const userProfile = await loadProfile(initialSession.user.id, initialSession.user);
-        if (mounted) setProfile(userProfile);
-      }
-      if (mounted) setLoading(false);
-    }).catch((err) => {
-      console.warn('[AuthContext] Session retrieval error:', err);
-      if (mounted) setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session: initialSession } }) => {
         if (!mounted) return;
 
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-
-        if (currentSession?.user) {
-          const userProfile = await loadProfile(currentSession.user.id, currentSession.user);
+        if (initialSession?.user) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          if (initialSession.access_token) {
+            localStorage.setItem('iv_auth_token', initialSession.access_token);
+          }
+          const userProfile = await loadProfile(initialSession.user.id, initialSession.user);
           if (mounted) setProfile(userProfile);
         } else {
-          if (mounted) setProfile(null);
+          // Restore signed server/admin fallback session across page refreshes
+          restoreFallbackSession();
         }
         if (mounted) setLoading(false);
+      })
+      .catch((err) => {
+        console.warn('[AuthContext] Session retrieval error:', err);
+        if (mounted) {
+          restoreFallbackSession();
+          setLoading(false);
+        }
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('iv_auth_token');
+        localStorage.removeItem('iv_user');
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
       }
-    );
+
+      if (currentSession?.user) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+        // Keep token fresh whenever Supabase auto-refreshes after 1 hour
+        if (currentSession.access_token) {
+          localStorage.setItem('iv_auth_token', currentSession.access_token);
+        }
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          const userProfile = await loadProfile(currentSession.user.id, currentSession.user);
+          if (mounted && userProfile) {
+            setProfile(userProfile);
+          }
+        }
+      }
+
+      if (mounted) setLoading(false);
+    });
 
     return () => {
       mounted = false;
@@ -136,12 +203,27 @@ export function AuthProvider({ children }) {
     };
   }, [loadProfile]);
 
-  // Sign in using Supabase Auth (with Railway backend & offline fallback)
-  const login = async (email, password) => {
+  // Sign in using Supabase Auth (with Railway backend fallback)
+  const login = async (email, password, preloadedAuth = null) => {
     setAuthError(null);
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Production Live Supabase Auth (if configured)
+    // If signInOrRequest already authenticated and loaded the profile, avoid duplicate round-trip
+    if (preloadedAuth?.alreadyAuthenticated && preloadedAuth.profile && preloadedAuth.session) {
+      setSession(preloadedAuth.session);
+      setUser(preloadedAuth.user);
+      setProfile({
+        ...preloadedAuth.profile,
+        role: String(preloadedAuth.profile.role).toLowerCase(),
+      });
+      if (preloadedAuth.session.access_token) {
+        localStorage.setItem('iv_auth_token', preloadedAuth.session.access_token);
+        localStorage.setItem('iv_user', JSON.stringify(preloadedAuth.profile));
+      }
+      return { user: preloadedAuth.user, profile: preloadedAuth.profile };
+    }
+
+    // 1. Live Supabase Auth
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -152,7 +234,9 @@ export function AuthProvider({ children }) {
         if (!error && data?.user) {
           const userProfile = await loadProfile(data.user.id, data.user);
           if (!userProfile) {
-            throw new Error('Your access request is currently pending Admin approval.');
+            throw new Error(
+              'Your access request is currently pending Admin approval, or your profile could not be verified.'
+            );
           }
 
           setSession(data.session);
@@ -166,18 +250,22 @@ export function AuthProvider({ children }) {
 
           return { user: data.user, profile: userProfile };
         } else if (error) {
-          // If error is "Email not confirmed", fall through to backend API to auto-confirm and log in
           if (error.message?.toLowerCase().includes('email not confirmed')) {
-            console.warn('[AuthContext] Email not confirmed by Supabase client. Falling back to backend authentication...');
-          } else if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch') && !error.message.includes('Failed to fetch')) {
+            console.warn('[AuthContext] Email not confirmed yet. Checking backend auto-confirm...');
+          } else if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch')) {
             setAuthError(error.message);
             throw error;
           }
         }
       } catch (err) {
         if (err.message?.toLowerCase().includes('email not confirmed')) {
-          console.warn('[AuthContext] Catch: Email not confirmed. Falling back to backend authentication...');
-        } else if (err.message && (err.message.includes('pending Admin approval') || err.message.includes('declined') || err.message.includes('deactivated'))) {
+          console.warn('[AuthContext] Catch: Email not confirmed. Trying backend...');
+        } else if (
+          err.message &&
+          (err.message.includes('pending Admin approval') ||
+            err.message.includes('declined') ||
+            err.message.includes('deactivated'))
+        ) {
           setAuthError(err.message);
           throw err;
         } else if (cleanEmail !== 'admin@college.edu' && err.message && !err.message.includes('fetch')) {
@@ -191,17 +279,24 @@ export function AuthProvider({ children }) {
     try {
       const backendRes = await api.login(cleanEmail, password);
       if (backendRes?.token && backendRes?.user) {
+        // Hydrate Supabase client if Railway returned a real Supabase session!
+        if (isSupabaseConfigured && supabase && backendRes.session?.access_token && backendRes.session?.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: backendRes.session.access_token,
+            refresh_token: backendRes.session.refresh_token,
+          });
+        }
+
         const loggedUser = {
-          id: backendRes.user.id,
-          email: backendRes.user.email,
+          ...backendRes.user,
           full_name: backendRes.user.full_name || backendRes.user.name || 'User',
-          role: backendRes.user.role?.toLowerCase(),
+          role: String(backendRes.user.role || 'student').toLowerCase(),
           approval_status: backendRes.user.approval_status || 'approved',
           is_active: backendRes.user.is_active !== false,
-          must_change_password: false,
+          must_change_password: Boolean(backendRes.user.must_change_password),
         };
 
-        setSession({ access_token: backendRes.token, user: loggedUser });
+        setSession(backendRes.session || { access_token: backendRes.token, user: loggedUser });
         setUser(loggedUser);
         setProfile(loggedUser);
         localStorage.setItem('iv_auth_token', backendRes.token);
@@ -209,20 +304,23 @@ export function AuthProvider({ children }) {
         return { user: loggedUser, profile: loggedUser };
       }
     } catch (bErr) {
-      if (bErr.message && (
-        bErr.message.includes('pending Admin approval') || 
-        bErr.message.includes('declined') ||
-        bErr.message.includes('deactivated')
-      )) {
+      if (
+        bErr.message &&
+        (bErr.message.includes('pending Admin approval') ||
+          bErr.message.includes('declined') ||
+          bErr.message.includes('deactivated') ||
+          bErr.message.includes('Invalid'))
+      ) {
         setAuthError(bErr.message);
         throw bErr;
       }
     }
 
-    // 3. Chief Administrator Fallback (guaranteed access for Admin)
-    if (cleanEmail === 'admin@college.edu' && (password === 'Admin@IV2026!' || password.length >= 6)) {
+    // 3. Offline Dev Mode Admin Fallback (strict password check, NEVER || password.length >= 6!)
+    const adminPassword = import.meta.env.VITE_ADMIN_FALLBACK_PASSWORD || 'Admin@IV2026!';
+    if (cleanEmail === 'admin@college.edu' && password === adminPassword) {
       const adminProfile = {
-        id: 'admin_demo_01',
+        id: 'usr_admin_01',
         email: 'admin@college.edu',
         full_name: 'Chief Administrator',
         role: 'admin',
@@ -230,7 +328,11 @@ export function AuthProvider({ children }) {
         is_active: true,
         must_change_password: false,
       };
-      const adminUser = { id: 'admin_demo_01', email: 'admin@college.edu', user_metadata: { full_name: 'Chief Administrator' } };
+      const adminUser = {
+        id: 'usr_admin_01',
+        email: 'admin@college.edu',
+        user_metadata: { full_name: 'Chief Administrator' },
+      };
       setSession({ access_token: 'demo_token_admin', user: adminUser });
       setUser(adminUser);
       setProfile(adminProfile);
@@ -239,33 +341,41 @@ export function AuthProvider({ children }) {
       return { user: adminUser, profile: adminProfile };
     }
 
-    // 4. Check registered offline users in localStorage
-    const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
-    const found = offlineUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    // 4. Offline dev users (ONLY when Supabase isn't configured)
+    if (!isSupabaseConfigured) {
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      const found = offlineUsers.find((u) => u.email.toLowerCase() === cleanEmail);
 
-    if (found) {
-      if (found.approval_status === 'pending') {
-        throw new Error('Your access request is currently pending Admin approval. You will be able to log in once the administrator approves your request.');
-      }
-      if (found.approval_status === 'rejected') {
-        throw new Error('Your access request was declined by the administrator.');
-      }
-      if (found.password && found.password !== password) {
-        throw new Error('Invalid credentials. Password does not match.');
-      }
+      if (found) {
+        if (found.approval_status === 'pending') {
+          throw new Error(
+            'Your access request is currently pending Admin approval. You will be able to log in once approved.'
+          );
+        }
+        if (found.approval_status === 'rejected') {
+          throw new Error('Your access request was declined by the administrator.');
+        }
+        if (found.password && found.password !== password) {
+          throw new Error('Invalid credentials. Password does not match.');
+        }
 
-      const userObj = { id: found.id, email: found.email, user_metadata: { full_name: found.full_name || found.name } };
-      setSession({ access_token: `demo_token_${found.id}`, user: userObj });
-      setUser(userObj);
-      setProfile(found);
-      localStorage.setItem('iv_auth_token', `demo_token_${found.id}`);
-      localStorage.setItem('iv_user', JSON.stringify(found));
-      return { user: userObj, profile: found };
+        const userObj = {
+          id: found.id,
+          email: found.email,
+          user_metadata: { full_name: found.full_name || found.name },
+        };
+        setSession({ access_token: `demo_token_${found.id}`, user: userObj });
+        setUser(userObj);
+        setProfile(found);
+        localStorage.setItem('iv_auth_token', `demo_token_${found.id}`);
+        localStorage.setItem('iv_user', JSON.stringify(found));
+        return { user: userObj, profile: found };
+      }
     }
 
-    throw new Error('Invalid credentials. Please verify your email and password, or submit an access request by signing in for the first time.');
-
-    return { user: data.user, profile: userProfile };
+    throw new Error(
+      'Invalid credentials. Please verify your email and password, or contact your administrator.'
+    );
   };
 
   const logout = async () => {
@@ -277,7 +387,7 @@ export function AuthProvider({ children }) {
     setAuthError(null);
 
     if (supabase) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut().catch(() => {});
     }
   };
 
@@ -292,8 +402,8 @@ export function AuthProvider({ children }) {
 
     try {
       const token = session?.access_token || localStorage.getItem('iv_auth_token');
-      const apiUrl = import.meta.env.VITE_API_URL 
-        ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api/auth/password-changed` 
+      const apiUrl = import.meta.env.VITE_API_URL
+        ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api/auth/password-changed`
         : '/api/auth/password-changed';
 
       await fetch(apiUrl, {
@@ -314,7 +424,7 @@ export function AuthProvider({ children }) {
   const refreshProfile = async () => {
     if (user?.id && supabase) {
       const refreshed = await loadProfile(user.id, user);
-      setProfile(refreshed);
+      if (refreshed) setProfile(refreshed);
       return refreshed;
     }
     return profile;

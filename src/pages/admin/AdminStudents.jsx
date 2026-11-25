@@ -106,7 +106,7 @@ export default function AdminStudents() {
   const handleRejectRequest = async (req) => {
     if (!window.confirm(`Decline access request from ${req.full_name} (${req.email})?`)) return;
     try {
-      await api.rejectAccessRequest(req.id);
+      await api.rejectAccessRequest(req.id, req.email);
       showToast(`Declined request from ${req.email}.`);
       loadAllData();
     } catch (err) {
@@ -289,7 +289,7 @@ export default function AdminStudents() {
 
   const filteredApproved = approvedStudents.filter((a) => {
     const s = searchTerm.toLowerCase();
-    const roll = a.student_details?.roll_no || a.roll_number || "";
+    const roll = a.roll_no || a.student_details?.roll_no || a.roll_number || "";
     return (a.full_name || "").toLowerCase().includes(s) || (a.email || "").toLowerCase().includes(s) || roll.toLowerCase().includes(s);
   });
 
@@ -461,8 +461,8 @@ export default function AdminStudents() {
                   </tr>
                 ) : (
                   filteredApproved.map((student) => {
-                    const roll = student.student_details?.roll_no || student.roll_number || "CS-2026";
-                    const dept = student.student_details?.department || student.department || "Computer Science";
+                    const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "CS-2026";
+                    const dept = student.department || student.student_details?.department || "Computer Science";
                     const isActive = student.is_active !== false;
 
                     return (

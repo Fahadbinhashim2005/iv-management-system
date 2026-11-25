@@ -4,18 +4,26 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { db } from './db.js';
-import { requireAuth, requireRole, supabaseAdmin } from './middleware/auth.js';
+import {
+  requireAuth,
+  requireRole,
+  supabaseAdmin,
+  supabasePublic,
+  isSupabaseConfiguredOnServer,
+  issueServerToken,
+} from './middleware/auth.js';
 import adminUsersRouter from './routes/adminUsers.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const ADMIN_FALLBACK_PASSWORD = process.env.ADMIN_INITIAL_PASSWORD || 'Admin@IV2026!';
 
 // 1. Security HTTP Headers
 app.use(helmet());
 
-// 2. CORS Policy: Allow configured origin(s) or default development ports
+// 2. CORS Policy
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
   : [
@@ -29,9 +37,9 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (
-        !origin || 
-        allowedOrigins.includes('*') || 
-        allowedOrigins.includes(origin) || 
+        !origin ||
+        allowedOrigins.includes('*') ||
+        allowedOrigins.includes(origin) ||
         origin.endsWith('.vercel.app')
       ) {
         return callback(null, true);
@@ -64,8 +72,6 @@ const adminLimiter = rateLimit({
   message: { error: 'Too many administrative requests. Please slow down.' },
 });
 
-// In-memory store imported from shared ./db.js (used across routes and middleware)
-
 // -----------------------------------------------------------------------------
 // Core System & Health Endpoints
 // -----------------------------------------------------------------------------
@@ -73,7 +79,8 @@ app.get('/', (req, res) => {
   res.json({
     service: 'IV Connect Core API',
     status: 'online',
-    version: '2.1.0',
+    version: '2.2.0',
+    supabaseAdminReady: Boolean(supabaseAdmin),
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
@@ -83,7 +90,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
     service: 'IV Connect Core API',
-    version: '2.1.0',
+    version: '2.2.0',
+    supabaseAdminReady: Boolean(supabaseAdmin),
     timestamp: new Date().toISOString(),
   });
 });
@@ -91,11 +99,6 @@ app.get('/api/health', (req, res) => {
 // -----------------------------------------------------------------------------
 // Self-Registration / Access Request & Sign-in Gateway
 // -----------------------------------------------------------------------------
-/**
- * POST /api/auth/sign-in-or-request
- * Handles first-time sign-in by automatically sending an access request to the Admin,
- * and reports the account approval status.
- */
 app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
   try {
     const { email, password, role, full_name } = req.body;
@@ -110,17 +113,20 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid role selection.' });
     }
 
-    // 1. Supabase Mode (Production/Database)
+    // 1. Supabase Admin Mode (true service_role key configured)
     if (supabaseAdmin) {
-      // Check if user already has a profile
-      const { data: profile } = await supabaseAdmin
+      const { data: profile, error: lookupErr } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .eq('email', normalizedEmail)
         .maybeSingle();
 
+      if (lookupErr) {
+        console.error('[sign-in-or-request profile lookup error]:', lookupErr.message);
+        return res.status(500).json({ error: 'Unable to check account status right now.' });
+      }
+
       if (profile) {
-        // User exists: report status
         if (profile.approval_status === 'pending') {
           return res.json({
             status: 'pending',
@@ -136,6 +142,24 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
             error: 'Your access request was declined by the administrator.',
           });
         }
+        if (profile.is_active === false && String(profile.role).toLowerCase() !== 'admin') {
+          return res.status(403).json({
+            status: 'inactive',
+            exists: true,
+            error: 'Your account has been deactivated by the administrator.',
+          });
+        }
+
+        // Ensure approved auth users are unbanned & email-confirmed
+        try {
+          await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+            email_confirm: true,
+            ban_duration: 'none',
+          });
+        } catch {
+          // Ignore non-fatal auth confirm note
+        }
+
         return res.json({
           status: 'approved',
           exists: true,
@@ -144,106 +168,73 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
         });
       }
 
-      // User does NOT exist in profiles: THIS IS THEIR FIRST SIGN IN!
-      // Enforce minimum password length
+      // First-time user check
       if (!password || password.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
       }
 
-      // Prevent unauthorized admin self-registration
       if (normalizedRole === 'admin') {
         return res.status(403).json({
           error: 'Administrator accounts cannot self-register. Please sign in with approved admin credentials.',
         });
       }
 
-      // Derive human-readable name from email if not explicitly provided
       const rawPrefix = normalizedEmail.split('@')[0];
-      const derivedName = full_name?.trim() || rawPrefix
-        .replace(/[._-]+/g, ' ')
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+      const derivedName =
+        full_name?.trim() ||
+        rawPrefix
+          .replace(/[._-]+/g, ' ')
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
 
-      // Step A: Create or fetch Auth user in Supabase Auth
       let authUserId = null;
       const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
         password,
         email_confirm: true,
         app_metadata: { role: normalizedRole },
-        user_metadata: { full_name: derivedName },
+        user_metadata: { full_name: derivedName, role: normalizedRole },
       });
 
       if (authErr) {
-        // If user already existed in Auth (e.g. from previous attempt without profile)
+        // User already exists in auth.users -> DO NOT overwrite or ban!
         const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-        const found = existingUsers?.users?.find((u) => u.email.toLowerCase() === normalizedEmail);
+        const found = existingUsers?.users?.find((u) => u.email?.toLowerCase() === normalizedEmail);
         if (found) {
           authUserId = found.id;
-          // Update password to the new one typed
-          await supabaseAdmin.auth.admin.updateUserById(authUserId, { password, ban_duration: '876000h' });
+          // Ensure email confirmed and unbanned
+          await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+            email_confirm: true,
+            ban_duration: 'none',
+          });
         } else {
           return res.status(400).json({ error: authErr.message });
         }
       } else {
         authUserId = authData.user.id;
-        // Temporarily ban auth login until admin clicks approve
-        await supabaseAdmin.auth.admin.updateUserById(authUserId, { ban_duration: '876000h' });
       }
 
-      // Step B: Insert into profiles with approval_status = 'pending' and is_active = false
-      const { error: pErr } = await supabaseAdmin.from('profiles').insert({
-        id: authUserId,
-        email: normalizedEmail,
-        full_name: derivedName,
-        role: normalizedRole,
-        approval_status: 'pending',
-        is_active: false,
-        must_change_password: false,
-      });
+      // Insert pending profile ONLY if it does not already exist (never overwrite an existing row!)
+      const { error: pErr } = await supabaseAdmin
+        .from('profiles')
+        .upsert(
+          {
+            id: authUserId,
+            email: normalizedEmail,
+            full_name: derivedName,
+            role: normalizedRole,
+            approval_status: 'pending',
+            is_active: false,
+            must_change_password: false,
+          },
+          { onConflict: 'id', ignoreDuplicates: true }
+        );
 
       if (pErr) {
-        console.warn('[sign-in-or-request profile fallback]:', pErr.message);
-        // Fallback if approval_status column does not exist yet in Supabase
-        await supabaseAdmin.from('profiles').upsert({
-          id: authUserId,
-          email: normalizedEmail,
-          full_name: derivedName,
-          role: normalizedRole,
-        });
+        console.warn('[sign-in-or-request profile insert note]:', pErr.message);
       }
 
-      // Sync in-memory store so it is immediately available across API routes
-      if (!db.users.some((u) => u.email === normalizedEmail)) {
-        db.users.push({
-          id: authUserId,
-          email: normalizedEmail,
-          name: derivedName,
-          role: normalizedRole,
-          approval_status: 'pending',
-          is_active: false,
-        });
-      }
-
-      // Step C: Insert detail row
-      if (normalizedRole === 'student') {
-        const rollSeed = `CS-2026-${Math.floor(100 + Math.random() * 900)}`;
-        await supabaseAdmin.from('student_details').insert({
-          profile_id: authUserId,
-          roll_no: rollSeed,
-          department: 'Computer Science & Engineering',
-          batch: 'Batch 2023-27',
-        });
-      } else if (normalizedRole === 'coordinator') {
-        await supabaseAdmin.from('coordinator_details').insert({
-          profile_id: authUserId,
-          department: 'Computer Science & Engineering',
-          designation: 'Tour Coordinator',
-        });
-      }
-
-      // Log the event
       await supabaseAdmin.from('audit_logs').insert({
         action: 'SUBMIT_ACCESS_REQUEST',
         resource_type: 'user',
@@ -258,20 +249,63 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
       });
     }
 
-    // 2. In-Memory Mode (Development Fallback)
+    // 2. If Supabase Public client is configured (but service_role isn't set on Railway),
+    // try safe RPC check before touching memory!
+    if (supabasePublic) {
+      const { data: rpcStatus, error: rpcErr } = await supabasePublic.rpc('get_account_login_status', {
+        lookup_email: normalizedEmail,
+      });
+
+      if (!rpcErr && rpcStatus?.exists) {
+        if (rpcStatus.approval_status === 'pending') {
+          return res.json({
+            status: 'pending',
+            exists: true,
+            role: rpcStatus.role,
+            message: 'Your access request is currently pending Admin approval.',
+          });
+        }
+        if (rpcStatus.approval_status === 'rejected') {
+          return res.status(403).json({
+            status: 'rejected',
+            exists: true,
+            error: 'Your access request was declined by the administrator.',
+          });
+        }
+        return res.json({
+          status: rpcStatus.approval_status || 'approved',
+          exists: true,
+          role: rpcStatus.role,
+        });
+      }
+
+      // Cannot safely bypass RLS without service role key
+      return res.status(503).json({
+        error: 'Backend requires Supabase sign-in directly or SUPABASE_SERVICE_ROLE_KEY configuration.',
+      });
+    }
+
+    // 3. Pure In-Memory Mode (Local dev fallback when Supabase is NOT configured at all)
     const existing = db.users.find((u) => u.email.toLowerCase() === normalizedEmail);
     if (existing) {
       return res.json({
         status: existing.approval_status || 'approved',
         exists: true,
         role: existing.role,
-        message: existing.approval_status === 'pending'
-          ? 'Your access request is currently pending Admin approval.'
-          : 'Account exists. Please sign in.',
+        message:
+          existing.approval_status === 'pending'
+            ? 'Your access request is currently pending Admin approval.'
+            : 'Account exists. Please sign in.',
       });
     }
 
-    // First time in memory
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+    if (normalizedRole === 'admin') {
+      return res.status(403).json({ error: 'Administrator accounts cannot self-register.' });
+    }
+
     const newReqUser = {
       id: `usr_${Date.now()}`,
       email: normalizedEmail,
@@ -289,7 +323,7 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
     return res.status(201).json({
       success: true,
       status: 'request_created',
-      message: 'Access request submitted! Your account has been sent to the Admin for approval. Once approved, you can log in directly with this password.',
+      message: 'Access request submitted! Your account has been sent to the Admin for approval.',
     });
   } catch (err) {
     console.error('[sign-in-or-request error]:', err);
@@ -299,7 +333,7 @@ app.post('/api/auth/sign-in-or-request', authLimiter, async (req, res) => {
 
 /**
  * POST /api/auth/login
- * Unified sign-in endpoint for Admin, approved Coordinators, and approved Students
+ * Unified sign-in endpoint with real password verification
  */
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
@@ -309,8 +343,101 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Primary Admin check
-    if (cleanEmail === 'admin@college.edu' && (password === 'Admin@IV2026!' || password.length >= 6)) {
+    // 1. Supabase Verification Mode (when Supabase URL/Key is configured)
+    if (isSupabaseConfiguredOnServer && supabasePublic) {
+      // First attempt real password check via Supabase Auth
+      let { data: authData, error: authErr } = await supabasePublic.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      // If Supabase rejected ONLY because email wasn't confirmed yet AND we have admin client:
+      // Wait: confirm ONLY if user is approved, then re-try signInWithPassword so password STILL gets verified!
+      if (authErr && authErr.message?.toLowerCase().includes('email not confirmed') && supabaseAdmin) {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('id, approval_status, role, is_active')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (prof && (prof.role === 'admin' || prof.approval_status === 'approved')) {
+          await supabaseAdmin.auth.admin.updateUserById(prof.id, {
+            email_confirm: true,
+            ban_duration: 'none',
+          });
+          const retry = await supabasePublic.auth.signInWithPassword({ email: cleanEmail, password });
+          authData = retry.data;
+          authErr = retry.error;
+        }
+      }
+
+      if (!authErr && authData?.user && authData?.session) {
+        // Query user profile using either admin client or the newly issued session token
+        const sb = supabaseAdmin || supabasePublic;
+        const { data: profile } = await sb
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+
+        const resolvedProfile = profile || {
+          id: authData.user.id,
+          email: authData.user.email,
+          full_name: authData.user.user_metadata?.full_name || 'User',
+          role: authData.user.app_metadata?.role || 'student',
+          approval_status: 'approved',
+          is_active: true,
+        };
+
+        if (String(resolvedProfile.role).toLowerCase() !== 'admin') {
+          if (resolvedProfile.approval_status === 'pending') {
+            return res.status(403).json({ error: 'Your access request is currently pending Admin approval.' });
+          }
+          if (resolvedProfile.approval_status === 'rejected') {
+            return res.status(403).json({ error: 'Your access request was declined by the administrator.' });
+          }
+          if (resolvedProfile.is_active === false) {
+            return res.status(403).json({ error: 'Your account has been deactivated.' });
+          }
+        }
+
+        return res.json({
+          success: true,
+          token: authData.session.access_token,
+          session: {
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+          },
+          user: resolvedProfile,
+        });
+      }
+
+      // Check Chief Administrator configured bootstrap credential (exact password required!)
+      if (cleanEmail === 'admin@college.edu' && password === ADMIN_FALLBACK_PASSWORD) {
+        const adminUser = {
+          id: 'usr_admin_01',
+          email: 'admin@college.edu',
+          full_name: 'Chief Administrator',
+          name: 'Chief Administrator',
+          role: 'admin',
+          approval_status: 'approved',
+          is_active: true,
+        };
+        return res.json({
+          success: true,
+          token: issueServerToken(adminUser),
+          user: adminUser,
+        });
+      }
+
+      return res.status(401).json({ error: authErr?.message || 'Invalid login credentials.' });
+    }
+
+    // 2. Pure In-Memory Mode (Local dev without Supabase)
+    if (cleanEmail === 'admin@college.edu') {
+      if (password !== ADMIN_FALLBACK_PASSWORD) {
+        return res.status(401).json({ error: 'Invalid administrator credentials.' });
+      }
       const adminUser = {
         id: 'usr_admin_01',
         email: 'admin@college.edu',
@@ -322,56 +449,18 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       };
       return res.json({
         success: true,
-        token: 'demo_token_admin',
+        token: issueServerToken(adminUser),
         user: adminUser,
       });
     }
 
-    // 2. Supabase Mode
-    if (supabaseAdmin) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-
-      if (!profile) {
-        return res.status(401).json({ error: 'Account not found. Please sign in to submit an access request.' });
-      }
-
-      if (profile.role !== 'admin') {
-        if (profile.approval_status === 'pending') {
-          return res.status(403).json({ error: 'Your access request is currently pending Admin approval.' });
-        }
-        if (profile.approval_status === 'rejected') {
-          return res.status(403).json({ error: 'Your access request was declined by the administrator.' });
-        }
-        if (profile.is_active === false) {
-          return res.status(403).json({ error: 'Your account has been deactivated.' });
-        }
-      }
-
-      // Auto-confirm user in Supabase auth.users to resolve "Email not confirmed"
-      try {
-        await supabaseAdmin.auth.admin.updateUserById(profile.id, {
-          email_confirm: true,
-          ban_duration: 'none',
-        });
-      } catch (e) {
-        console.warn('[Auto-confirm user note]:', e.message);
-      }
-
-      return res.json({
-        success: true,
-        token: `token_${profile.id}`,
-        user: profile,
-      });
-    }
-
-    // 3. In-Memory Mode
     const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
     if (!user) {
       return res.status(401).json({ error: 'Account not found. Please sign in to submit an access request.' });
+    }
+
+    if (user.password && user.password !== password) {
+      return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
     }
 
     if (user.role !== 'admin') {
@@ -384,14 +473,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       if (user.is_active === false) {
         return res.status(403).json({ error: 'Your account has been deactivated.' });
       }
-      if (user.password && user.password !== password) {
-        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
-      }
     }
 
     return res.json({
       success: true,
-      token: `token_${user.id}`,
+      token: issueServerToken(user),
       user: {
         id: user.id,
         email: user.email,
@@ -412,42 +498,27 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 // -----------------------------------------------------------------------------
 app.post('/api/auth/password-changed', authLimiter, requireAuth, async (req, res) => {
   try {
-    if (supabaseAdmin) {
-      await supabaseAdmin
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('id', req.user.id);
+    const sb = req.supabase || supabaseAdmin;
+    if (sb) {
+      await sb.from('profiles').update({ must_change_password: false }).eq('id', req.user.id);
     }
     return res.json({ success: true, message: 'Password update confirmed.' });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: 'Failed to record password change.' });
   }
 });
 
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   try {
-    if (supabaseAdmin) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', req.user.id)
-        .single();
-
+    const sb = req.supabase || supabaseAdmin;
+    if (sb) {
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', req.user.id).maybeSingle();
       if (profile) {
-        let details = {};
-        if (profile.role === 'student') {
-          const { data: s } = await supabaseAdmin.from('student_details').select('*').eq('profile_id', profile.id).single();
-          details = s || {};
-        } else if (profile.role === 'coordinator') {
-          const { data: c } = await supabaseAdmin.from('coordinator_details').select('*').eq('profile_id', profile.id).single();
-          details = c || {};
-        }
-        return res.json({ success: true, user: { ...profile, details } });
+        return res.json({ success: true, user: profile });
       }
     }
-
     return res.json({ success: true, user: req.user });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: 'Failed to retrieve profile.' });
   }
 });
@@ -486,8 +557,9 @@ app.use('/api/coordinator', requireAuth, requireRole('coordinator', 'admin'), co
 const adminRouter = express.Router();
 adminRouter.get('/system-metrics', async (req, res) => {
   let pendingCount = 0;
-  if (supabaseAdmin) {
-    const { count } = await supabaseAdmin
+  const sb = req.supabase || supabaseAdmin;
+  if (sb) {
+    const { count } = await sb
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('approval_status', 'pending');
@@ -642,7 +714,11 @@ app.use('/api', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[IV Connect API Server] running on http://localhost:${PORT}`);
+  console.log(
+    `[IV Connect API Server] running on http://localhost:${PORT} (Supabase: ${
+      supabaseAdmin ? 'ADMIN_SERVICE_ROLE' : isSupabaseConfiguredOnServer ? 'USER_SCOPED_RLS' : 'IN_MEMORY_DEV'
+    })`
+  );
 });
 
 export default app;

@@ -18,10 +18,12 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- AUTO-CONFIRM ALL AUTH USERS (Eliminates "Email not confirmed" requirement)
+-- AUTO-CONFIRM & UNBAN ALL AUTH USERS (Eliminates "Email not confirmed" and legacy bans)
 UPDATE auth.users 
-SET email_confirmed_at = NOW() 
-WHERE email_confirmed_at IS NULL;
+SET 
+  email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+  banned_until = NULL
+WHERE email_confirmed_at IS NULL OR banned_until IS NOT NULL;
 
 -- Automatically mark any future auth signup as email-confirmed
 CREATE OR REPLACE FUNCTION public.auto_confirm_auth_user()
@@ -161,60 +163,68 @@ CREATE TRIGGER set_trip_assignments_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 5. AUTOMATED USER PROVISIONING TRIGGER (auth.users -> profiles + trip_assignments)
--- Guarantees that any new user signing up immediately receives both rows.
+-- Handles both TEXT and user_role ENUM safely, and never overwrites already-approved profiles.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
   assigned_role TEXT;
   derived_name TEXT;
+  is_enum_role BOOLEAN;
 BEGIN
-  assigned_role := coalesce(NEW.raw_user_meta_data->>'role', 'student');
+  assigned_role := coalesce(
+    NEW.raw_app_meta_data->>'role',
+    NEW.raw_user_meta_data->>'role',
+    'student'
+  );
+  IF assigned_role NOT IN ('student', 'coordinator', 'admin') THEN
+    assigned_role := 'student';
+  END IF;
+
   derived_name := coalesce(
     NEW.raw_user_meta_data->>'full_name',
     initcap(replace(replace(split_part(NEW.email, '@', 1), '.', ' '), '_', ' '))
   );
 
-  -- 1. Insert or update Profile
-  INSERT INTO public.profiles (
-    id,
-    email,
-    full_name,
-    role,
-    approval_status,
-    is_active,
-    must_change_password,
-    avatar_type
-  )
-  VALUES (
-    NEW.id,
-    NEW.email,
-    derived_name,
-    assigned_role,
-    CASE WHEN assigned_role = 'admin' THEN 'approved' ELSE 'pending' END,
-    CASE WHEN assigned_role = 'admin' THEN TRUE ELSE FALSE END,
-    FALSE,
-    'initial'
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    email = EXCLUDED.email,
-    full_name = coalesce(public.profiles.full_name, EXCLUDED.full_name);
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'role' AND udt_name = 'user_role'
+  ) INTO is_enum_role;
 
-  -- 2. Insert corresponding Trip Assignment row (Read-only for student)
-  INSERT INTO public.trip_assignments (
-    user_id,
-    status,
-    is_verified
-  )
-  VALUES (
-    NEW.id,
-    'Active Student',
-    FALSE
-  )
+  IF is_enum_role THEN
+    INSERT INTO public.profiles (
+      id, email, full_name, role, approval_status, is_active, must_change_password, avatar_type
+    )
+    VALUES (
+      NEW.id, NEW.email, derived_name, assigned_role::public.user_role,
+      CASE WHEN assigned_role = 'admin' THEN 'approved' ELSE 'pending' END,
+      CASE WHEN assigned_role = 'admin' THEN TRUE ELSE FALSE END,
+      FALSE, 'initial'
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      id = EXCLUDED.id,
+      full_name = coalesce(public.profiles.full_name, EXCLUDED.full_name);
+  ELSE
+    INSERT INTO public.profiles (
+      id, email, full_name, role, approval_status, is_active, must_change_password, avatar_type
+    )
+    VALUES (
+      NEW.id, NEW.email, derived_name, assigned_role,
+      CASE WHEN assigned_role = 'admin' THEN 'approved' ELSE 'pending' END,
+      CASE WHEN assigned_role = 'admin' THEN TRUE ELSE FALSE END,
+      FALSE, 'initial'
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      id = EXCLUDED.id,
+      full_name = coalesce(public.profiles.full_name, EXCLUDED.full_name);
+  END IF;
+
+  INSERT INTO public.trip_assignments (user_id, status, is_verified)
+  VALUES (NEW.id, 'Active Student', FALSE)
   ON CONFLICT (user_id) DO NOTHING;
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Re-attach auth user trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -222,21 +232,86 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 6. DATA BACKFILL
--- A. Ensure all existing auth.users have a profile row
-INSERT INTO public.profiles (id, email, full_name, role, approval_status, is_active, avatar_type)
-SELECT 
-  u.id, 
-  u.email, 
-  coalesce(u.raw_user_meta_data->>'full_name', initcap(replace(split_part(u.email, '@', 1), '.', ' '))),
-  coalesce(u.raw_user_meta_data->>'role', 'student'),
-  CASE WHEN coalesce(u.raw_user_meta_data->>'role', 'student') = 'admin' THEN 'approved' ELSE 'pending' END,
-  CASE WHEN coalesce(u.raw_user_meta_data->>'role', 'student') = 'admin' THEN TRUE ELSE FALSE END,
-  'initial'
-FROM auth.users u
-ON CONFLICT (id) DO NOTHING;
+-- 6. DATA BACKFILL & ADMIN BOOTSTRAP
+-- A. Ensure Admin (admin@college.edu) exists in Supabase Auth + profiles so Admin gets a real JWT session
+DO $$
+DECLARE
+  admin_uid UUID;
+  is_enum_role BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'role' AND udt_name = 'user_role'
+  ) INTO is_enum_role;
 
--- B. Ensure all existing profiles have a trip_assignments row
+  SELECT id INTO admin_uid FROM auth.users WHERE lower(email) = 'admin@college.edu' LIMIT 1;
+
+  IF admin_uid IS NULL THEN
+    admin_uid := gen_random_uuid();
+    INSERT INTO auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000000',
+      admin_uid,
+      'authenticated',
+      'authenticated',
+      'admin@college.edu',
+      crypt('Admin@IV2026!', gen_salt('bf')),
+      NOW(),
+      '{"provider":"email","providers":["email"],"role":"admin"}'::jsonb,
+      '{"full_name":"Chief Administrator","role":"admin"}'::jsonb,
+      NOW(), NOW(), '', '', '', ''
+    );
+
+    INSERT INTO auth.identities (
+      id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      admin_uid,
+      admin_uid::text,
+      jsonb_build_object('sub', admin_uid::text, 'email', 'admin@college.edu', 'email_verified', true, 'phone_verified', false),
+      'email',
+      NOW(), NOW(), NOW()
+    ) ON CONFLICT DO NOTHING;
+  ELSE
+    UPDATE auth.users
+    SET
+      email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+      banned_until = NULL,
+      raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+    WHERE id = admin_uid;
+  END IF;
+
+  IF is_enum_role THEN
+    INSERT INTO public.profiles (id, email, full_name, role, approval_status, is_active, avatar_type)
+    VALUES (admin_uid, 'admin@college.edu', 'Chief Administrator', 'admin'::public.user_role, 'approved', TRUE, 'initial')
+    ON CONFLICT (email) DO UPDATE SET
+      id = EXCLUDED.id,
+      role = 'admin'::public.user_role,
+      approval_status = 'approved',
+      is_active = TRUE;
+  ELSE
+    INSERT INTO public.profiles (id, email, full_name, role, approval_status, is_active, avatar_type)
+    VALUES (admin_uid, 'admin@college.edu', 'Chief Administrator', 'admin', 'approved', TRUE, 'initial')
+    ON CONFLICT (email) DO UPDATE SET
+      id = EXCLUDED.id,
+      role = 'admin',
+      approval_status = 'approved',
+      is_active = TRUE;
+  END IF;
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Admin bootstrap note: %', SQLERRM;
+END $$;
+
+-- B. Sync role claims into auth.users app_metadata for existing users
+UPDATE auth.users u
+SET raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', p.role::text)
+FROM public.profiles p
+WHERE lower(p.email) = lower(u.email);
+
+-- C. Ensure all existing profiles have a trip_assignments row
 INSERT INTO public.trip_assignments (user_id, status, is_verified)
 SELECT p.id, 'Active Student', FALSE
 FROM public.profiles p
@@ -265,84 +340,114 @@ DO $$ BEGIN
   END IF;
 EXCEPTION WHEN others THEN null; END $$;
 
--- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES & LOGIN STATUS RPC
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trip_assignments ENABLE ROW LEVEL SECURITY;
 
--- Helper to safely extract JWT role
-CREATE OR REPLACE FUNCTION public.jwt_role() RETURNS TEXT
-LANGUAGE sql STABLE AS $$
-  SELECT coalesce(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() -> 'user_metadata' ->> 'role', '')
+-- Safe SECURITY DEFINER role lookup (NEVER triggers 42P17 infinite recursion!)
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT coalesce(
+    (SELECT role::text FROM public.profiles WHERE id = auth.uid() LIMIT 1),
+    auth.jwt() -> 'app_metadata' ->> 'role',
+    ''
+  );
 $$;
+
+-- Safe pre-login status check RPC (returns ONLY status flags, zero PII)
+CREATE OR REPLACE FUNCTION public.get_account_login_status(lookup_email TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  rec RECORD;
+BEGIN
+  SELECT approval_status, is_active, role::text AS role
+  INTO rec
+  FROM public.profiles
+  WHERE lower(email) = lower(trim(lookup_email))
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('exists', false);
+  END IF;
+
+  RETURN jsonb_build_object(
+    'exists', true,
+    'approval_status', rec.approval_status,
+    'is_active', rec.is_active,
+    'role', lower(rec.role)
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_account_login_status(TEXT) TO anon, authenticated;
 
 -- Clean existing policies for idempotency
 DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_delete_policy" ON public.profiles;
+DROP POLICY IF EXISTS "own profile" ON public.profiles;
+DROP POLICY IF EXISTS "staff read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "admin write profiles" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to insert their profile" ON public.profiles;
+DROP POLICY IF EXISTS "allow users to update own profile" ON public.profiles;
 
--- 7.1 PROFILES POLICIES
--- SELECT: A user can read their own profile; coordinators and admins can view all profiles
+-- 7.1 PROFILES POLICIES (Zero recursion)
 CREATE POLICY "profiles_select_policy"
   ON public.profiles FOR SELECT
   USING (
     id = auth.uid() OR
-    public.jwt_role() IN ('admin', 'coordinator') OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'coordinator'))
+    public.current_user_role() IN ('admin', 'coordinator')
   );
 
--- UPDATE: A student can update ONLY their own profile; admins can update any profile
 CREATE POLICY "profiles_update_policy"
   ON public.profiles FOR UPDATE
   USING (
     id = auth.uid() OR
-    public.jwt_role() = 'admin' OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.current_user_role() = 'admin'
   )
   WITH CHECK (
     id = auth.uid() OR
-    public.jwt_role() = 'admin' OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.current_user_role() = 'admin'
   );
 
--- INSERT: Handled via trigger or client signup
 CREATE POLICY "profiles_insert_policy"
   ON public.profiles FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (
+    id = auth.uid() OR
+    public.current_user_role() = 'admin'
+  );
 
--- DELETE: Only Admins can delete profiles
 CREATE POLICY "profiles_delete_policy"
   ON public.profiles FOR DELETE
   USING (
-    public.jwt_role() = 'admin' OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    public.current_user_role() = 'admin'
   );
 
 -- 7.2 TRIP_ASSIGNMENTS POLICIES
 DROP POLICY IF EXISTS "trip_assignments_select_policy" ON public.trip_assignments;
 DROP POLICY IF EXISTS "trip_assignments_admin_all" ON public.trip_assignments;
 
--- SELECT: Students can read ONLY their own assignment; coordinators & admins can view all
 CREATE POLICY "trip_assignments_select_policy"
   ON public.trip_assignments FOR SELECT
   USING (
     user_id = auth.uid() OR
-    public.jwt_role() IN ('admin', 'coordinator') OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'coordinator'))
+    public.current_user_role() IN ('admin', 'coordinator')
   );
 
--- WRITE (INSERT, UPDATE, DELETE): Strictly Admin only.
--- NO student policy exists for INSERT, UPDATE, or DELETE on trip_assignments!
 CREATE POLICY "trip_assignments_admin_all"
   ON public.trip_assignments FOR ALL
-  USING (
-    public.jwt_role() = 'admin' OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-  )
-  WITH CHECK (
-    public.jwt_role() = 'admin' OR
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+  USING (public.current_user_role() = 'admin')
+  WITH CHECK (public.current_user_role() = 'admin');
 
 -- ==============================================================================
 -- 8. STORAGE BUCKET: AVATARS (PHASE 2)

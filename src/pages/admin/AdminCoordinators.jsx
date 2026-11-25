@@ -91,7 +91,7 @@ export default function AdminCoordinators() {
   const handleRejectRequest = async (req) => {
     if (!window.confirm(`Decline access request from ${req.full_name} (${req.email})?`)) return;
     try {
-      await api.rejectAccessRequest(req.id);
+      await api.rejectAccessRequest(req.id, req.email);
       showToast(`Declined request from ${req.email}.`);
       loadAllData();
     } catch (err) {

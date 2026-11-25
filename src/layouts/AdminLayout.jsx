@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import AdminBottomNav from "../components/navigation/AdminBottomNav";
+import { useAuth } from "../context/AuthContext";
 
 const adminNavItems = [
   { to: "/admin/dashboard", label: "System Overview", icon: LayoutDashboard },
@@ -31,6 +32,13 @@ const adminNavItems = [
 export default function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    setMobileMenuOpen(false);
+    await logout();
+    navigate("/login");
+  };
 
   return (
     <main className="min-h-screen bg-[#F4F8F5] text-[#163D2B]">
@@ -181,10 +189,7 @@ export default function AdminLayout() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate("/login");
-                }}
+                onClick={handleLogout}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 transition"
               >
                 <LogOut size={14} />
@@ -273,7 +278,7 @@ export default function AdminLayout() {
 
             <button
               type="button"
-              onClick={() => navigate("/login")}
+              onClick={handleLogout}
               className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50/80 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100"
             >
               <LogOut size={13} />

@@ -62,8 +62,26 @@ function Login() {
                 return;
             }
 
+            if (checkRes.status === 'inactive') {
+                setStatusBanner({
+                    type: 'error',
+                    message: "Your account has been deactivated. Please contact your administrator.",
+                });
+                setSubmitting(false);
+                return;
+            }
+
+            if (checkRes.status === 'wrong_password') {
+                setStatusBanner({
+                    type: 'error',
+                    message: "Incorrect password for an existing account. Please double-check your password and try again.",
+                });
+                setSubmitting(false);
+                return;
+            }
+
             // Step 2: Account is approved! Authenticate via Supabase Auth
-            const { profile } = await login(email, password);
+            const { profile } = await login(email, password, checkRes);
 
             const userRole = (profile?.role || "").toLowerCase();
             const chosenTab = selectedRole.toLowerCase();
