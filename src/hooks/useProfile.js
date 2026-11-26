@@ -31,6 +31,7 @@ export function useProfile() {
   const [formData, setFormData] = useState({
     full_name: "",
     roll_no: "",
+    gender: "",
     phone: "",
     department: "Computer Science & Engineering",
     semester: 5,
@@ -142,6 +143,7 @@ export function useProfile() {
       const formValues = {
         full_name: loadedProfile.full_name || "",
         roll_no: loadedProfile.roll_no || "",
+        gender: loadedProfile.gender || "",
         phone: loadedProfile.phone || "",
         department: loadedProfile.department || "Computer Science & Engineering",
         semester: loadedProfile.semester || 5,
@@ -230,6 +232,7 @@ export function useProfile() {
       const updates = {
         full_name: formData.full_name.trim(),
         roll_no: formData.roll_no.trim(),
+        gender: formData.gender ? formData.gender.toLowerCase() : null,
         phone: normalizePhoneNumber(formData.phone),
         department: formData.department,
         semester: Number(formData.semester),

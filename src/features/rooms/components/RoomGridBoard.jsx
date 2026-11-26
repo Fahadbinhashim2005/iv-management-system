@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BedDouble,
   CheckCircle2,
@@ -166,14 +167,22 @@ export default function RoomGridBoard({
 
       {/* Missing Gender Warning */}
       {missingGenderWarning && (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
-          <div>
-            <p className="font-extrabold">Gender not set on your profile</p>
-            <p className="text-amber-800">
-              Contact admin to update your profile before selecting a boys or girls room.
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-extrabold">Gender not set on your profile</p>
+              <p className="text-amber-800">
+                Set your gender in My Profile (or contact admin) before selecting a boys or girls room.
+              </p>
+            </div>
           </div>
+          <Link
+            to="/student/profile"
+            className="self-start sm:self-center shrink-0 rounded-xl bg-amber-600 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-amber-700 transition"
+          >
+            Update Profile
+          </Link>
         </div>
       )}
 

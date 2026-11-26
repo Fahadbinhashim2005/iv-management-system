@@ -67,6 +67,13 @@ export function validateField(field, value, allValues = {}) {
       return null;
     }
 
+    case "gender": {
+      if (value && !["male", "female", "other"].includes(String(value).toLowerCase())) {
+        return "Please select a valid gender option.";
+      }
+      return null;
+    }
+
     case "semester": {
       const sem = Number(value);
       if (!value || isNaN(sem) || sem < 1 || sem > 8) {
@@ -183,6 +190,7 @@ export function calculateProfileCompleteness(profile) {
   const coreFields = [
     "full_name",
     "roll_no",
+    "gender",
     "phone",
     "department",
     "semester",
