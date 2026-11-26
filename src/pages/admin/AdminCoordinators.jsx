@@ -44,6 +44,7 @@ export default function AdminCoordinators() {
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
+    gender: "",
     department: "Computer Science & Engineering",
     designation: "Assistant Professor",
     phone: "",
@@ -109,6 +110,7 @@ export default function AdminCoordinators() {
         password: formData.password,
         full_name: formData.full_name,
         role: "coordinator",
+        gender: formData.gender || null,
         phone: formData.phone,
         details: {
           department: formData.department,
@@ -128,6 +130,7 @@ export default function AdminCoordinators() {
         setFormData({
           full_name: "",
           email: "",
+          gender: "",
           department: "Computer Science & Engineering",
           designation: "Assistant Professor",
           phone: "",
@@ -151,6 +154,19 @@ export default function AdminCoordinators() {
       loadAllData();
     } catch (err) {
       alert(err.message || "Failed to toggle status.");
+    }
+  };
+
+  const handleGenderChange = async (coord, genderValue) => {
+    try {
+      const nextGender = genderValue || null;
+      await api.updateAdminUser(coord.id, { gender: nextGender });
+      setApprovedCoordinators((prev) =>
+        prev.map((c) => (c.id === coord.id ? { ...c, gender: nextGender } : c))
+      );
+      showToast(`Updated gender for ${coord.full_name || coord.name}.`);
+    } catch (err) {
+      alert(err.message || "Failed to update gender.");
     }
   };
 
@@ -360,10 +376,24 @@ export default function AdminCoordinators() {
                     </span>
                   </div>
 
-                  <div className="rounded-xl bg-gray-50 p-3 text-xs space-y-1">
+                  <div className="rounded-xl bg-gray-50 p-3 text-xs space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-400 font-semibold">Department:</span>
                       <span className="font-bold text-emerald-950">{dept}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400 font-semibold">Gender:</span>
+                      <select
+                        value={faculty.gender || ""}
+                        onChange={(e) => handleGenderChange(faculty, e.target.value)}
+                        aria-label={`Gender for ${name}`}
+                        className="rounded-lg border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-bold text-gray-800 focus:border-emerald-600 focus:outline-none"
+                      >
+                        <option value="">Unset</option>
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                        <option value="other">Other</option>
+                      </select>
                     </div>
                   </div>
 
@@ -501,18 +531,35 @@ export default function AdminCoordinators() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Faculty Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="faculty@college.edu"
-                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Faculty Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="faculty@college.edu"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="">Not specified</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

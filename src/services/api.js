@@ -308,7 +308,7 @@ export const api = {
     if (isSupabaseConfigured && supabase) {
       let query = supabase
         .from('profiles')
-        .select('id, email, full_name, role, phone, roll_no, department, batch, is_active, approval_status, created_at')
+        .select('id, email, full_name, role, gender, phone, roll_no, department, batch, is_active, approval_status, created_at')
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
 
@@ -463,7 +463,7 @@ export const api = {
     if (isSupabaseConfigured && supabase) {
       let query = supabase
         .from('profiles')
-        .select('id, email, full_name, role, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
+        .select('id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
         .order('created_at', { ascending: false });
 
       if (status && status !== 'all') query = query.eq('approval_status', status);
@@ -538,6 +538,7 @@ export const api = {
           email,
           full_name: userData.full_name,
           role: userData.role,
+          gender: userData.gender || null,
           phone: userData.phone || null,
           roll_no: details.roll_no || null,
           department: details.department || 'Computer Science & Engineering',

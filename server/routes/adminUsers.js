@@ -9,6 +9,18 @@ import { db } from '../db.js';
 
 const router = Router();
 
+const VALID_GENDERS = ['male', 'female', 'other'];
+
+function normalizeGender(raw) {
+  if (raw === undefined) return undefined;
+  if (raw === null || raw === '') return null;
+  const g = String(raw).trim().toLowerCase();
+  if (!VALID_GENDERS.includes(g)) {
+    throw new Error("Invalid gender. Must be 'male', 'female', or 'other'.");
+  }
+  return g;
+}
+
 function generateSecurePassword(length = 12) {
   return crypto
     .randomBytes(Math.ceil((length * 3) / 4))
@@ -55,7 +67,7 @@ router.get('/requests', async (req, res) => {
 
     let query = sb
       .from('profiles')
-      .select('id, email, full_name, role, phone, roll_no, department, batch, is_active, approval_status, created_at')
+      .select('id, email, full_name, role, gender, phone, roll_no, department, batch, is_active, approval_status, created_at')
       .eq('approval_status', 'pending')
       .order('created_at', { ascending: false });
 
@@ -244,7 +256,7 @@ router.get('/', async (req, res) => {
 
     let query = sb
       .from('profiles')
-      .select('id, email, full_name, role, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
+      .select('id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
       .order('created_at', { ascending: false });
 
     if (role && ['student', 'coordinator', 'admin'].includes(role.toLowerCase())) {
@@ -277,6 +289,7 @@ async function provisionSupabaseUser(sb, payload) {
   const rollNo = details.roll_no || payload.roll_no || null;
   const department = details.department || payload.department || 'Computer Science & Engineering';
   const batch = details.batch || payload.batch || '2023-27';
+  const gender = normalizeGender(payload.gender ?? details.gender) ?? null;
 
   let userId = null;
 
@@ -312,6 +325,7 @@ async function provisionSupabaseUser(sb, payload) {
       email,
       full_name: fullName,
       role: normalizedRole,
+      gender,
       phone: payload.phone || null,
       roll_no: rollNo,
       department,
@@ -339,8 +353,9 @@ async function provisionSupabaseUser(sb, payload) {
  */
 router.post('/', async (req, res) => {
   try {
-    const { email, password, full_name, role, phone, details } = req.body;
+    const { email, password, full_name, role, phone, gender, details } = req.body;
     const normalizedRole = (role || 'student').toLowerCase();
+    const normalizedGender = normalizeGender(gender ?? details?.gender) ?? null;
     const userPassword = password && password.length >= 6 ? password : generateSecurePassword(12);
 
     if (!isSupabaseConfiguredOnServer) {
@@ -350,6 +365,7 @@ router.post('/', async (req, res) => {
         name: full_name.trim(),
         full_name: full_name.trim(),
         role: normalizedRole,
+        gender: normalizedGender,
         phone: phone || null,
         roll_no: details?.roll_no || null,
         department: details?.department || 'Computer Science & Engineering',
@@ -371,6 +387,7 @@ router.post('/', async (req, res) => {
       password: userPassword,
       full_name,
       role: normalizedRole,
+      gender: normalizedGender,
       phone,
       details,
     });
@@ -451,21 +468,25 @@ router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const sb = req.supabase || supabaseAdmin;
+    const updates = { ...(req.body || {}) };
+    if ('gender' in updates) {
+      updates.gender = normalizeGender(updates.gender);
+    }
 
     if (!isSupabaseConfiguredOnServer) {
       const memUser = db.users.find((u) => u.id === id);
-      if (memUser) Object.assign(memUser, req.body);
+      if (memUser) Object.assign(memUser, updates);
       return res.json({ success: true, message: 'User updated successfully.' });
     }
 
-    const { error } = await sb.from('profiles').update(req.body).eq('id', id);
+    const { error } = await sb.from('profiles').update(updates).eq('id', id);
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
     res.json({ success: true, message: 'User updated successfully.' });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to update user.' });
+    res.status(400).json({ error: err.message || 'Failed to update user.' });
   }
 });
 

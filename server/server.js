@@ -15,6 +15,7 @@ import {
 import adminUsersRouter from './routes/adminUsers.js';
 import attendanceRouter from './routes/attendance.js';
 import announcementsRouter from './routes/announcements.js';
+import roomsRouter from './routes/rooms.js';
 
 dotenv.config();
 
@@ -42,15 +43,17 @@ app.use(
         !origin ||
         allowedOrigins.includes('*') ||
         allowedOrigins.includes(origin) ||
-        origin.endsWith('.vercel.app')
+        origin.endsWith('.vercel.app') ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
       ) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(new Error('Origin not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   })
 );
 
@@ -88,8 +91,20 @@ app.get('/', (req, res) => {
   });
 });
 
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    status: 'online',
+    service: 'IV Connect Core API',
+    version: '2.2.0',
+    supabaseAdminReady: Boolean(supabaseAdmin),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
+    ok: true,
     status: 'online',
     service: 'IV Connect Core API',
     version: '2.2.0',
@@ -531,6 +546,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 app.use('/api/admin/users', adminLimiter, requireAuth, requireRole('admin'), adminUsersRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/announcements', announcementsRouter);
+app.use('/api', roomsRouter);
 
 // -----------------------------------------------------------------------------
 // Role-Specific Sub-APIs

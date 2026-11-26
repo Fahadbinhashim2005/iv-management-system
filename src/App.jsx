@@ -44,6 +44,7 @@ import AdminCompliance from './pages/admin/AdminCompliance';
 import AdminLogs from './pages/admin/AdminLogs';
 import AdminAttendanceList from './features/attendance/pages/AdminAttendanceList';
 import AdminAttendanceSession from './features/attendance/pages/AdminAttendanceSession';
+import AdminRoomsPage from './features/rooms/pages/AdminRoomsPage';
 
 function App() {
   return (
@@ -97,6 +98,7 @@ function App() {
               <Route path="coordinators" element={<AdminCoordinators />} />
               <Route path="students" element={<AdminStudents />} />
               <Route path="logistics" element={<AdminLogistics />} />
+              <Route path="rooms" element={<AdminRoomsPage />} />
               <Route path="finances" element={<AdminFinances />} />
               <Route path="compliance" element={<AdminCompliance />} />
               <Route path="logs" element={<AdminLogs />} />
