@@ -4,8 +4,7 @@ import toast from 'react-hot-toast';
 import { roomsApi } from '../api/roomsApi';
 import { expandLayoutRows, hexToRgba } from '../utils/eligibility';
 
-export default function LayoutGeneratorModal({
-  isOpen,
+function LayoutGeneratorBody({
   stay,
   roomTypes = [],
   existingRooms = [],
@@ -32,6 +31,15 @@ export default function LayoutGeneratorModal({
   const [editingRoom, setEditingRoom] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const normalizedRows = useMemo(
+    () =>
+      rows.map((r) => ({
+        ...r,
+        roomTypeId: r.roomTypeId || defaultTypeId,
+      })),
+    [rows, defaultTypeId]
+  );
+
   const typeMap = useMemo(
     () => new Map(roomTypes.map((rt) => [rt.id, rt])),
     [roomTypes]
@@ -45,7 +53,7 @@ export default function LayoutGeneratorModal({
 
   // Summary strip: existing (if mode=add) + previewRooms (or generated)
   const summary = useMemo(() => {
-    const activePreview = previewRooms || expandLayoutRows(rows);
+    const activePreview = previewRooms || expandLayoutRows(normalizedRows);
     const baseRooms =
       mode === 'replace'
         ? []
@@ -57,7 +65,8 @@ export default function LayoutGeneratorModal({
 
     const bedsByTypeKey = { girls: 0, boys: 0, staff: 0 };
     for (const r of combined) {
-      const rt = typeMap.get(r.roomTypeId || r.room_type_id);
+      const resolvedTypeId = r.roomTypeId || r.room_type_id || defaultTypeId;
+      const rt = typeMap.get(resolvedTypeId);
       if (rt) {
         bedsByTypeKey[rt.key] = (bedsByTypeKey[rt.key] || 0) + (Number(r.capacity) || 0);
       }
@@ -92,12 +101,10 @@ export default function LayoutGeneratorModal({
       bedsByTypeKey,
       warnings,
     };
-  }, [previewRooms, rows, mode, existingRooms, typeMap, headcounts]);
-
-  if (!isOpen || !stay) return null;
+  }, [previewRooms, normalizedRows, mode, existingRooms, typeMap, headcounts, defaultTypeId]);
 
   const addRow = () => {
-    const last = rows[rows.length - 1];
+    const last = normalizedRows[normalizedRows.length - 1];
     setRows((prev) => [
       ...prev,
       {
@@ -108,7 +115,7 @@ export default function LayoutGeneratorModal({
         endNo: last ? Number(last.endNo) + 5 : 205,
         exclude: '',
         capacity: last?.capacity || 3,
-        roomTypeId: last?.roomTypeId || roomTypes[0]?.id || '',
+        roomTypeId: last?.roomTypeId || defaultTypeId,
       },
     ]);
     setPreviewRooms(null);
@@ -127,7 +134,7 @@ export default function LayoutGeneratorModal({
   };
 
   const handlePreview = () => {
-    const expanded = expandLayoutRows(rows);
+    const expanded = expandLayoutRows(normalizedRows);
     if (expanded.length === 0) {
       toast.error('No rooms generated. Check start/end numbers.');
       return;
@@ -136,7 +143,7 @@ export default function LayoutGeneratorModal({
   };
 
   const handleSave = async () => {
-    const roomsToSave = previewRooms || expandLayoutRows(rows);
+    const roomsToSave = previewRooms || expandLayoutRows(normalizedRows);
     if (roomsToSave.length === 0) {
       toast.error('Nothing to save. Add valid room ranges.');
       return;
@@ -156,7 +163,7 @@ export default function LayoutGeneratorModal({
           roomNo: r.roomNo,
           floor: r.floor,
           capacity: Number(r.capacity),
-          roomTypeId: r.roomTypeId,
+          roomTypeId: r.roomTypeId || defaultTypeId,
         })),
       });
       toast.success(`Saved ${res.inserted} room(s) to ${stay.name}!`);
@@ -504,4 +511,10 @@ export default function LayoutGeneratorModal({
       </div>
     </div>
   );
+}
+
+export default function LayoutGeneratorModal(props) {
+  if (!props.isOpen || !props.stay) return null;
+  const key = `${props.stay.id}-${(props.roomTypes || []).map((t) => t.id).join(',')}`;
+  return <LayoutGeneratorBody key={key} {...props} />;
 }
