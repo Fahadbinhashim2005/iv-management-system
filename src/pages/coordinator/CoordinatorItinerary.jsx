@@ -1,12 +1,38 @@
-import { useState } from "react";
-import { 
-  Clock, 
-  MapPin, 
-  Plus, 
-  Trash2, 
-  Bell, 
-  Check
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  Clock,
+  MapPin,
+  Plus,
+  Trash2,
+  Bell,
+  Check,
+  X,
 } from "lucide-react";
+
+const DEFAULT_SCHEDULE = {
+  1: [
+    { id: 1, time: "06:00 AM", activity: "Assembly & Luggage Verification", venue: "College Gate #2", inCharge: "Prof. Anjali Menon", type: "Departure" },
+    { id: 2, time: "07:00 AM", activity: "Convoy Departure via NH 48", venue: "Expressway Transit", inCharge: "Mr. Suresh (Lead Driver)", type: "Travel" },
+    { id: 3, time: "02:30 PM", activity: "Hotel Check-in & Key Handover", venue: "Hotel Grand Ambience", inCharge: "Dr. Rajesh Kumar", type: "Stay" },
+    { id: 4, time: "05:30 PM", activity: "Sabarmati Riverfront Briefing", venue: "Riverfront Promenade", inCharge: "Faculty Team", type: "Activity" },
+  ],
+  2: [
+    { id: 5, time: "08:30 AM", activity: "Departure to GIFT City", venue: "Gandhinagar Route", inCharge: "Bus Coordinators", type: "Travel" },
+    { id: 6, time: "10:00 AM", activity: "FinTech Hub & Server Datacenter Tour", venue: "GIFT Tower 1", inCharge: "GIFT Technical Team", type: "Industry" },
+    { id: 7, time: "01:30 PM", activity: "Networking Lunch & Q&A Session", venue: "GIFT Convention Club", inCharge: "Industry Panel", type: "Industry" },
+    { id: 8, time: "03:30 PM", activity: "Automated Utility Tunnel Walk", venue: "Command Control Center", inCharge: "GIFT Infrastructure In-Charge", type: "Industry" },
+  ],
+  3: [
+    { id: 9, time: "09:30 AM", activity: "ISRO Space Applications Centre Tour", venue: "SAC Ahmedabad", inCharge: "ISRO Scientists", type: "Industry" },
+    { id: 10, time: "02:00 PM", activity: "Robotics & AI Simulation Labs", venue: "Gujarat Science City", inCharge: "Science City Guides", type: "Activity" },
+  ],
+  4: [
+    { id: 11, time: "08:00 AM", activity: "Room Clearance & Checkout", venue: "Hotel Grand Ambience", inCharge: "Hotel Committee", type: "Stay" },
+    { id: 12, time: "09:00 AM", activity: "Departure for Return Journey", venue: "Highway Return Route", inCharge: "Driver Team", type: "Travel" },
+    { id: 13, time: "07:00 PM", activity: "Arrival at Campus Main Gate", venue: "College Campus", inCharge: "HOD & Coordinators", type: "Departure" },
+  ],
+};
 
 export default function CoordinatorItinerary() {
   const [selectedDay, setSelectedDay] = useState(1);
@@ -14,29 +40,31 @@ export default function CoordinatorItinerary() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Multi-day itinerary state
-  const [schedule, setSchedule] = useState({
-    1: [
-      { id: 1, time: "06:00 AM", activity: "Assembly & Luggage Verification", venue: "College Gate #2", inCharge: "Prof. Anjali Menon", type: "Departure" },
-      { id: 2, time: "07:00 AM", activity: "Convoy Departure via NH 48", venue: "Expressway Transit", inCharge: "Mr. Suresh (Lead Driver)", type: "Travel" },
-      { id: 3, time: "02:30 PM", activity: "Hotel Check-in & Key Handover", venue: "Hotel Grand Ambience", inCharge: "Dr. Rajesh Kumar", type: "Stay" },
-      { id: 4, time: "05:30 PM", activity: "Sabarmati Riverfront Briefing", venue: "Riverfront Promenade", inCharge: "Faculty Team", type: "Activity" },
-    ],
-    2: [
-      { id: 5, time: "08:30 AM", activity: "Departure to GIFT City", venue: "Gandhinagar Route", inCharge: "Bus Coordinators", type: "Travel" },
-      { id: 6, time: "10:00 AM", activity: "FinTech Hub & Server Datacenter Tour", venue: "GIFT Tower 1", inCharge: "GIFT Technical Team", type: "Industry" },
-      { id: 7, time: "01:30 PM", activity: "Networking Lunch & Q&A Session", venue: "GIFT Convention Club", inCharge: "Industry Panel", type: "Industry" },
-      { id: 8, time: "03:30 PM", activity: "Automated Utility Tunnel Walk", venue: "Command Control Center", inCharge: "GIFT Infrastructure In-Charge", type: "Industry" },
-    ],
-    3: [
-      { id: 9, time: "09:30 AM", activity: "ISRO Space Applications Centre Tour", venue: "SAC Ahmedabad", inCharge: "ISRO Scientists", type: "Industry" },
-      { id: 10, time: "02:00 PM", activity: "Robotics & AI Simulation Labs", venue: "Gujarat Science City", inCharge: "Science City Guides", type: "Activity" },
-    ],
-    4: [
-      { id: 11, time: "08:00 AM", activity: "Room Clearance & Checkout", venue: "Hotel Grand Ambience", inCharge: "Hotel Committee", type: "Stay" },
-      { id: 12, time: "09:00 AM", activity: "Departure for Return Journey", venue: "Highway Return Route", inCharge: "Driver Team", type: "Travel" },
-      { id: 13, time: "07:00 PM", activity: "Arrival at Campus Main Gate", venue: "College Campus", inCharge: "HOD & Coordinators", type: "Departure" },
-    ],
+  const [schedule, setSchedule] = useState(() => {
+    try {
+      const saved = localStorage.getItem("iv_coordinator_schedule_v1");
+      return saved ? JSON.parse(saved) : DEFAULT_SCHEDULE;
+    } catch {
+      return DEFAULT_SCHEDULE;
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("iv_coordinator_schedule_v1", JSON.stringify(schedule));
+    } catch {
+      // Ignore storage limits
+    }
+  }, [schedule]);
+
+  useEffect(() => {
+    if (!showAddModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowAddModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showAddModal]);
 
   // New Event Form State
   const [newEvent, setNewEvent] = useState({
@@ -59,17 +87,20 @@ export default function CoordinatorItinerary() {
     });
     setShowAddModal(false);
     setNewEvent({ time: "", activity: "", venue: "", inCharge: "Dr. Rajesh Kumar", type: "Industry" });
+    toast.success(`Added "${created.activity}" to Day ${selectedDay}.`);
   };
 
-  const handleDeleteEvent = (id) => {
+  const handleDeleteEvent = (id, title) => {
     setSchedule({
       ...schedule,
       [selectedDay]: schedule[selectedDay].filter((item) => item.id !== id),
     });
+    toast.success(`Removed "${title}" from Day ${selectedDay}.`);
   };
 
   const handleBroadcast = () => {
     setBroadcastSent(true);
+    toast.success("Schedule update broadcast queued for enrolled students.");
     setTimeout(() => setBroadcastSent(false), 3000);
   };
 
@@ -187,7 +218,8 @@ export default function CoordinatorItinerary() {
               <div className="flex items-center gap-2 self-end sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => handleDeleteEvent(item.id)}
+                  onClick={() => handleDeleteEvent(item.id, item.activity)}
+                  aria-label={`Remove ${item.activity}`}
                   className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
                   title="Remove activity"
                 >
@@ -201,17 +233,38 @@ export default function CoordinatorItinerary() {
 
       {/* Add Activity Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-extrabold text-emerald-950">
-              Add Activity to Day {selectedDay}
-            </h3>
-            <p className="text-xs text-gray-500">
-              Insert a new milestone, company tour, or transit stop.
-            </p>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Add Activity to Day ${selectedDay}`}
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-extrabold text-emerald-950">
+                  Add Activity to Day {selectedDay}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Insert a new milestone, company tour, or transit stop.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close add activity modal"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <form onSubmit={handleAddEvent} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-bold text-gray-700">Scheduled Time</label>
                   <input

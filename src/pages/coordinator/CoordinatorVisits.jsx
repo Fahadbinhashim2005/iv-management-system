@@ -1,67 +1,96 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Plus, 
-  MapPin, 
-  Calendar, 
-  Users, 
-  Building2, 
-  X, 
-  ArrowRight
+import toast from "react-hot-toast";
+import {
+  Plus,
+  MapPin,
+  Calendar,
+  Users,
+  Building2,
+  X,
+  ArrowRight,
+  Search,
 } from "lucide-react";
+
+const INITIAL_VISITS = [
+  {
+    id: "IV-2026-01",
+    title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2023-27 (Semester 5)",
+    host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
+    location: "Gandhinagar & Ahmedabad, Gujarat",
+    startDate: "2026-12-05",
+    endDate: "2026-12-08",
+    capacity: 135,
+    enrolled: 128,
+    status: "Published",
+    facultyInCharge: "Dr. Rajesh Kumar (HOD) & Prof. Anjali Menon",
+    objectives: "FinTech architectures, cloud server datacenters, automated green infrastructure, and aerospace satellite telemetry.",
+  },
+  {
+    id: "IV-2026-02",
+    title: "Bangalore Tech Park & Aerospace Hub Study Tour",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2024-28 (Semester 3)",
+    host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
+    location: "Bengaluru & Mysuru, Karnataka",
+    startDate: "2027-02-12",
+    endDate: "2027-02-16",
+    capacity: 120,
+    enrolled: 84,
+    status: "Draft",
+    facultyInCharge: "Prof. Vikram Mohan",
+    objectives: "Software engineering delivery pipelines, corporate datacenter management, and aerospace simulation.",
+  },
+  {
+    id: "IV-2025-01",
+    title: "Hyderabad Cyberabad & T-Hub Innovation Tour",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2022-26 (Semester 7)",
+    host: "T-Hub Innovation Ecosystem & Microsoft Campus",
+    location: "Hyderabad, Telangana",
+    startDate: "2025-11-18",
+    endDate: "2025-11-21",
+    capacity: 110,
+    enrolled: 110,
+    status: "Completed",
+    facultyInCharge: "Dr. Rajesh Kumar",
+    objectives: "AI incubators, cloud computing hubs, and startup innovation strategies.",
+  },
+];
 
 export default function CoordinatorVisits() {
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [visits, setVisits] = useState([
-    {
-      id: "IV-2026-01",
-      title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2023-27 (Semester 5)",
-      host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
-      location: "Gandhinagar & Ahmedabad, Gujarat",
-      startDate: "2026-12-05",
-      endDate: "2026-12-08",
-      capacity: 135,
-      enrolled: 128,
-      status: "Published",
-      facultyInCharge: "Dr. Rajesh Kumar (HOD) & Prof. Anjali Menon",
-      objectives: "FinTech architectures, cloud server datacenters, automated green infrastructure, and aerospace satellite telemetry.",
-    },
-    {
-      id: "IV-2026-02",
-      title: "Bangalore Tech Park & Aerospace Hub Study Tour",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2024-28 (Semester 3)",
-      host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
-      location: "Bengaluru & Mysuru, Karnataka",
-      startDate: "2027-02-12",
-      endDate: "2027-02-16",
-      capacity: 120,
-      enrolled: 84,
-      status: "Draft",
-      facultyInCharge: "Prof. Vikram Mohan",
-      objectives: "Software engineering delivery pipelines, corporate datacenter management, and aerospace simulation.",
-    },
-    {
-      id: "IV-2025-01",
-      title: "Hyderabad Cyberabad & T-Hub Innovation Tour",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2022-26 (Semester 7)",
-      host: "T-Hub Innovation Ecosystem & Microsoft Campus",
-      location: "Hyderabad, Telangana",
-      startDate: "2025-11-18",
-      endDate: "2025-11-21",
-      capacity: 110,
-      enrolled: 110,
-      status: "Completed",
-      facultyInCharge: "Dr. Rajesh Kumar",
-      objectives: "AI incubators, cloud computing hubs, and startup innovation strategies.",
-    },
-  ]);
+  const [visits, setVisits] = useState(() => {
+    try {
+      const saved = localStorage.getItem("iv_coordinator_visits_v1");
+      return saved ? JSON.parse(saved) : INITIAL_VISITS;
+    } catch {
+      return INITIAL_VISITS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("iv_coordinator_visits_v1", JSON.stringify(visits));
+    } catch {
+      // Ignore storage limits
+    }
+  }, [visits]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowCreateModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showCreateModal]);
 
   // Form state for creating a new visit
   const [newVisit, setNewVisit] = useState({
@@ -88,11 +117,43 @@ export default function CoordinatorVisits() {
     };
     setVisits([created, ...visits]);
     setShowCreateModal(false);
+    setNewVisit({
+      title: "",
+      department: "Computer Science & Engineering",
+      batch: "Batch 2023-27 (Semester 5)",
+      host: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      capacity: 120,
+      facultyInCharge: "Dr. Rajesh Kumar",
+      objectives: "",
+      emergencyContact: "+91 94471 23456",
+    });
+    toast.success(`Published visit "${created.title}".`);
   };
 
-  const filteredVisits = filterStatus === "All" 
-    ? visits 
-    : visits.filter((v) => v.status === filterStatus);
+  const toggleDraftPublish = (visitId) => {
+    setVisits((prev) =>
+      prev.map((v) => {
+        if (v.id !== visitId || v.status === "Completed") return v;
+        const nextStatus = v.status === "Published" ? "Draft" : "Published";
+        toast.success(`${v.id} marked as ${nextStatus}.`);
+        return { ...v, status: nextStatus };
+      })
+    );
+  };
+
+  const filteredVisits = visits.filter((v) => {
+    const matchesStatus = filterStatus === "All" || v.status === filterStatus;
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      v.title.toLowerCase().includes(q) ||
+      v.location.toLowerCase().includes(q) ||
+      v.host.toLowerCase().includes(q);
+    return matchesStatus && matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -118,22 +179,37 @@ export default function CoordinatorVisits() {
         </button>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2">
-        {["All", "Published", "Draft", "Completed"].map((status) => (
-          <button
-            key={status}
-            type="button"
-            onClick={() => setFilterStatus(status)}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              filterStatus === status
-                ? "bg-emerald-800 text-white shadow-sm"
-                : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
-            }`}
-          >
-            {status}
-          </button>
-        ))}
+      {/* Search & Filter Tabs */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {["All", "Published", "Draft", "Completed"].map((status) => (
+            <button
+              key={status}
+              type="button"
+              aria-pressed={filterStatus === status}
+              onClick={() => setFilterStatus(status)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                filterStatus === status
+                  ? "bg-emerald-800 text-white shadow-sm"
+                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:max-w-xs">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search visits or destinations..."
+            aria-label="Search visits or destinations"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs text-gray-900 shadow-xs focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* Visits List */}
@@ -183,7 +259,16 @@ export default function CoordinatorVisits() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start">
+              <div className="flex flex-wrap items-center gap-2 self-start">
+                {visit.status !== "Completed" && (
+                  <button
+                    type="button"
+                    onClick={() => toggleDraftPublish(visit.id)}
+                    className="rounded-xl border border-emerald-200 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-50"
+                  >
+                    {visit.status === "Published" ? "Move to Draft" : "Publish"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => navigate("/coordinator/itinerary")}
@@ -231,8 +316,17 @@ export default function CoordinatorVisits() {
 
       {/* Create New Visit Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create New Industrial Visit"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-lg font-extrabold text-emerald-950">
@@ -244,6 +338,7 @@ export default function CoordinatorVisits() {
               </div>
               <button
                 type="button"
+                aria-label="Close create visit modal"
                 onClick={() => setShowCreateModal(false)}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >

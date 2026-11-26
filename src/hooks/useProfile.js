@@ -174,7 +174,10 @@ export function useProfile() {
   }, [user, authProfile]);
 
   useEffect(() => {
-    loadProfileData();
+    const t = setTimeout(() => {
+      loadProfileData();
+    }, 0);
+    return () => clearTimeout(t);
   }, [loadProfileData]);
 
   /**
@@ -185,7 +188,7 @@ export function useProfile() {
       const updated = { ...prev, [field]: value };
 
       // Clear or set inline error on blur / change
-      const error = validateField(field, value, updated);
+      const error = validateField(field, value);
       setErrors((prevErr) => ({
         ...prevErr,
         [field]: error,
@@ -214,7 +217,8 @@ export function useProfile() {
    * 5. Save Changes to Supabase
    */
   const saveProfile = async () => {
-    const validationErrors = validateProfileForm(formData);
+    const userRole = profile?.role || authProfile?.role || "student";
+    const validationErrors = validateProfileForm(formData, userRole);
     setErrors(validationErrors);
 
     // Block submission if any blocking validation errors exist
@@ -229,20 +233,21 @@ export function useProfile() {
     try {
       setSaving(true);
 
+      const isStudent = String(userRole).toLowerCase() === "student";
       const updates = {
         full_name: formData.full_name.trim(),
-        roll_no: formData.roll_no.trim(),
+        roll_no: isStudent ? formData.roll_no.trim() : formData.roll_no?.trim() || null,
         gender: formData.gender ? formData.gender.toLowerCase() : null,
         phone: normalizePhoneNumber(formData.phone),
         department: formData.department,
-        semester: Number(formData.semester),
-        batch: formData.batch.trim(),
-        guardian_name: formData.guardian_name.trim(),
-        guardian_relation: formData.guardian_relation,
-        emergency_phone: normalizePhoneNumber(formData.emergency_phone),
-        blood_group: formData.blood_group,
+        semester: isStudent ? Number(formData.semester) : formData.semester ? Number(formData.semester) : null,
+        batch: isStudent ? formData.batch.trim() : formData.batch?.trim() || null,
+        guardian_name: formData.guardian_name?.trim() || null,
+        guardian_relation: formData.guardian_relation || null,
+        emergency_phone: formData.emergency_phone ? normalizePhoneNumber(formData.emergency_phone) : null,
+        blood_group: formData.blood_group || null,
         medical_notes: formData.medical_notes ? formData.medical_notes.trim() : null,
-        dietary_preference: formData.dietary_preference,
+        dietary_preference: formData.dietary_preference || null,
         notifications_enabled: formData.notifications_enabled,
         consent_given: formData.consent_given,
         consent_at: formData.consent_given ? (profile?.consent_at || new Date().toISOString()) : null,

@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { 
-  Search, 
-  Download, 
-  Check, 
-  Clock, 
-  FileCheck,
+import toast from "react-hot-toast";
+import { downloadCsvFile } from "../../lib/exportUtils";
+import {
+  Search,
+  Download,
+  Check,
+  Clock,
   CheckCircle2,
   Phone,
   Bus,
-  BedDouble
+  BedDouble,
 } from "lucide-react";
 
 export default function CoordinatorParticipants() {
@@ -26,34 +27,20 @@ export default function CoordinatorParticipants() {
     { id: 8, name: "Mohammed Althaf", roll: "CS-2026-068", batch: "CSE-B", bus: "Unassigned", seat: "--", room: "--", consent: "Pending", status: "Waitlisted", parentPhone: "+91 98470 88990", bloodGroup: "A+" },
   ]);
 
-  const [toastMsg, setToastMsg] = useState("");
-
   const updateStatus = (id, newStatus) => {
     setStudents((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
     );
-    setToastMsg(`Participant status updated to ${newStatus}.`);
-    setTimeout(() => setToastMsg(""), 3000);
+    toast.success(`Participant status updated to ${newStatus}.`);
   };
 
   const exportCSV = () => {
-    const headers = "Name,Roll No,Batch,Status,Bus,Seat,Room,Parent Phone,Blood Group\n";
-    const rows = students
-      .map(
-        (s) =>
-          `"${s.name}","${s.roll}","${s.batch}","${s.status}","${s.bus}","${s.seat}","${s.room}","${s.parentPhone}","${s.bloodGroup}"`
-      )
-      .join("\n");
-    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "IV2026_Participants_Roster.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setToastMsg("Exported roster to CSV successfully!");
-    setTimeout(() => setToastMsg(""), 3000);
+    downloadCsvFile(
+      "IV2026_Participants_Roster.csv",
+      ["Name", "Roll No", "Batch", "Status", "Bus", "Seat", "Room", "Parent Phone", "Blood Group"],
+      students.map((s) => [s.name, s.roll, s.batch, s.status, s.bus, s.seat, s.room, s.parentPhone, s.bloodGroup])
+    );
+    toast.success("Exported roster to CSV safely!");
   };
 
   const filtered = students.filter((s) => {
@@ -66,13 +53,6 @@ export default function CoordinatorParticipants() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 text-xs font-bold text-white shadow-xl">
-          <FileCheck size={16} />
-          <span>{toastMsg}</span>
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -110,20 +90,27 @@ export default function CoordinatorParticipants() {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {["All", "Approved", "Pending", "Waitlisted"].map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setStatusFilter(status)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${
-                statusFilter === status
-                  ? "bg-emerald-800 text-white shadow-xs"
-                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+          {["All", "Approved", "Pending", "Waitlisted"].map((status) => {
+            const count =
+              status === "All"
+                ? students.length
+                : students.filter((s) => s.status === status).length;
+            return (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${
+                  statusFilter === status
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                {status} ({count})
+              </button>
+            );
+          })}
         </div>
       </div>
 

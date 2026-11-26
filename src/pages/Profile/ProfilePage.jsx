@@ -6,7 +6,6 @@ import AcademicSection from "./AcademicSection";
 import EmergencySection from "./EmergencySection";
 import PreferencesSection from "./PreferencesSection";
 import AvatarPicker from "./AvatarPicker";
-import { Toaster } from "react-hot-toast";
 
 /**
  * ==============================================================================
@@ -86,21 +85,22 @@ export default function ProfilePage() {
     );
   }
 
+  const isStudent = String(profile?.role || "student").toLowerCase() === "student";
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-24">
-      {/* Toast Notification Container */}
-      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-
       {/* Page Title & Breadcrumb */}
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
           Account & Security
         </p>
         <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-          My Profile & Consent
+          {isStudent ? "My Profile & Consent" : "My Profile & Settings"}
         </h1>
         <p className="mt-1 text-xs text-gray-500">
-          Manage your personal information, emergency credentials, and travel consent for the upcoming Industrial Visit.
+          {isStudent
+            ? "Manage your personal information, emergency credentials, and travel consent for the upcoming Industrial Visit."
+            : "Update your name, contact phone, department, gender (for room selection), and avatar."}
         </p>
       </div>
 
@@ -113,28 +113,32 @@ export default function ProfilePage() {
         onOpenAvatarPicker={() => setAvatarPickerOpen(true)}
       />
 
-      {/* 2. Academic Section & Locked Tour Logistics */}
+      {/* 2. Academic / Identity Section & Locked Tour Logistics */}
       <AcademicSection
+        role={profile?.role || "student"}
         formData={formData}
         tripAssignment={tripAssignment}
         errors={errors}
         onChange={handleFieldChange}
       />
 
-      {/* 3. Emergency Contacts & Safety Section */}
-      <EmergencySection
-        formData={formData}
-        tripAssignment={tripAssignment}
-        errors={errors}
-        onChange={handleFieldChange}
-      />
+      {/* 3 & 4. Student Emergency Contacts & Consent Sections */}
+      {isStudent && (
+        <>
+          <EmergencySection
+            formData={formData}
+            tripAssignment={tripAssignment}
+            errors={errors}
+            onChange={handleFieldChange}
+          />
 
-      {/* 4. Tour Preferences & Consent Agreement */}
-      <PreferencesSection
-        formData={formData}
-        errors={errors}
-        onChange={handleFieldChange}
-      />
+          <PreferencesSection
+            formData={formData}
+            errors={errors}
+            onChange={handleFieldChange}
+          />
+        </>
+      )}
 
       {/* 5. Sticky Bottom Action Bar (Responsive Mobile & Desktop) */}
       <div className={`sticky bottom-4 z-30 rounded-2xl bg-white/95 backdrop-blur-md p-4 shadow-xl ring-1 ring-gray-200 transition-all duration-300 ${

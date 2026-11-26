@@ -1,70 +1,95 @@
-import { useState } from "react";
-import { 
-  Plus, 
-  Search, 
-  MapPin, 
-  Calendar, 
-  Building2, 
-  X, 
-  FileCheck, 
-  CheckCircle2
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  Plus,
+  Search,
+  MapPin,
+  Calendar,
+  Building2,
+  X,
+  CheckCircle2,
 } from "lucide-react";
+
+const INITIAL_TOURS = [
+  {
+    id: "IV-2026-01",
+    title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2023-27 (Semester 5)",
+    host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
+    location: "Ahmedabad, Gujarat",
+    startDate: "2026-12-05",
+    endDate: "2026-12-08",
+    capacity: 135,
+    enrolled: 128,
+    status: "Published",
+    leadCoordinator: "Dr. Rajesh Kumar (HOD CS)",
+    budget: "₹5,40,000",
+    complianceCleared: true,
+  },
+  {
+    id: "IV-2026-02",
+    title: "Bangalore Tech Park & Aerospace Hub Study Tour",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2024-28 (Semester 3)",
+    host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
+    location: "Bengaluru & Mysuru, Karnataka",
+    startDate: "2027-02-12",
+    endDate: "2027-02-16",
+    capacity: 120,
+    enrolled: 84,
+    status: "Draft",
+    leadCoordinator: "Prof. Vikram Mohan",
+    budget: "₹4,20,000",
+    complianceCleared: false,
+  },
+  {
+    id: "IV-2025-01",
+    title: "Hyderabad Cyberabad & T-Hub Innovation Tour",
+    department: "Computer Science & Engineering",
+    batch: "Batch 2022-26 (Semester 7)",
+    host: "T-Hub Innovation Ecosystem & Microsoft Campus",
+    location: "Hyderabad, Telangana",
+    startDate: "2025-11-18",
+    endDate: "2025-11-21",
+    capacity: 110,
+    enrolled: 110,
+    status: "Completed",
+    leadCoordinator: "Dr. Rajesh Kumar",
+    budget: "₹3,90,000",
+    complianceCleared: true,
+  },
+];
 
 export default function AdminVisits() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [toastMsg, setToastMsg] = useState("");
 
-  const [tours, setTours] = useState([
-    {
-      id: "IV-2026-01",
-      title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2023-27 (Semester 5)",
-      host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
-      location: "Ahmedabad, Gujarat",
-      startDate: "2026-12-05",
-      endDate: "2026-12-08",
-      capacity: 135,
-      enrolled: 128,
-      status: "Published",
-      leadCoordinator: "Dr. Rajesh Kumar (HOD CS)",
-      budget: "₹5,40,000",
-      complianceCleared: true,
-    },
-    {
-      id: "IV-2026-02",
-      title: "Bangalore Tech Park & Aerospace Hub Study Tour",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2024-28 (Semester 3)",
-      host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
-      location: "Bengaluru & Mysuru, Karnataka",
-      startDate: "2027-02-12",
-      endDate: "2027-02-16",
-      capacity: 120,
-      enrolled: 84,
-      status: "Draft",
-      leadCoordinator: "Prof. Vikram Mohan",
-      budget: "₹4,20,000",
-      complianceCleared: false,
-    },
-    {
-      id: "IV-2025-01",
-      title: "Hyderabad Cyberabad & T-Hub Innovation Tour",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2022-26 (Semester 7)",
-      host: "T-Hub Innovation Ecosystem & Microsoft Campus",
-      location: "Hyderabad, Telangana",
-      startDate: "2025-11-18",
-      endDate: "2025-11-21",
-      capacity: 110,
-      enrolled: 110,
-      status: "Completed",
-      leadCoordinator: "Dr. Rajesh Kumar",
-      budget: "₹3,90,000",
-      complianceCleared: true,
-    },
-  ]);
+  const [tours, setTours] = useState(() => {
+    try {
+      const saved = localStorage.getItem("iv_admin_tours_v1");
+      return saved ? JSON.parse(saved) : INITIAL_TOURS;
+    } catch {
+      return INITIAL_TOURS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("iv_admin_tours_v1", JSON.stringify(tours));
+    } catch {
+      // Ignore storage limit errors
+    }
+  }, [tours]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setShowCreateModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showCreateModal]);
 
   const [form, setForm] = useState({
     title: "",
@@ -90,16 +115,26 @@ export default function AdminVisits() {
     };
     setTours([created, ...tours]);
     setShowCreateModal(false);
-    setToastMsg(`Master Tour ${created.title} created and authorized.`);
-    setTimeout(() => setToastMsg(""), 3500);
+    setForm({
+      title: "",
+      department: "Computer Science & Engineering",
+      batch: "Batch 2023-27",
+      host: "",
+      location: "",
+      startDate: "",
+      endDate: "",
+      capacity: 120,
+      budget: "₹4,50,000",
+      leadCoordinator: "Dr. Rajesh Kumar",
+    });
+    toast.success(`Master Tour "${created.title}" created and authorized.`);
   };
 
   const toggleStatus = (id, newStatus) => {
     setTours((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
     );
-    setToastMsg(`Tour ${id} status updated to ${newStatus}.`);
-    setTimeout(() => setToastMsg(""), 3000);
+    toast.success(`Tour ${id} status updated to ${newStatus}.`);
   };
 
   const filtered = tours.filter(
@@ -110,13 +145,6 @@ export default function AdminVisits() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-950 border border-amber-400 px-4 py-3 text-xs font-bold text-white shadow-2xl">
-          <FileCheck size={16} className="text-amber-300" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -247,12 +275,22 @@ export default function AdminVisits() {
 
       {/* Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create Master Tour Program"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="font-extrabold text-emerald-950 text-base">Create Master Tour Program</h3>
               <button
                 type="button"
+                aria-label="Close create tour modal"
                 onClick={() => setShowCreateModal(false)}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
               >
@@ -273,7 +311,7 @@ export default function AdminVisits() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block font-bold text-gray-700">Host Institutions</label>
                   <input
@@ -298,7 +336,7 @@ export default function AdminVisits() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className="block font-bold text-gray-700">Start Date</label>
                   <input

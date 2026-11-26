@@ -1,79 +1,126 @@
 import { useState } from "react";
-import { 
-  Bus, 
-  Phone, 
-  MapPin, 
-  Clock, 
-  ShieldCheck, 
-  CheckCircle2
+import toast from "react-hot-toast";
+import { downloadCsvFile } from "../../lib/exportUtils";
+import {
+  Bus,
+  Phone,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  CheckCircle2,
+  Search,
+  Download,
 } from "lucide-react";
+
+const INITIAL_BUSES = [
+  {
+    id: "BUS-04",
+    name: "Bus 04 (Alpha Unit)",
+    type: "Volvo 9600 Multi-Axle AC",
+    regNo: "GJ-01-BX-8824",
+    capacity: 45,
+    allocated: 43,
+    driverName: "Mr. Suresh Patel",
+    driverPhone: "+91 98765 43210",
+    coordinator: "Prof. Anjali Menon (+91 98123 45678)",
+    pickupPoint: "College Gate #2 Main Parking",
+    pickupTime: "06:00 AM",
+    status: "Ready for Departure",
+    manifest: [
+      { seat: "01A", student: "Arjun Verma", roll: "CS-2026-004", checkedIn: true },
+      { seat: "01B", student: "Deepak S", roll: "CS-2026-031", checkedIn: true },
+      { seat: "14A", student: "Fahad Bin Hashim", roll: "CS-2026-084", checkedIn: true },
+      { seat: "14B", student: "Rohan Varma", roll: "CS-2026-091", checkedIn: true },
+      { seat: "15A", student: "Aditya Nair", roll: "CS-2026-015", checkedIn: true },
+      { seat: "15B", student: "Manish K", roll: "CS-2026-062", checkedIn: false },
+    ],
+  },
+  {
+    id: "BUS-01",
+    name: "Bus 01 (Beta Unit)",
+    type: "BharatBenz Glider AC",
+    regNo: "GJ-01-CT-4412",
+    capacity: 45,
+    allocated: 45,
+    driverName: "Mr. Ramesh Kumar",
+    driverPhone: "+91 97451 22334",
+    coordinator: "Prof. Vikram Mohan (+91 94460 11223)",
+    pickupPoint: "College Gate #1 North Wing",
+    pickupTime: "06:15 AM",
+    status: "Inspection Completed",
+    manifest: [
+      { seat: "06A", student: "Ananya Iyer", roll: "CS-2026-022", checkedIn: true },
+      { seat: "06B", student: "Kavya Ramesh", roll: "CS-2026-056", checkedIn: true },
+      { seat: "07A", student: "Nikhil Joshi", roll: "CS-2026-079", checkedIn: true },
+    ],
+  },
+  {
+    id: "BUS-02",
+    name: "Bus 02 (Gamma Unit)",
+    type: "Scania Metrolink AC",
+    regNo: "GJ-01-DD-9102",
+    capacity: 45,
+    allocated: 40,
+    driverName: "Mr. Harish Patel",
+    driverPhone: "+91 98950 44556",
+    coordinator: "Dr. Rajesh Kumar (+91 94471 23456)",
+    pickupPoint: "College Auditorium Gate",
+    pickupTime: "06:00 AM",
+    status: "Ready for Departure",
+    manifest: [
+      { seat: "11A", student: "Sneha Sharma", roll: "CS-2026-042", checkedIn: false },
+      { seat: "11B", student: "Vignesh Rajan", roll: "CS-2026-118", checkedIn: false },
+    ],
+  },
+];
 
 export default function CoordinatorTransport() {
   const [selectedBusId, setSelectedBusId] = useState("BUS-04");
-
-  const buses = [
-    {
-      id: "BUS-04",
-      name: "Bus 04 (Alpha Unit)",
-      type: "Volvo 9600 Multi-Axle AC",
-      regNo: "GJ-01-BX-8824",
-      capacity: 45,
-      allocated: 43,
-      driverName: "Mr. Suresh Patel",
-      driverPhone: "+91 98765 43210",
-      coordinator: "Prof. Anjali Menon (+91 98123 45678)",
-      pickupPoint: "College Gate #2 Main Parking",
-      pickupTime: "06:00 AM",
-      status: "Ready for Departure",
-      manifest: [
-        { seat: "01A", student: "Arjun Verma", roll: "CS-2026-004", checkedIn: true },
-        { seat: "01B", student: "Deepak S", roll: "CS-2026-031", checkedIn: true },
-        { seat: "14A", student: "Fahad Bin Hashim", roll: "CS-2026-084", checkedIn: true },
-        { seat: "14B", student: "Rohan Varma", roll: "CS-2026-091", checkedIn: true },
-        { seat: "15A", student: "Aditya Nair", roll: "CS-2026-015", checkedIn: true },
-        { seat: "15B", student: "Manish K", roll: "CS-2026-062", checkedIn: false },
-      ],
-    },
-    {
-      id: "BUS-01",
-      name: "Bus 01 (Beta Unit)",
-      type: "BharatBenz Glider AC",
-      regNo: "GJ-01-CT-4412",
-      capacity: 45,
-      allocated: 45,
-      driverName: "Mr. Ramesh Kumar",
-      driverPhone: "+91 97451 22334",
-      coordinator: "Prof. Vikram Mohan (+91 94460 11223)",
-      pickupPoint: "College Gate #1 North Wing",
-      pickupTime: "06:15 AM",
-      status: "Inspection Completed",
-      manifest: [
-        { seat: "06A", student: "Ananya Iyer", roll: "CS-2026-022", checkedIn: true },
-        { seat: "06B", student: "Kavya Ramesh", roll: "CS-2026-056", checkedIn: true },
-        { seat: "07A", student: "Nikhil Joshi", roll: "CS-2026-079", checkedIn: true },
-      ],
-    },
-    {
-      id: "BUS-02",
-      name: "Bus 02 (Gamma Unit)",
-      type: "Scania Metrolink AC",
-      regNo: "GJ-01-DD-9102",
-      capacity: 45,
-      allocated: 40,
-      driverName: "Mr. Harish Patel",
-      driverPhone: "+91 98950 44556",
-      coordinator: "Dr. Rajesh Kumar (+91 94471 23456)",
-      pickupPoint: "College Auditorium Gate",
-      pickupTime: "06:00 AM",
-      status: "Ready for Departure",
-      manifest: [
-        { seat: "11A", student: "Sneha Sharma", roll: "CS-2026-042", checkedIn: false },
-        { seat: "11B", student: "Vignesh Rajan", roll: "CS-2026-118", checkedIn: false },
-      ],
-    },
-  ];
+  const [buses, setBuses] = useState(INITIAL_BUSES);
+  const [manifestSearch, setManifestSearch] = useState("");
 
   const currentBus = buses.find((b) => b.id === selectedBusId) || buses[0];
+  const filteredManifest = currentBus.manifest.filter((p) => {
+    const q = manifestSearch.trim().toLowerCase();
+    return (
+      !q ||
+      p.student.toLowerCase().includes(q) ||
+      p.roll.toLowerCase().includes(q) ||
+      p.seat.toLowerCase().includes(q)
+    );
+  });
+  const checkedInCount = currentBus.manifest.filter((p) => p.checkedIn).length;
+
+  const togglePassengerCheckIn = (roll) => {
+    setBuses((prev) =>
+      prev.map((bus) => {
+        if (bus.id !== currentBus.id) return bus;
+        return {
+          ...bus,
+          manifest: bus.manifest.map((p) => {
+            if (p.roll !== roll) return p;
+            const nextState = !p.checkedIn;
+            toast.success(`${p.student}: ${nextState ? "Marked Boarded" : "Reset to Pending"}`);
+            return { ...p, checkedIn: nextState };
+          }),
+        };
+      })
+    );
+  };
+
+  const handleExportManifest = () => {
+    downloadCsvFile(
+      `${currentBus.id}_Passenger_Manifest.csv`,
+      ["Seat", "Student Name", "Roll Number", "Gate Verification"],
+      currentBus.manifest.map((p) => [
+        p.seat,
+        p.student,
+        p.roll,
+        p.checkedIn ? "Verified" : "Pending Gate Scan",
+      ])
+    );
+    toast.success(`Exported ${currentBus.name} manifest CSV.`);
+  };
 
   return (
     <div className="space-y-6">
@@ -91,7 +138,7 @@ export default function CoordinatorTransport() {
 
         <button
           type="button"
-          onClick={() => alert("All 3 buses cleared for commercial highway transit by college transport committee.")}
+          onClick={() => toast.success("All 3 buses cleared for commercial highway transit by college transport committee.")}
           className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-100 self-start sm:self-auto"
         >
           <ShieldCheck size={16} />
@@ -104,10 +151,12 @@ export default function CoordinatorTransport() {
         {buses.map((bus) => {
           const isSelected = bus.id === selectedBusId;
           return (
-            <div
+            <button
               key={bus.id}
+              type="button"
+              aria-pressed={isSelected}
               onClick={() => setSelectedBusId(bus.id)}
-              className={`cursor-pointer rounded-2xl p-5 transition shadow-sm ring-1 ${
+              className={`w-full text-left rounded-2xl p-5 transition shadow-sm ring-1 ${
                 isSelected
                   ? "bg-emerald-800 text-white ring-emerald-800 shadow-md"
                   : "bg-white text-gray-900 ring-gray-100 hover:shadow hover:ring-emerald-200"
@@ -140,14 +189,14 @@ export default function CoordinatorTransport() {
               </p>
 
               <div
-                className={`mt-4 border-t pt-3 text-xs flex justify-between ${
+                className={`mt-4 border-t pt-3 text-xs flex justify-between gap-2 ${
                   isSelected ? "border-emerald-700 text-emerald-100" : "border-gray-100 text-gray-500"
                 }`}
               >
                 <span>Driver: {bus.driverName}</span>
-                <span className="font-bold">{bus.status}</span>
+                <span className="font-bold text-right">{bus.status}</span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -202,10 +251,80 @@ export default function CoordinatorTransport() {
           </div>
         </div>
 
-        {/* Passenger Manifest Table */}
-        <div>
-          <h3 className="font-bold text-emerald-950 text-sm mb-3">Passenger Seat Manifest</h3>
-          <div className="overflow-x-auto rounded-2xl border border-gray-100">
+        {/* Passenger Manifest Table + Mobile Cards */}
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-bold text-emerald-950 text-sm">
+                Passenger Seat Manifest ({checkedInCount}/{currentBus.manifest.length} Verified)
+              </h3>
+              <p className="text-[11px] text-gray-500">Tap any passenger status badge to toggle gate check-in.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 sm:w-52">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={manifestSearch}
+                  onChange={(e) => setManifestSearch(e.target.value)}
+                  placeholder="Search seat, name, roll..."
+                  aria-label="Search passenger manifest"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-8 pr-3 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleExportManifest}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+              >
+                <Download size={14} className="text-emerald-700" />
+                <span>CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Manifest Cards */}
+          <div className="space-y-2 md:hidden">
+            {filteredManifest.map((passenger) => (
+              <div
+                key={passenger.roll}
+                className="flex items-center justify-between gap-2 rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-emerald-100 px-2 py-0.5 font-mono text-[11px] font-black text-emerald-900">
+                      {passenger.seat}
+                    </span>
+                    <span className="truncate font-bold text-gray-900">{passenger.student}</span>
+                  </div>
+                  <p className="mt-1 font-mono text-[11px] text-gray-500">{passenger.roll}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => togglePassengerCheckIn(passenger.roll)}
+                  aria-pressed={passenger.checkedIn}
+                  className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${
+                    passenger.checkedIn
+                      ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                      : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  }`}
+                >
+                  {passenger.checkedIn ? (
+                    <>
+                      <CheckCircle2 size={11} />
+                      Verified
+                    </>
+                  ) : (
+                    "Mark Boarded"
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Manifest Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100">
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
                 <tr>
@@ -216,17 +335,20 @@ export default function CoordinatorTransport() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {currentBus.manifest.map((passenger, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50/50">
+                {filteredManifest.map((passenger) => (
+                  <tr key={passenger.roll} className="hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-bold text-emerald-900">{passenger.seat}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900">{passenger.student}</td>
                     <td className="px-4 py-3 font-mono text-gray-500">{passenger.roll}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      <button
+                        type="button"
+                        onClick={() => togglePassengerCheckIn(passenger.roll)}
+                        aria-pressed={passenger.checkedIn}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${
                           passenger.checkedIn
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-amber-100 text-amber-800 hover:bg-amber-200"
                         }`}
                       >
                         {passenger.checkedIn ? (
@@ -235,9 +357,9 @@ export default function CoordinatorTransport() {
                             Verified
                           </>
                         ) : (
-                          "Pending Gate Scan"
+                          "Pending Gate Scan — Mark"
                         )}
-                      </span>
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createAvatar } from "@dicebear/core";
 import * as collection from "@dicebear/collection";
+import { AVATAR_STYLES } from "../lib/avatarStyles";
 
 /**
  * ==============================================================================
@@ -13,14 +14,6 @@ import * as collection from "@dicebear/collection";
  *
  * Always falls back gracefully to the initial letter if an image fails to load.
  */
-
-// Available styles mapped to DiceBear collections
-export const AVATAR_STYLES = {
-  lorelei: { name: "Lorelei (Modern & Friendly)", collection: collection.lorelei },
-  adventurer: { name: "Adventurer (Playful Characters)", collection: collection.adventurer },
-  bottts: { name: "Bottts (Tech Robots)", collection: collection.bottts },
-  funEmoji: { name: "Fun Emoji (Expressive)", collection: collection.funEmoji },
-};
 
 const sizeClasses = {
   xs: "w-7 h-7 text-xs rounded-lg",

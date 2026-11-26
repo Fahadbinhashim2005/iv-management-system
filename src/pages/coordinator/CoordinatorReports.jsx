@@ -1,35 +1,60 @@
-import { useState } from "react";
-import { 
-  FileSpreadsheet, 
-  Download, 
-  FileText, 
-  ShieldCheck, 
-  FileCheck,
+import toast from "react-hot-toast";
+import { downloadCsvFile, downloadTextFile } from "../../lib/exportUtils";
+import { roomsApi } from "../../features/rooms/api/roomsApi";
+import {
+  FileSpreadsheet,
+  Download,
+  FileText,
+  ShieldCheck,
   Building,
-  Printer
+  Printer,
+  BedDouble,
 } from "lucide-react";
 
 export default function CoordinatorReports() {
-  const [toastMsg, setToastMsg] = useState("");
+  const downloadAuditCsv = () => {
+    downloadCsvFile(
+      "Attendance_Audit_Report.csv",
+      ["Checkpoint", "Date", "Verified Students", "Total Strength", "Status"],
+      [
+        ["Gate #2 Departure Assembly", "2026-12-05 06:00", 126, 128, "Cleared"],
+        ["Hotel Check-in Roll Call", "2026-12-05 14:30", 128, 128, "Cleared"],
+        ["GIFT City Corporate Gate", "2026-12-06 09:30", 127, 128, "Cleared"],
+        ["ISRO SAC Security Entry", "2026-12-07 09:30", 128, 128, "Cleared"],
+      ]
+    );
+    toast.success("Downloaded Attendance_Audit_Report.csv");
+  };
 
-  const triggerDownload = (fileName) => {
-    setToastMsg(`Preparing and downloading ${fileName}...`);
-    setTimeout(() => {
-      setToastMsg(`Downloaded ${fileName} successfully!`);
-      setTimeout(() => setToastMsg(""), 2500);
-    }, 1000);
+  const downloadLiveRoomCsv = async () => {
+    try {
+      const stays = await roomsApi.listStays();
+      if (!stays?.length) {
+        toast("No live stays created yet — download Room Allocation once a stay is added.", { icon: "ℹ️" });
+        return;
+      }
+      await roomsApi.downloadCsv(stays[0].id, stays[0].name);
+      toast.success(`Downloaded live room roster for ${stays[0].name}`);
+    } catch (err) {
+      toast.error(err?.message || "Could not export live room roster right now.");
+    }
+  };
+
+  const downloadDocumentSummary = (filename, title, bodyLines) => {
+    const content = [
+      "IV CONNECT — OFFICIAL TOUR DOSSIER RECORD",
+      `Document: ${title}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      "Program: Industrial Visit 2026 — GIFT City & Ahmedabad",
+      "--------------------------------------------------",
+      ...bodyLines,
+    ].join("\n");
+    downloadTextFile(filename, content);
+    toast.success(`Downloaded ${filename}`);
   };
 
   return (
     <div className="space-y-6">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 text-xs font-bold text-white shadow-xl animate-fade-in">
-          <FileCheck size={16} />
-          <span>{toastMsg}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -38,17 +63,20 @@ export default function CoordinatorReports() {
             Reports & Tour Dossier
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Generate attendance audit sheets, budget expenditure logs, and institutional clearance files.
+            Generate attendance audit sheets, room rosters, budget logs, and printable tour dossiers.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => triggerDownload("IV2026_Full_Tour_Dossier.pdf")}
+          onClick={() => {
+            window.print();
+            toast.success("Opened print / PDF save dialog.");
+          }}
           className="flex items-center gap-2 rounded-xl bg-emerald-800 px-5 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95 self-start sm:self-auto"
         >
           <Printer size={16} />
-          <span>Export Master Dossier (PDF)</span>
+          <span>Print / Save Master Dossier (PDF)</span>
         </button>
       </div>
 
@@ -93,9 +121,10 @@ export default function CoordinatorReports() {
             </div>
             <button
               type="button"
-              onClick={() => triggerDownload("Attendance_Audit_Report.xlsx")}
+              onClick={downloadAuditCsv}
+              aria-label="Download Attendance Audit CSV"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
-              title="Download Excel"
+              title="Download CSV"
             >
               <Download size={18} />
             </button>
@@ -114,9 +143,20 @@ export default function CoordinatorReports() {
             </div>
             <button
               type="button"
-              onClick={() => triggerDownload("Parent_Consent_Forms_Batch.pdf")}
+              onClick={() =>
+                downloadDocumentSummary(
+                  "Parent_Consent_Clearance_Summary.txt",
+                  "Parent Consent Clearance Report",
+                  [
+                    "Verified Consents: 122 / 128 enrolled students",
+                    "Pending Follow-ups: 6 students",
+                    "Coordinator Sign-off: Dept. of CSE",
+                  ]
+                )
+              }
+              aria-label="Download Parent Consent Clearance Report"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
-              title="Download PDF"
+              title="Download Summary"
             >
               <Download size={18} />
             </button>
@@ -135,9 +175,20 @@ export default function CoordinatorReports() {
             </div>
             <button
               type="button"
-              onClick={() => triggerDownload("Highway_Transit_Permit.pdf")}
+              onClick={() =>
+                downloadDocumentSummary(
+                  "Highway_Transit_Permit_Summary.txt",
+                  "RTO Highway Transit & Police Clearance",
+                  [
+                    "Permit Scope: All-India Commercial Tourist Transit",
+                    "Cleared Coaches: GJ-01-CT-4412 (Bus 01), GJ-01-DD-9102 (Bus 02), GJ-01-BX-8824 (Bus 04)",
+                    "Validity: Dec 1 - Dec 15, 2026",
+                  ]
+                )
+              }
+              aria-label="Download RTO Highway Transit Clearance"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
-              title="Download PDF"
+              title="Download Summary"
             >
               <Download size={18} />
             </button>
@@ -156,11 +207,44 @@ export default function CoordinatorReports() {
             </div>
             <button
               type="button"
-              onClick={() => triggerDownload("GIFT_City_Permission_Letter.pdf")}
+              onClick={() =>
+                downloadDocumentSummary(
+                  "GIFT_City_Permission_Summary.txt",
+                  "GIFT City Corporate Permission Letter",
+                  [
+                    "Host Venue: Gujarat International Finance Tec-City (GIFT Tower 1 & Utility Command)",
+                    "Scheduled Entry: Dec 6, 2026 @ 10:00 AM",
+                    "Requirements: Institutional ID cards & formal dress code mandatory.",
+                  ]
+                )
+              }
+              aria-label="Download GIFT City Permission Summary"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
-              title="Download PDF"
+              title="Download Summary"
             >
               <Download size={18} />
+            </button>
+          </div>
+
+          {/* Live Room Allocation Roster Export */}
+          <div className="sm:col-span-2 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 transition hover:bg-emerald-50">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700 text-white">
+                <BedDouble size={20} />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">Live Hotel Room Allocation Roster (CSV)</h4>
+                <p className="text-[11px] text-emerald-800">Exports current room occupants, floor assignments, and unallocated participants directly from the database</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={downloadLiveRoomCsv}
+              aria-label="Export live hotel room allocation CSV"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-900 transition"
+            >
+              <Download size={15} />
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
           </div>
         </div>

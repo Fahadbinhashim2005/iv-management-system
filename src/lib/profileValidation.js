@@ -28,7 +28,7 @@ export function normalizePhoneNumber(phone) {
  * @param {object} allValues - Full form state (for cross-field validation)
  * @returns {string|null} - Error message or null if valid
  */
-export function validateField(field, value, allValues = {}) {
+export function validateField(field, value) {
   switch (field) {
     case "full_name": {
       const trimmed = (value || "").trim();
@@ -140,32 +140,40 @@ export function validateField(field, value, allValues = {}) {
  * Returns an object of errors: { [fieldName]: errorMessage }
  * If the object is empty, the entire form is valid.
  */
-export function validateProfileForm(formData) {
+export function validateProfileForm(formData, role = "student") {
   const errors = {};
+  const isStudent = String(role || "student").toLowerCase() === "student";
 
-  const requiredFields = [
-    "full_name",
-    "roll_no",
-    "phone",
-    "department",
-    "semester",
-    "batch",
-    "guardian_name",
-    "emergency_phone",
-    "blood_group",
-    "consent_given",
-  ];
+  const requiredFields = isStudent
+    ? [
+        "full_name",
+        "roll_no",
+        "phone",
+        "department",
+        "semester",
+        "batch",
+        "guardian_name",
+        "emergency_phone",
+        "blood_group",
+        "consent_given",
+      ]
+    : ["full_name", "phone", "department"];
 
   requiredFields.forEach((field) => {
-    const error = validateField(field, formData[field], formData);
+    const error = validateField(field, formData[field]);
     if (error) {
       errors[field] = error;
     }
   });
 
+  if (formData.gender) {
+    const genderErr = validateField("gender", formData.gender);
+    if (genderErr) errors.gender = genderErr;
+  }
+
   // Optional fields that have constraint checks
   if (formData.medical_notes) {
-    const medError = validateField("medical_notes", formData.medical_notes, formData);
+    const medError = validateField("medical_notes", formData.medical_notes);
     if (medError) errors.medical_notes = medError;
   }
 

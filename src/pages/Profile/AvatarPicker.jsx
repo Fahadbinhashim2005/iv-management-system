@@ -203,11 +203,15 @@ export default function AvatarPicker({ isOpen, onClose, currentProfile, onSaveAv
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200">
-      <div 
-        className="w-full sm:max-w-xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl ring-1 ring-gray-100 overflow-hidden"
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
+    >
+      <div
+        className="w-full sm:max-w-xl max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl ring-1 ring-gray-100 overflow-hidden pb-[env(safe-area-inset-bottom)]"
         role="dialog"
         aria-modal="true"
+        aria-label="Choose profile picture"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">

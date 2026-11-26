@@ -1,25 +1,27 @@
-import { useState, useEffect, useId } from "react";
-import { 
-  Search, 
-  CheckCircle2, 
-  Clock, 
-  FileCheck, 
-  UserPlus, 
-  Upload, 
-  KeyRound, 
-  Copy, 
-  Printer, 
-  Ban, 
-  RotateCcw, 
-  X, 
+import { useState, useEffect, useId, useCallback } from "react";
+import {
+  Search,
+  CheckCircle2,
+  Clock,
+  UserPlus,
+  Upload,
+  KeyRound,
+  Copy,
+  Printer,
+  Ban,
+  RotateCcw,
+  X,
   AlertTriangle,
   Download,
   Eye,
   EyeOff,
   UserCheck,
-  UserX
+  UserX,
+  FileSpreadsheet,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { api } from "../../services/api";
+import { downloadCsvFile } from "../../lib/exportUtils";
 
 function generateRandomPassword(length = 12) {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
@@ -34,13 +36,12 @@ export default function AdminStudents() {
   const fileInputId = useId();
   const [activeTab, setActiveTab] = useState("requests"); // 'requests' | 'approved'
   const [searchTerm, setSearchTerm] = useState("");
-  const [toastMsg, setToastMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Real Data State from Database
   const [pendingRequests, setPendingRequests] = useState([]);
   const [approvedStudents, setApprovedStudents] = useState([]);
-  
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -66,7 +67,7 @@ export default function AdminStudents() {
   const [bulkResult, setBulkResult] = useState(null);
 
   // Load both pending requests and approved students
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
       const [reqRes, usersRes] = await Promise.all([
@@ -81,25 +82,37 @@ export default function AdminStudents() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadAllData();
   }, []);
 
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(""), 4000);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadAllData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadAllData]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (credentialCard) setCredentialCard(null);
+      else if (showAddModal) setShowAddModal(false);
+      else if (showBulkModal) {
+        setShowBulkModal(false);
+        setBulkResult(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [credentialCard, showAddModal, showBulkModal]);
 
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
     try {
       await api.approveAccessRequest(req.id, req.email);
-      showToast(`Approved ${req.full_name} (${req.email}). They can now sign in!`);
+      toast.success(`Approved ${req.full_name} (${req.email}). They can now sign in!`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to approve request.");
+      toast.error(err.message || "Failed to approve request.");
     }
   };
 
@@ -108,10 +121,10 @@ export default function AdminStudents() {
     if (!window.confirm(`Decline access request from ${req.full_name} (${req.email})?`)) return;
     try {
       await api.rejectAccessRequest(req.id, req.email);
-      showToast(`Declined request from ${req.email}.`);
+      toast.success(`Declined request from ${req.email}.`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to decline request.");
+      toast.error(err.message || "Failed to decline request.");
     }
   };
 
@@ -141,8 +154,9 @@ export default function AdminStudents() {
           password: res.user.initial_password || formData.password,
           roll_no: formData.roll_no,
         });
-        showToast(`Provisioned approved account for ${formData.full_name}`);
+        toast.success(`Provisioned approved account for ${formData.full_name}`);
         setShowAddModal(false);
+        setShowPw(false);
         setFormData({
           full_name: "",
           email: "",
@@ -156,7 +170,7 @@ export default function AdminStudents() {
         loadAllData();
       }
     } catch (err) {
-      alert(err.message || "Failed to create student account.");
+      toast.error(err.message || "Failed to create student account.");
     } finally {
       setLoading(false);
     }
@@ -167,10 +181,10 @@ export default function AdminStudents() {
     try {
       const newStatus = !student.is_active;
       await api.updateAdminUser(student.id, { is_active: newStatus });
-      showToast(`Account for ${student.full_name} ${newStatus ? 'activated' : 'deactivated'}.`);
+      toast.success(`Account for ${student.full_name} ${newStatus ? "activated" : "deactivated"}.`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to update account status.");
+      toast.error(err.message || "Failed to update account status.");
     }
   };
 
@@ -182,9 +196,9 @@ export default function AdminStudents() {
       setApprovedStudents((prev) =>
         prev.map((s) => (s.id === student.id ? { ...s, gender: nextGender } : s))
       );
-      showToast(`Updated gender for ${student.full_name}.`);
+      toast.success(`Updated gender for ${student.full_name}.`);
     } catch (err) {
-      alert(err.message || "Failed to update gender.");
+      toast.error(err.message || "Failed to update gender.");
     }
   };
 
@@ -201,10 +215,10 @@ export default function AdminStudents() {
         password: res.temporary_password || tempPw,
         roll_no: student.student_details?.roll_no || student.roll_number || "Student",
       });
-      showToast(`Password reset for ${student.full_name}`);
+      toast.success(`Password reset for ${student.full_name}`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to reset password.");
+      toast.error(err.message || "Failed to reset password.");
     }
   };
 
@@ -266,16 +280,28 @@ export default function AdminStudents() {
     reader.readAsText(file);
   };
 
+  const handleDownloadCsvTemplate = () => {
+    downloadCsvFile(
+      "student_bulk_import_template.csv",
+      ["full_name", "email", "roll_no", "gender", "department", "batch", "phone"],
+      [
+        ["Aarav Menon", "aarav.cs23@college.edu", "CS-2023-014", "male", "Computer Science & Engineering", "Batch 2023-27", "+91 9876543210"],
+        ["Ananya Nair", "ananya.cs23@college.edu", "CS-2023-015", "female", "Computer Science & Engineering", "Batch 2023-27", "+91 9876543211"],
+      ]
+    );
+    toast.success("Downloaded sample CSV template.");
+  };
+
   const handleBulkSubmit = async () => {
     if (parsedRows.length === 0) return;
     try {
       setLoading(true);
       const res = await api.bulkCreateAdminUsers(parsedRows);
       setBulkResult(res);
-      showToast(`Bulk provisioned: ${res.succeededCount} students added.`);
+      toast.success(`Bulk provisioned: ${res.succeededCount} students added.`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Bulk import failed.");
+      toast.error(err.message || "Bulk import failed.");
     } finally {
       setLoading(false);
     }
@@ -283,19 +309,18 @@ export default function AdminStudents() {
 
   const handleDownloadBulkCredentials = () => {
     if (!bulkResult?.users || bulkResult.users.length === 0) return;
-    const header = "full_name,email,roll_no,department,temporary_password\n";
-    const rows = bulkResult.users
-      .map((u) => `"${u.full_name}","${u.email}","${u.roll_no}","${u.department}","${u.temporary_password}"`)
-      .join("\n");
-    
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `student_credentials_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsvFile(
+      `student_credentials_${Date.now()}.csv`,
+      ["full_name", "email", "roll_no", "department", "temporary_password"],
+      bulkResult.users.map((u) => [
+        u.full_name,
+        u.email,
+        u.roll_no,
+        u.department,
+        u.temporary_password,
+      ])
+    );
+    toast.success("Credentials CSV downloaded.");
   };
 
   // Filter
@@ -310,16 +335,10 @@ export default function AdminStudents() {
     return (a.full_name || "").toLowerCase().includes(s) || (a.email || "").toLowerCase().includes(s) || roll.toLowerCase().includes(s);
   });
 
+  const unsetGenderCount = approvedStudents.filter((s) => !s.gender).length;
+
   return (
     <div className="space-y-6">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-950 border border-amber-400 px-4 py-3 text-xs font-bold text-white shadow-2xl animate-fade-in">
-          <FileCheck size={16} className="text-amber-300" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -385,16 +404,28 @@ export default function AdminStudents() {
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by student name or email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none shadow-xs"
-        />
+      {/* Search Bar & Gender Completeness Pill */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by student name, email, or roll..."
+            aria-label="Search students by name, email, or roll number"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none shadow-xs"
+          />
+        </div>
+
+        {activeTab === "approved" && unsetGenderCount > 0 && (
+          <div className="inline-flex items-center gap-2 self-start rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+            <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+            <span>
+              <strong>{unsetGenderCount}</strong> student{unsetGenderCount === 1 ? "" : "s"} missing gender (required for boys/girls rooms)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* TAB 1: PENDING REQUESTS QUEUE */}
@@ -459,7 +490,91 @@ export default function AdminStudents() {
       {/* TAB 2: APPROVED STUDENTS DIRECTORY */}
       {activeTab === "approved" && (
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
-          <div className="overflow-x-auto">
+          {/* Mobile Card Layout */}
+          <div className="divide-y divide-gray-100 md:hidden">
+            {filteredApproved.length === 0 ? (
+              <div className="px-5 py-10 text-center text-xs text-gray-500">
+                {loading ? "Loading..." : "No approved students in the database yet. Approve pending requests to populate."}
+              </div>
+            ) : (
+              filteredApproved.map((student) => {
+                const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "CS-2026";
+                const dept = student.department || student.student_details?.department || "Computer Science";
+                const isActive = student.is_active !== false;
+
+                return (
+                  <div key={student.id} className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-emerald-950 text-sm">{student.full_name}</p>
+                        <p className="font-mono text-[11px] text-gray-500">{roll}</p>
+                        <p className="mt-0.5 truncate text-xs text-gray-600">{student.email}</p>
+                        <p className="text-[11px] text-gray-400">{dept}</p>
+                      </div>
+                      <span
+                        className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                          isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {isActive ? <CheckCircle2 size={11} /> : <Ban size={11} />}
+                        {isActive ? "Active" : "Deactivated"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2.5">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-500">
+                        <span>Gender:</span>
+                        <select
+                          value={student.gender || ""}
+                          onChange={(e) => handleGenderChange(student, e.target.value)}
+                          aria-label={`Gender for ${student.full_name}`}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold focus:border-emerald-600 focus:outline-none ${
+                            !student.gender
+                              ? "border-amber-300 bg-amber-50 text-amber-800"
+                              : "border-gray-200 bg-white text-gray-800"
+                          }`}
+                        >
+                          <option value="">Unset</option>
+                          <option value="female">Female</option>
+                          <option value="male">Male</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleResetPassword(student)}
+                          aria-label={`Reset password for ${student.full_name}`}
+                          title="Reset Password"
+                          className="rounded-lg border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-100 hover:text-emerald-800 transition"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(student)}
+                          aria-label={`${isActive ? "Deactivate" : "Activate"} account for ${student.full_name}`}
+                          title={isActive ? "Deactivate Account" : "Activate Account"}
+                          className={`rounded-lg border p-1.5 transition ${
+                            isActive
+                              ? "border-red-200 text-red-700 hover:bg-red-50"
+                              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          }`}
+                        >
+                          {isActive ? <Ban size={14} /> : <CheckCircle2 size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table Layout */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                 <tr>
@@ -561,8 +676,17 @@ export default function AdminStudents() {
 
       {/* Credential Card Modal */}
       {credentialCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-emerald-100 space-y-4">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Student Credentials"
+          onClick={() => setCredentialCard(null)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl border border-emerald-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5 text-emerald-800">
                 <KeyRound size={22} className="text-amber-600" />
@@ -570,6 +694,7 @@ export default function AdminStudents() {
               </div>
               <button
                 type="button"
+                aria-label="Close credentials modal"
                 onClick={() => setCredentialCard(null)}
                 className="rounded-full p-1 text-gray-400 hover:text-gray-600"
               >
@@ -578,17 +703,17 @@ export default function AdminStudents() {
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200 space-y-2.5 font-mono text-xs">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-500">Student:</span>
-                <span className="font-bold text-gray-900">{credentialCard.full_name}</span>
+                <span className="font-bold text-gray-900 truncate">{credentialCard.full_name}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-500">Email:</span>
-                <span className="font-bold text-gray-900 select-all">{credentialCard.email}</span>
+                <span className="font-bold text-gray-900 select-all break-all text-right">{credentialCard.email}</span>
               </div>
-              <div className="flex justify-between items-center bg-amber-50 p-2 rounded-lg border border-amber-200">
+              <div className="flex justify-between items-center gap-2 bg-amber-50 p-2 rounded-lg border border-amber-200">
                 <span className="text-amber-900 font-sans font-bold">Password:</span>
-                <span className="font-bold text-amber-950 text-sm select-all">{credentialCard.password}</span>
+                <span className="font-bold text-amber-950 text-sm select-all break-all">{credentialCard.password}</span>
               </div>
             </div>
 
@@ -599,7 +724,7 @@ export default function AdminStudents() {
                   navigator.clipboard.writeText(
                     `IV Connect Student Credentials\nName: ${credentialCard.full_name}\nEmail: ${credentialCard.email}\nPassword: ${credentialCard.password}`
                   );
-                  showToast("Copied to clipboard.");
+                  toast.success("Copied to clipboard.");
                 }}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-900"
               >
@@ -621,8 +746,17 @@ export default function AdminStudents() {
 
       {/* Manual Add Student Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add Approved Student"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
                 <h3 className="font-black text-xl text-emerald-950">Add Approved Student</h3>
@@ -630,6 +764,7 @@ export default function AdminStudents() {
               </div>
               <button
                 type="button"
+                aria-label="Close add student modal"
                 onClick={() => setShowAddModal(false)}
                 className="rounded-full p-1 text-gray-400 hover:text-gray-600"
               >
@@ -711,13 +846,23 @@ export default function AdminStudents() {
                     Generate
                   </button>
                 </div>
-                <input
-                  type="text"
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs font-mono text-gray-900 focus:border-emerald-600 focus:outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 pr-10 text-xs font-mono text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((prev) => !prev)}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-gray-400 hover:text-gray-700"
+                  >
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-gray-100">
@@ -743,8 +888,17 @@ export default function AdminStudents() {
 
       {/* Bulk CSV Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bulk Student CSV Import"
+          onClick={() => { setShowBulkModal(false); setBulkResult(null); }}
+        >
+          <div
+            className="w-full max-w-2xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-4 max-h-[90dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
                 <h3 className="font-black text-xl text-emerald-950">Bulk Student CSV Import</h3>
@@ -752,10 +906,26 @@ export default function AdminStudents() {
               </div>
               <button
                 type="button"
+                aria-label="Close bulk import modal"
                 onClick={() => { setShowBulkModal(false); setBulkResult(null); }}
                 className="rounded-full p-1 text-gray-400 hover:text-gray-600"
               >
                 <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gray-50 px-4 py-3 text-xs">
+              <div className="flex items-center gap-2 text-gray-700">
+                <FileSpreadsheet size={16} className="text-emerald-700" />
+                <span>Need the expected column headers?</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadCsvTemplate}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50"
+              >
+                <Download size={13} />
+                Download Sample Template
               </button>
             </div>
 
@@ -769,10 +939,26 @@ export default function AdminStudents() {
               />
               <label htmlFor={fileInputId} className="cursor-pointer space-y-2 block">
                 <Upload size={32} className="mx-auto text-emerald-700" />
-                <p className="text-xs font-bold text-gray-700">Click to choose CSV file</p>
-                <p className="text-[11px] text-gray-400">full_name, email, roll_no, department, batch, phone</p>
+                <p className="text-xs font-bold text-gray-700">
+                  {csvFile ? `Selected: ${csvFile.name} (${parsedRows.length} valid rows)` : "Click to choose CSV file"}
+                </p>
+                <p className="text-[11px] text-gray-400">full_name, email, roll_no, gender (optional), department, batch, phone</p>
               </label>
             </div>
+
+            {bulkErrors.length > 0 && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-900 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertTriangle size={15} className="shrink-0 text-red-600" />
+                  <span>CSV Validation Issues ({bulkErrors.length})</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-0.5 max-h-28 overflow-y-auto text-[11px]">
+                  {bulkErrors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {bulkResult && (
               <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-xs space-y-2">
@@ -780,9 +966,10 @@ export default function AdminStudents() {
                 <button
                   type="button"
                   onClick={handleDownloadBulkCredentials}
-                  className="rounded-xl bg-emerald-800 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-900"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-900"
                 >
-                  Download Credentials CSV
+                  <Download size={14} />
+                  <span>Download Credentials CSV</span>
                 </button>
               </div>
             )}

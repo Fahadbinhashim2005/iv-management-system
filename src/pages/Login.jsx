@@ -190,9 +190,10 @@ function Login() {
                     </div>
 
                     {/* Role tabs */}
-                    <div className="role-selector">
+                    <div className="role-selector" role="group" aria-label="Select portal role">
                         <button
                             type="button"
+                            aria-pressed={selectedRole === "Student"}
                             className={`role-option ${selectedRole === "Student" ? "active" : ""}`}
                             onClick={() => { setSelectedRole("Student"); setStatusBanner(null); }}
                         >
@@ -202,6 +203,7 @@ function Login() {
 
                         <button
                             type="button"
+                            aria-pressed={selectedRole === "Coordinator"}
                             className={`role-option ${selectedRole === "Coordinator" ? "active" : ""}`}
                             onClick={() => { setSelectedRole("Coordinator"); setStatusBanner(null); }}
                         >
@@ -211,6 +213,7 @@ function Login() {
 
                         <button
                             type="button"
+                            aria-pressed={selectedRole === "Admin"}
                             className={`role-option ${selectedRole === "Admin" ? "active" : ""}`}
                             onClick={() => { setSelectedRole("Admin"); setStatusBanner(null); }}
                         >
@@ -284,9 +287,18 @@ function Login() {
                                 />
                                 Remember Me
                             </label>
-                            <a href="#" className="forgot-password" onClick={(e) => { e.preventDefault(); alert("First-time sign-ins automatically request approval from the Admin. For password resets, contact your administrator."); }}>
+                            <button
+                                type="button"
+                                className="forgot-password"
+                                onClick={() =>
+                                    setStatusBanner({
+                                        type: "pending",
+                                        message: "First-time sign-ins automatically send an approval request to the Admin. For password resets, contact your department administrator.",
+                                    })
+                                }
+                            >
                                 Help & Support
-                            </a>
+                            </button>
                         </div>
 
                         <button

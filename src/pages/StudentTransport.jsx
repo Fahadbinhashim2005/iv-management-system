@@ -1,48 +1,98 @@
-import { 
-  Bus, 
-  User, 
-  Phone, 
-  ShieldCheck, 
-  Wifi, 
-  Zap, 
-  Airplay
+import {
+  Bus,
+  User,
+  Phone,
+  ShieldCheck,
+  Wifi,
+  Zap,
+  Airplay,
+  Copy,
+  MapPin,
 } from "lucide-react";
+import toast from "react-hot-toast";
+import { useProfile } from "../hooks/useProfile";
 
 export default function StudentTransport() {
+  const { profile, tripAssignment } = useProfile();
+
+  const busName = tripAssignment?.bus_number || "Bus 04 (Alpha Unit)";
+  const coachType = tripAssignment?.coach_type || "Volvo 9600 Multi-Axle AC";
+  const regNo = tripAssignment?.registration_no || "GJ-01-BX-8824";
+  const seatNo = tripAssignment?.seat_number || "14A";
+  const seatNote = tripAssignment?.seat_note || "Window Seat • Left Side";
+  const boardingPoint = tripAssignment?.boarding_point || "College Main Campus, Gate #2 (05:45 AM)";
+  const driverName = tripAssignment?.driver_name || "Mr. Suresh Patel";
+  const driverPhone = tripAssignment?.driver_phone || "+91 98765 43210";
+  const coordName = tripAssignment?.coordinator_name || "Prof. Anjali Menon";
+  const coordPhone = tripAssignment?.coordinator_phone || "+91 98123 45678";
+
+  const copyBoardingPass = async () => {
+    const passText = [
+      `IV Connect Boarding Pass`,
+      `Passenger: ${profile?.full_name || "Student"}`,
+      `Unit: ${busName} (${regNo})`,
+      `Seat: ${seatNo} (${seatNote})`,
+      `Boarding Point: ${boardingPoint}`,
+      `Driver: ${driverName} (${driverPhone})`,
+      `Coordinator: ${coordName} (${coordPhone})`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(passText);
+      toast.success("Boarding details copied to clipboard.");
+    } catch {
+      toast.error("Could not copy automatically. Please copy manually.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <p className="text-sm font-semibold text-emerald-700">Travel & Logistics</p>
-        <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-          Assigned Transport
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Your travel vehicle details, designated seating, driver contacts, and route checkpoints.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-emerald-700">Travel & Logistics</p>
+          <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
+            Assigned Transport
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Your travel vehicle details, designated seating, driver contacts, and route checkpoints.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={copyBoardingPass}
+          className="inline-flex items-center justify-center gap-1.5 self-start rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-50 sm:self-auto"
+        >
+          <Copy size={14} />
+          <span>Copy Boarding Pass</span>
+        </button>
       </div>
 
       {/* Main Bus Overview Card */}
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 sm:p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md">
-              <Bus size={32} />
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="flex h-14 w-14 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md">
+              <Bus size={30} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                  Bus 04 (Alpha Unit)
+                  {busName}
                 </span>
                 <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-                  Volvo 9600 Multi-Axle AC
+                  {coachType}
                 </span>
               </div>
-              <h2 className="mt-1 text-xl font-extrabold text-emerald-950 sm:text-2xl">
-                Registration: GJ-01-BX-8824
+              <h2 className="mt-1.5 text-lg font-extrabold text-emerald-950 sm:text-2xl">
+                Registration: {regNo}
               </h2>
               <p className="text-xs text-gray-500">
                 Capacity: 45 Students • Air-Suspension Luxury Coach
+              </p>
+              <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+                <MapPin size={13} className="shrink-0" />
+                <span>{boardingPoint}</span>
               </p>
             </div>
           </div>
@@ -52,9 +102,9 @@ export default function StudentTransport() {
               Your Allocated Seat
             </p>
             <p className="mt-1 text-3xl font-black text-emerald-950">
-              14A
+              {seatNo}
             </p>
-            <p className="text-[11px] text-gray-500">Window Seat • Left Side</p>
+            <p className="text-[11px] text-gray-500">{seatNote}</p>
           </div>
         </div>
 
@@ -96,16 +146,16 @@ export default function StudentTransport() {
               <User size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-emerald-950">Mr. Suresh Patel</h3>
+              <h3 className="font-bold text-emerald-950">{driverName}</h3>
               <p className="text-xs text-gray-500">12+ Years Commercial Tourist Experience</p>
             </div>
           </div>
           <a
-            href="tel:+919876543210"
+            href={`tel:${driverPhone.replace(/\s+/g, "")}`}
             className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-emerald-50 py-2.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
           >
             <Phone size={15} />
-            <span>Call Driver (+91 98765 43210)</span>
+            <span>Call Driver ({driverPhone})</span>
           </a>
         </div>
 
@@ -124,16 +174,16 @@ export default function StudentTransport() {
               <User size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-emerald-950">Prof. Anjali Menon</h3>
+              <h3 className="font-bold text-emerald-950">{coordName}</h3>
               <p className="text-xs text-gray-500">Dept. of Computer Science & Engineering</p>
             </div>
           </div>
           <a
-            href="tel:+919812345678"
+            href={`tel:${coordPhone.replace(/\s+/g, "")}`}
             className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-emerald-50 py-2.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
           >
             <Phone size={15} />
-            <span>Call Coordinator (+91 98123 45678)</span>
+            <span>Call Coordinator ({coordPhone})</span>
           </a>
         </div>
       </div>
@@ -144,7 +194,7 @@ export default function StudentTransport() {
         <ul className="mt-3 space-y-2 text-xs text-gray-600 leading-relaxed">
           <li className="flex items-start gap-2">
             <span className="font-bold text-emerald-600">•</span>
-            Students must be seated in their designated seat (14A) 15 minutes before scheduled departure.
+            Students must be seated in their designated seat ({seatNo}) 15 minutes before scheduled departure.
           </li>
           <li className="flex items-start gap-2">
             <span className="font-bold text-emerald-600">•</span>

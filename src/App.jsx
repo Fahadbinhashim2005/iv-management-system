@@ -31,6 +31,7 @@ import CoordinatorTransport from './pages/coordinator/CoordinatorTransport';
 import CoordinatorAccommodation from './pages/coordinator/CoordinatorAccommodation';
 import CoordinatorAnnouncements from './pages/coordinator/CoordinatorAnnouncements';
 import CoordinatorReports from './pages/coordinator/CoordinatorReports';
+import ProfilePage from './pages/Profile/ProfilePage';
 
 // Admin Portal (Superior Authority / Chief Coordinator)
 import AdminLayout from './layouts/AdminLayout';
@@ -86,6 +87,7 @@ function App() {
               <Route path="accommodation" element={<CoordinatorAccommodation />} />
               <Route path="announcements" element={<CoordinatorAnnouncements />} />
               <Route path="reports" element={<CoordinatorReports />} />
+              <Route path="profile" element={<ProfilePage />} />
             </Route>
           </Route>
 
@@ -104,6 +106,7 @@ function App() {
               <Route path="logs" element={<AdminLogs />} />
               <Route path="attendance" element={<AdminAttendanceList />} />
               <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
+              <Route path="profile" element={<ProfilePage />} />
             </Route>
           </Route>
 

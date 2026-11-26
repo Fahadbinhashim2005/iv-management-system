@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { api } from '../services/api';
@@ -59,7 +60,9 @@ export function AuthProvider({ children }) {
               is_active: true,
             })
             .then(() => {});
-        } catch {}
+        } catch {
+          // Ignore non-blocking profile heal failure
+        }
 
         return {
           id: userId,

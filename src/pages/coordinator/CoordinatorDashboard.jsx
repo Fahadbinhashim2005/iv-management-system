@@ -1,24 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Users, 
-  ClipboardCheck, 
-  Bus, 
-  BedDouble, 
-  Plus, 
-  Bell, 
-  ArrowRight, 
-  Check, 
-  X, 
-  Clock, 
-  MapPin, 
-  ScanLine, 
+import toast from "react-hot-toast";
+import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
+import { roomsApi } from "../../features/rooms/api/roomsApi";
+import {
+  Users,
+  ClipboardCheck,
+  Bus,
+  BedDouble,
+  Plus,
+  Bell,
+  ArrowRight,
+  Check,
+  X,
+  Clock,
+  MapPin,
+  ScanLine,
   AlertCircle,
-  FileCheck
 } from "lucide-react";
 
 export default function CoordinatorDashboard() {
   const navigate = useNavigate();
+  const { sessions, hasActive } = useActiveSessions({
+    mode: "staff",
+    pollIntervalMs: 15000,
+  });
+
+  const [stays, setStays] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    roomsApi
+      .listStays()
+      .then((data) => {
+        if (active && Array.isArray(data)) setStays(data);
+      })
+      .catch(() => {
+        // Optional enhancement fallback
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Mock pending requests state with interactive approve/reject
   const [pendingRequests, setPendingRequests] = useState([
@@ -27,29 +50,22 @@ export default function CoordinatorDashboard() {
     { id: 103, name: "Meera Pillai", roll: "CS-2026-077", batch: "CSE-A", cgpa: "9.2", date: "Yesterday, 02:10 PM" },
   ]);
 
-  const [notificationMsg, setNotificationMsg] = useState("");
-
   const handleApprove = (id, name) => {
     setPendingRequests((prev) => prev.filter((req) => req.id !== id));
-    setNotificationMsg(`Approved participation for ${name}. Notification sent.`);
-    setTimeout(() => setNotificationMsg(""), 3500);
+    toast.success(`Approved participation for ${name}. Notification sent.`);
   };
 
   const handleReject = (id, name) => {
     setPendingRequests((prev) => prev.filter((req) => req.id !== id));
-    setNotificationMsg(`Rejected application for ${name}.`);
-    setTimeout(() => setNotificationMsg(""), 3500);
+    toast(`Declined application for ${name}.`, { icon: "ℹ️" });
   };
+
+  const totalRoomsCount = stays.reduce((acc, s) => acc + (s.summary?.roomCount || 0), 0);
+  const occupiedBedsCount = stays.reduce((acc, s) => acc + (s.summary?.occupiedBeds || 0), 0);
+  const totalBedsCount = stays.reduce((acc, s) => acc + (s.summary?.totalBeds || 0), 0);
 
   return (
     <div className="space-y-8">
-      {/* Toast Notification */}
-      {notificationMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-800 px-4 py-3 text-xs font-bold text-white shadow-xl animate-fade-in">
-          <FileCheck size={16} />
-          <span>{notificationMsg}</span>
-        </div>
-      )}
 
       {/* Header */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -139,8 +155,16 @@ export default function CoordinatorDashboard() {
           </div>
           <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">98.4%</p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-semibold text-blue-600">Gate #2 Ready</span>
-            <span>4 Checkpoints</span>
+            <span className="font-semibold text-blue-600">
+              {hasActive ? `${sessions.length} Live Session${sessions.length === 1 ? "" : "s"}` : "Gate #2 Ready"}
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/coordinator/attendance")}
+              className="font-bold text-emerald-700 hover:underline"
+            >
+              Open Gate →
+            </button>
           </div>
         </div>
 
@@ -152,10 +176,14 @@ export default function CoordinatorDashboard() {
               <Bus size={18} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">100%</p>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {totalBedsCount > 0 ? `${Math.round((occupiedBedsCount / totalBedsCount) * 100)}%` : "100%"}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
             <span>3 Volvo Buses</span>
-            <span>45 Rooms Booked</span>
+            <span>
+              {totalRoomsCount > 0 ? `${occupiedBedsCount}/${totalBedsCount} Beds` : "45 Rooms Booked"}
+            </span>
           </div>
         </div>
       </section>
@@ -328,16 +356,17 @@ export default function CoordinatorDashboard() {
           </p>
 
           <div className="mt-4 space-y-3">
-            <div 
+            <button
+              type="button"
               onClick={() => navigate("/coordinator/transport")}
-              className="group cursor-pointer rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition hover:bg-emerald-50/40"
+              className="group w-full text-left rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition hover:bg-emerald-50/40"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                     <Bus size={18} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">
                       Bus Fleet: 3 Volvo Multi-Axle Coaches
                     </h4>
@@ -346,31 +375,34 @@ export default function CoordinatorDashboard() {
                     </p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition" />
+                <ArrowRight size={16} className="shrink-0 text-gray-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition" />
               </div>
-            </div>
+            </button>
 
-            <div 
+            <button
+              type="button"
               onClick={() => navigate("/coordinator/accommodation")}
-              className="group cursor-pointer rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition hover:bg-emerald-50/40"
+              className="group w-full text-left rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition hover:bg-emerald-50/40"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
                     <BedDouble size={18} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">
-                      Hotel Grand Ambience (Ashram Road)
+                      {stays[0]?.name || "Hotel Grand Ambience (Ashram Road)"}
                     </h4>
                     <p className="text-[11px] text-gray-500">
-                      45 Rooms Reserved • 128/128 Students mapped to room rosters
+                      {totalRoomsCount > 0
+                        ? `${totalRoomsCount} Rooms Configured • ${occupiedBedsCount}/${totalBedsCount} beds occupied across ${stays.length} stay${stays.length === 1 ? "" : "s"}`
+                        : "45 Rooms Reserved • 128/128 Students mapped to room rosters"}
                     </p>
                   </div>
                 </div>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition" />
+                <ArrowRight size={16} className="shrink-0 text-gray-400 group-hover:text-emerald-700 group-hover:translate-x-1 transition" />
               </div>
-            </div>
+            </button>
 
             {/* Quick Alert Banner */}
             <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 p-3">

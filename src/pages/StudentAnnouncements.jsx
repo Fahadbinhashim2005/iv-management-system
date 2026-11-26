@@ -9,6 +9,7 @@ import {
   ListChecks,
   Pin,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
 import {
@@ -25,6 +26,7 @@ const CATEGORY_LABELS = {
 
 export default function StudentAnnouncements() {
   const [filter, setFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [notifPerm, setNotifPerm] = useState(() =>
     typeof window !== "undefined" && "Notification" in window
       ? Notification.permission
@@ -51,10 +53,17 @@ export default function StudentAnnouncements() {
     await playSpecialNotificationSound("urgent");
   };
 
-  const filteredAnnouncements =
-    filter === "all"
-      ? announcements
-      : announcements.filter((item) => item.category === filter);
+  const filteredAnnouncements = announcements.filter((item) => {
+    const matchesCategory = filter === "all" || item.category === filter;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      (item.title || "").toLowerCase().includes(q) ||
+      (item.content || "").toLowerCase().includes(q) ||
+      (item.instructions || "").toLowerCase().includes(q) ||
+      (item.author || "").toLowerCase().includes(q);
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -116,28 +125,49 @@ export default function StudentAnnouncements() {
         </div>
       </div>
 
-      {/* Filter Badges */}
-      <div className="flex flex-wrap items-center gap-2">
-        {[
-          { value: "all", label: "All" },
-          { value: "urgent", label: "Urgent" },
-          { value: "logistics", label: "Logistics" },
-          { value: "general", label: "General" },
-          { value: "info", label: "Info" },
-        ].map((tag) => (
-          <button
-            key={tag.value}
-            type="button"
-            onClick={() => setFilter(tag.value)}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              filter === tag.value
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
-            }`}
-          >
-            {tag.label}
-          </button>
-        ))}
+      {/* Search & Filter Badges */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { value: "all", label: "All" },
+            { value: "urgent", label: "Urgent" },
+            { value: "logistics", label: "Logistics" },
+            { value: "general", label: "General" },
+            { value: "info", label: "Info" },
+          ].map((tag) => {
+            const count =
+              tag.value === "all"
+                ? announcements.length
+                : announcements.filter((a) => a.category === tag.value).length;
+            return (
+              <button
+                key={tag.value}
+                type="button"
+                aria-pressed={filter === tag.value}
+                onClick={() => setFilter(tag.value)}
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                  filter === tag.value
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
+                }`}
+              >
+                {tag.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative w-full sm:max-w-xs">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search notices or locations..."
+            aria-label="Search announcements"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs text-gray-900 shadow-xs focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* Announcements Feed */}

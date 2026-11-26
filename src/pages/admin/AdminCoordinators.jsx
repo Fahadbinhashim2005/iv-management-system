@@ -1,21 +1,21 @@
-import { useState, useEffect } from "react";
-import { 
-  Search, 
-  Phone, 
-  Mail, 
-  Plus, 
-  RotateCcw, 
-  Ban, 
-  CheckCircle2, 
-  X, 
-  KeyRound, 
-  Copy, 
-  Printer, 
-  FileCheck, 
-  Clock, 
-  UserCheck, 
-  UserX 
+import { useState, useEffect, useCallback } from "react";
+import {
+  Search,
+  Phone,
+  Mail,
+  Plus,
+  RotateCcw,
+  Ban,
+  CheckCircle2,
+  X,
+  KeyRound,
+  Copy,
+  Printer,
+  Clock,
+  UserCheck,
+  UserX,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { api } from "../../services/api";
 
 function generateRandomPassword(length = 12) {
@@ -30,7 +30,6 @@ function generateRandomPassword(length = 12) {
 export default function AdminCoordinators() {
   const [activeTab, setActiveTab] = useState("requests"); // 'requests' | 'approved'
   const [searchTerm, setSearchTerm] = useState("");
-  const [toastMsg, setToastMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -51,7 +50,7 @@ export default function AdminCoordinators() {
     password: generateRandomPassword(12),
   });
 
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
       const [reqRes, usersRes] = await Promise.all([
@@ -66,25 +65,33 @@ export default function AdminCoordinators() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadAllData();
   }, []);
 
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(""), 4000);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadAllData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadAllData]);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (credentialCard) setCredentialCard(null);
+      else if (showAddModal) setShowAddModal(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [credentialCard, showAddModal]);
 
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
     try {
       await api.approveAccessRequest(req.id, req.email);
-      showToast(`Approved coordinator ${req.full_name} (${req.email}). They can now log in!`);
+      toast.success(`Approved coordinator ${req.full_name} (${req.email}). They can now log in!`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to approve request.");
+      toast.error(err.message || "Failed to approve request.");
     }
   };
 
@@ -93,10 +100,10 @@ export default function AdminCoordinators() {
     if (!window.confirm(`Decline access request from ${req.full_name} (${req.email})?`)) return;
     try {
       await api.rejectAccessRequest(req.id, req.email);
-      showToast(`Declined request from ${req.email}.`);
+      toast.success(`Declined request from ${req.email}.`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to decline request.");
+      toast.error(err.message || "Failed to decline request.");
     }
   };
 
@@ -125,7 +132,7 @@ export default function AdminCoordinators() {
           password: res.user.initial_password || formData.password,
           designation: formData.designation,
         });
-        showToast(`Appointed approved coordinator: ${formData.full_name}`);
+        toast.success(`Appointed approved coordinator: ${formData.full_name}`);
         setShowAddModal(false);
         setFormData({
           full_name: "",
@@ -139,7 +146,7 @@ export default function AdminCoordinators() {
         loadAllData();
       }
     } catch (err) {
-      alert(err.message || "Failed to create coordinator account.");
+      toast.error(err.message || "Failed to create coordinator account.");
     } finally {
       setLoading(false);
     }
@@ -150,10 +157,10 @@ export default function AdminCoordinators() {
     try {
       const newStatus = !coord.is_active;
       await api.updateAdminUser(coord.id, { is_active: newStatus });
-      showToast(`${coord.full_name || coord.name} ${newStatus ? 'activated' : 'deactivated'}.`);
+      toast.success(`${coord.full_name || coord.name} ${newStatus ? "activated" : "deactivated"}.`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to toggle status.");
+      toast.error(err.message || "Failed to toggle status.");
     }
   };
 
@@ -164,9 +171,9 @@ export default function AdminCoordinators() {
       setApprovedCoordinators((prev) =>
         prev.map((c) => (c.id === coord.id ? { ...c, gender: nextGender } : c))
       );
-      showToast(`Updated gender for ${coord.full_name || coord.name}.`);
+      toast.success(`Updated gender for ${coord.full_name || coord.name}.`);
     } catch (err) {
-      alert(err.message || "Failed to update gender.");
+      toast.error(err.message || "Failed to update gender.");
     }
   };
 
@@ -183,10 +190,10 @@ export default function AdminCoordinators() {
         password: res.temporary_password || tempPw,
         designation: coord.coordinator_details?.designation || "Tour Coordinator",
       });
-      showToast(`Password reset for ${coord.full_name}`);
+      toast.success(`Password reset for ${coord.full_name}`);
       loadAllData();
     } catch (err) {
-      alert(err.message || "Failed to reset password.");
+      toast.error(err.message || "Failed to reset password.");
     }
   };
 
@@ -204,14 +211,6 @@ export default function AdminCoordinators() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-emerald-950 border border-amber-400 px-4 py-3 text-xs font-bold text-white shadow-2xl animate-fade-in">
-          <FileCheck size={16} className="text-amber-300" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -397,13 +396,13 @@ export default function AdminCoordinators() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 text-xs text-gray-600">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs text-gray-600">
                     <span className="flex items-center gap-1.5 font-semibold text-gray-800">
-                      <Phone size={13} className="text-emerald-700" />
+                      <Phone size={13} className="shrink-0 text-emerald-700" />
                       {faculty.phone || "+91 94471 00000"}
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <Mail size={13} className="text-emerald-700" />
+                    <span className="flex items-center gap-1.5 min-w-0 break-all">
+                      <Mail size={13} className="shrink-0 text-emerald-700" />
                       {faculty.email}
                     </span>
                   </div>
@@ -440,8 +439,17 @@ export default function AdminCoordinators() {
 
       {/* Credential Card Modal */}
       {credentialCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-emerald-100 space-y-4">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Coordinator Credentials"
+          onClick={() => setCredentialCard(null)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl border border-emerald-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5 text-emerald-800">
                 <KeyRound size={22} className="text-amber-600" />
@@ -449,6 +457,7 @@ export default function AdminCoordinators() {
               </div>
               <button
                 type="button"
+                aria-label="Close credentials modal"
                 onClick={() => setCredentialCard(null)}
                 className="rounded-full p-1 text-gray-400 hover:text-gray-600"
               >
@@ -457,17 +466,17 @@ export default function AdminCoordinators() {
             </div>
 
             <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200 space-y-2.5 font-mono text-xs">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-500">Officer:</span>
-                <span className="font-bold text-gray-900">{credentialCard.full_name}</span>
+                <span className="font-bold text-gray-900 truncate">{credentialCard.full_name}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-gray-500">Email:</span>
-                <span className="font-bold text-gray-900 select-all">{credentialCard.email}</span>
+                <span className="font-bold text-gray-900 select-all break-all text-right">{credentialCard.email}</span>
               </div>
-              <div className="flex justify-between items-center bg-amber-50 p-2 rounded-lg border border-amber-200">
+              <div className="flex justify-between items-center gap-2 bg-amber-50 p-2 rounded-lg border border-amber-200">
                 <span className="text-amber-900 font-sans font-bold">Password:</span>
-                <span className="font-bold text-amber-950 text-sm select-all">{credentialCard.password}</span>
+                <span className="font-bold text-amber-950 text-sm select-all break-all">{credentialCard.password}</span>
               </div>
             </div>
 
@@ -478,7 +487,7 @@ export default function AdminCoordinators() {
                   navigator.clipboard.writeText(
                     `IV Connect Faculty Credentials\nOfficer: ${credentialCard.full_name}\nEmail: ${credentialCard.email}\nPassword: ${credentialCard.password}`
                   );
-                  showToast("Copied to clipboard.");
+                  toast.success("Copied to clipboard.");
                 }}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-800 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-900"
               >
@@ -500,8 +509,17 @@ export default function AdminCoordinators() {
 
       {/* Manual Add Coordinator Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Appoint Approved Coordinator"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
                 <h3 className="font-black text-xl text-emerald-950">Appoint Approved Coordinator</h3>
@@ -509,6 +527,7 @@ export default function AdminCoordinators() {
               </div>
               <button
                 type="button"
+                aria-label="Close appoint coordinator modal"
                 onClick={() => setShowAddModal(false)}
                 className="rounded-full p-1 text-gray-400 hover:text-gray-600"
               >

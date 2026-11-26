@@ -1,28 +1,140 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useProfile } from "../hooks/useProfile";
+import { useActiveSessions } from "../features/attendance/hooks/useActiveSessions";
+import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
+import { roomsApi } from "../features/rooms/api/roomsApi";
 import Avatar from "../components/Avatar";
-import { 
-  Bell, 
-  ClipboardCheck, 
-  Bus, 
-  BedDouble, 
-  ArrowRight, 
-  Clock, 
-  MapPin, 
+import {
+  Bell,
+  ClipboardCheck,
+  Bus,
+  BedDouble,
+  ArrowRight,
+  Clock,
+  MapPin,
   ShieldCheck,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  Circle,
+  Sparkles,
 } from "lucide-react";
+
+function getTimeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 function StudentDashboard() {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
-  const studentName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
+  const { tripAssignment } = useProfile();
+  const { sessions, hasActive, hasUnmarked } = useActiveSessions({
+    mode: "student",
+    pollIntervalMs: 15000,
+  });
+  const { unreadCount } = useAnnouncementAlerts({
+    pollIntervalMs: 15000,
+    enableAlerts: false,
+  });
+
+  const [roomSummary, setRoomSummary] = useState(null);
+  const [staySummary, setStaySummary] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    roomsApi
+      .listStays()
+      .then(async (stays) => {
+        if (!active || !Array.isArray(stays) || stays.length === 0) return;
+        const primaryStay =
+          stays.find((s) => s.selection_status === "open") || stays[0];
+        setStaySummary(primaryStay);
+        const me = await roomsApi.getMe(primaryStay.id).catch(() => null);
+        if (active && me?.myRoom) {
+          setRoomSummary(me.myRoom);
+        }
+      })
+      .catch(() => {
+        // Non-blocking fallback to tripAssignment / default copy
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const studentName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Student";
   const firstName = studentName.split(" ")[0] || "Student";
   const tripStatus = "upcoming";
 
-  // Check if student profile requires attention (Emergency details or trip consent)
-  const isProfileIncomplete = !profile?.consent_given || !profile?.emergency_phone || !profile?.blood_group;
+  const readinessItems = [
+    {
+      id: "phone",
+      label: "Emergency contact number",
+      done: Boolean(profile?.emergency_phone),
+      actionLabel: "Add in Profile",
+      to: "/student/profile",
+    },
+    {
+      id: "blood",
+      label: "Medical blood group",
+      done: Boolean(profile?.blood_group),
+      actionLabel: "Set Blood Group",
+      to: "/student/profile",
+    },
+    {
+      id: "gender",
+      label: "Gender set (room eligibility)",
+      done: Boolean(profile?.gender),
+      actionLabel: "Set Gender",
+      to: "/student/profile",
+    },
+    {
+      id: "consent",
+      label: "Trip code & guardian consent",
+      done: Boolean(profile?.consent_given),
+      actionLabel: "Accept Consent",
+      to: "/student/profile",
+    },
+    {
+      id: "room",
+      label: "Hotel room selected",
+      done: Boolean(roomSummary?.room_no || tripAssignment?.room_number),
+      actionLabel: "Pick Room",
+      to: "/student/accommodation",
+    },
+  ];
+  const completedCount = readinessItems.filter((item) => item.done).length;
+  const readinessPct = Math.round((completedCount / readinessItems.length) * 100);
+  const isProfileIncomplete =
+    !profile?.consent_given || !profile?.emergency_phone || !profile?.blood_group;
+
+  const assignedBus = tripAssignment?.bus_number || "Bus #04";
+  const assignedSeat = tripAssignment?.seat_number || "14A";
+  const assignedDriver = tripAssignment?.driver_name || "Mr. Suresh";
+  const assignedDriverPhone = tripAssignment?.driver_phone || "+91 98765 43210";
+
+  const roomBadge = roomSummary?.room_no
+    ? `Room ${roomSummary.room_no}`
+    : tripAssignment?.room_number
+    ? `Room ${tripAssignment.room_number}`
+    : staySummary?.selection_status === "open"
+    ? "Booking Open"
+    : "Not Selected";
+
+  const attendanceBadge = hasUnmarked
+    ? "Action Needed"
+    : hasActive
+    ? "Marked ✓"
+    : "No Active Gate";
 
   return (
     <div className="space-y-8">
@@ -33,7 +145,7 @@ function StudentDashboard() {
             Welcome Back!
           </p>
           <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-            Good morning, {firstName} 👋
+            {getTimeGreeting()}, {firstName}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             Ready for your next industrial journey?
@@ -45,10 +157,18 @@ function StudentDashboard() {
             type="button"
             onClick={() => navigate("/student/announcements")}
             className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:bg-emerald-50 hover:text-emerald-700"
-            aria-label="View announcements"
+            aria-label={
+              unreadCount > 0
+                ? `View announcements (${unreadCount} unread)`
+                : "View announcements"
+            }
           >
             <Bell size={20} className="text-emerald-600" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -194,72 +314,155 @@ function StudentDashboard() {
       {/* Quick Summary Grid */}
       <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
         {/* Attendance Card */}
-        <div 
+        <button
+          type="button"
           onClick={() => navigate("/student/attendance")}
-          className="group cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+          className="group w-full text-left rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-600 group-hover:text-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-600 group-hover:text-white">
               <ClipboardCheck size={20} />
             </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-              Pending Next Gate
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                hasUnmarked
+                  ? "bg-amber-100 text-amber-800"
+                  : hasActive
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {attendanceBadge}
             </span>
           </div>
           <h4 className="mt-4 font-bold text-emerald-950">Digital Attendance</h4>
           <p className="mt-1 text-xs text-gray-500">
-            Next scan at Departure Gate #2 on Dec 5, 06:00 AM.
+            {sessions.length > 0
+              ? `${sessions.length} active check-in session${sessions.length === 1 ? "" : "s"} right now.`
+              : "Scan QR or check live roll-call when coordinators open a gate."}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-emerald-600 transition group-hover:translate-x-1">
-            <span>Scan QR Code</span>
+            <span>Open Attendance</span>
             <ArrowRight size={14} className="ml-1" />
           </div>
-        </div>
+        </button>
 
         {/* Transport Card */}
-        <div 
+        <button
+          type="button"
           onClick={() => navigate("/student/transport")}
-          className="group cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+          className="group w-full text-left rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
               <Bus size={20} />
             </div>
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-              Bus #04 • Seat 14A
+              {assignedBus} • Seat {assignedSeat}
             </span>
           </div>
           <h4 className="mt-4 font-bold text-emerald-950">Assigned Transport</h4>
           <p className="mt-1 text-xs text-gray-500">
-            Volvo Multi-Axle AC. Driver: Mr. Suresh (Ph: +91 98765 43210).
+            Driver: {assignedDriver} (Ph: {assignedDriverPhone}).
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-600 transition group-hover:translate-x-1">
             <span>View Bus Details</span>
             <ArrowRight size={14} className="ml-1" />
           </div>
-        </div>
+        </button>
 
         {/* Accommodation Card */}
-        <div 
+        <button
+          type="button"
           onClick={() => navigate("/student/accommodation")}
-          className="group cursor-pointer rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+          className="group w-full text-left rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 transition group-hover:bg-purple-600 group-hover:text-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600 transition group-hover:bg-purple-600 group-hover:text-white">
               <BedDouble size={20} />
             </div>
-            <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700">
-              Room 304
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                roomSummary?.room_no
+                  ? "bg-emerald-100 text-emerald-800"
+                  : staySummary?.selection_status === "open"
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-purple-50 text-purple-700"
+              }`}
+            >
+              {roomBadge}
             </span>
           </div>
           <h4 className="mt-4 font-bold text-emerald-950">Accommodation</h4>
           <p className="mt-1 text-xs text-gray-500">
-            Hotel Grand Ambience, Ashram Road. Check-in on Dec 5 at 02:00 PM.
+            {roomSummary?.room_no
+              ? `${staySummary?.name || "Hotel Stay"} • ${roomSummary.type_label || "Assigned Room"} (${roomSummary.occupant_count}/${roomSummary.capacity} beds)`
+              : staySummary
+              ? `${staySummary.name} • Tap to select your live room on the grid.`
+              : "Hotel Grand Ambience, Ashram Road. View room allocation & roommates."}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-purple-600 transition group-hover:translate-x-1">
-            <span>View Room & Roommates</span>
+            <span>{roomSummary?.room_no ? "View Room & Roommates" : "Select Room"}</span>
             <ArrowRight size={14} className="ml-1" />
           </div>
+        </button>
+      </section>
+
+      {/* Pre-Departure Readiness Checklist */}
+      <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-emerald-950 sm:text-base">
+                Pre-Departure Readiness Checklist
+              </h3>
+              <p className="text-xs text-gray-500">
+                Complete every milestone before boarding day ({completedCount}/{readinessItems.length} done).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div className="h-2.5 w-28 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                style={{ width: `${readinessPct}%` }}
+              />
+            </div>
+            <span className="text-xs font-extrabold text-emerald-800">{readinessPct}%</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {readinessItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigate(item.to)}
+              className={`flex items-center justify-between gap-2 rounded-2xl border p-3 text-left text-xs transition ${
+                item.done
+                  ? "border-emerald-200 bg-emerald-50/50 text-emerald-900"
+                  : "border-amber-200 bg-amber-50/50 text-amber-950 hover:bg-amber-50"
+              }`}
+            >
+              <span className="flex items-center gap-2 font-semibold">
+                {item.done ? (
+                  <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+                ) : (
+                  <Circle size={16} className="shrink-0 text-amber-500" />
+                )}
+                <span>{item.label}</span>
+              </span>
+              {!item.done && (
+                <span className="shrink-0 rounded-lg bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {item.actionLabel}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </section>
 

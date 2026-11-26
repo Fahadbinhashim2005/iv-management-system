@@ -136,21 +136,21 @@
 .login-header {
     width: 100%;
     max-width: 440px;
-    margin-bottom: 28px;
-    text-align: left;
+    margin-bottom: 24px;
+    text-align: center;
 }
 .login-header h2 {
-    margin: 0 0 10px;
-    color: #ffffff;
-    font-size: 2rem;
-    font-weight: 750;
+    margin: 0 0 6px;
+    color: #173b2d;
+    font-size: 1.8rem;
+    font-weight: 800;
     letter-spacing: -0.8px;
 }
 .login-header p {
     margin: 0;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.95rem;
-    line-height: 1.6;
+    color: #374151;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .login-card {
@@ -166,26 +166,6 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(28px);
     -webkit-backdrop-filter: blur(28px);
-}
-
-.login-header {
-    width: 100%;
-    max-width: 440px;
-    margin-bottom: 24px;
-    text-align: center;
-}
-.login-header h2 {
-    margin: 0 0 6px;
-    color: #173b2d;
-    font-size: 1.8rem;
-    font-weight: 800;
-    letter-spacing: -0.8px;
-}
-.login-header p {
-    margin: 0;
-    color: black;
-    font-size: 0.9rem;
-    line-height: 1.5;
 }
 
 .role-selector {
@@ -396,12 +376,6 @@
     flex-shrink: 0;
 }
 
-.mobile-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #173b2d;
-}
 .mobile-icon {
     display: flex;
     align-items: center;

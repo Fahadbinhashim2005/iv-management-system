@@ -12,8 +12,9 @@ const LandingPage = () => {
       {/* Top Navbar */}
       <nav className="relative z-10 mx-auto w-[calc(100%-2rem)] max-w-4xl">
         <div className="flex items-center justify-between rounded-full bg-white/95 px-6 py-3 shadow-xl backdrop-blur-md">
-          <div 
-            className="flex items-center gap-2 cursor-pointer"
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left"
             onClick={() => navigate("/")}
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-700 text-xs font-black text-white shadow-sm">
@@ -22,12 +23,24 @@ const LandingPage = () => {
             <span className="text-sm font-bold text-gray-900 tracking-tight">
               IV Connect
             </span>
-          </div>
+          </button>
 
           <div className="hidden sm:flex items-center gap-6">
-            <a href="#features" className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition">Features</a>
-            <a href="#about" className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition">About Tour</a>
-            <a href="#coordinators" className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition">Coordinators</a>
+            <a href="#features" className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition">Highlights</a>
+            <button
+              type="button"
+              onClick={() => navigate("/coordinator/dashboard")}
+              className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition"
+            >
+              Coordinator Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/dashboard")}
+              className="text-xs font-semibold text-gray-700 hover:text-emerald-700 transition"
+            >
+              Admin Deck
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -87,7 +100,7 @@ const LandingPage = () => {
       </div>
 
       {/* Highlights Bar */}
-      <div className="relative z-10 mx-auto w-[calc(100%-2rem)] max-w-4xl">
+      <div id="features" className="relative z-10 mx-auto w-[calc(100%-2rem)] max-w-4xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-2xl bg-black/40 p-4 backdrop-blur-md border border-white/10 text-white">
           <div className="flex items-center gap-3 p-2">
             <MapPin size={24} className="text-emerald-400 shrink-0" />
