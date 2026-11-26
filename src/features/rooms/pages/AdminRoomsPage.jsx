@@ -606,7 +606,7 @@ export default function AdminRoomsPage() {
 
       {/* New Stay Modal */}
       {showNewStay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
           <form
             onSubmit={handleCreateStay}
             className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4"
@@ -657,7 +657,7 @@ export default function AdminRoomsPage() {
 
       {/* Add Single Room Modal */}
       {showAddRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-xs p-4">
           <form
             onSubmit={handleCreateSingleRoom}
             className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4"

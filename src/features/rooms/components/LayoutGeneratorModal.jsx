@@ -171,8 +171,8 @@ export default function LayoutGeneratorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4">
-      <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl space-y-5">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="w-full max-w-4xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-white p-5 sm:p-7 shadow-2xl space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
           <div>

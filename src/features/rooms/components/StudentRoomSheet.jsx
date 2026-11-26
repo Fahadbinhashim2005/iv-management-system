@@ -48,6 +48,14 @@ function StudentRoomSheetBody({
     };
   }, [room, stay, isMine]);
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const elig = checkClientEligibility(me?.profile, room, stay);
   const banner = getWindowBannerState(stay);
   const isFull = room.occupant_count >= room.capacity;
@@ -56,9 +64,14 @@ function StudentRoomSheetBody({
   const canAct = banner.isOpen && !isLocked && elig.eligible;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose?.();
+      }}
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs"
+    >
       <div
-        className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full sm:max-w-md max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         role="dialog"
         aria-modal="true"
         aria-label={`Room ${room.room_no} details`}

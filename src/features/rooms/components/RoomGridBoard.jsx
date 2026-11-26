@@ -211,8 +211,8 @@ export default function RoomGridBoard({
         </span>
       </div>
 
-      {/* Sticky Filter Bar */}
-      <div className="sticky top-0 z-20 -mx-1 bg-[#F4F8F5]/95 px-1 py-2 backdrop-blur-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Filter Bar (sticky only on desktop so it never collides with mobile top header) */}
+      <div className="lg:sticky lg:top-0 z-20 -mx-1 bg-[#F4F8F5]/95 px-1 py-2 backdrop-blur-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
           {[
             { id: 'all', label: `All (${rooms.length})` },

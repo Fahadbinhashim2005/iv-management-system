@@ -204,8 +204,13 @@ function StaffRoomModalBody({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs p-0 sm:p-4">
-      <div className="w-full sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-5">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose?.();
+      }}
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs p-0 sm:p-4"
+    >
+      <div className="w-full sm:max-w-xl max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
           <div className="flex items-center gap-3">
