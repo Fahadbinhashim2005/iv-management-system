@@ -80,7 +80,8 @@ function App() {
               <Route path="dashboard" element={<CoordinatorDashboard />} />
               <Route path="visits" element={<CoordinatorVisits />} />
               <Route path="itinerary" element={<CoordinatorItinerary />} />
-              <Route path="participants" element={<CoordinatorParticipants />} />
+              <Route path="students" element={<CoordinatorParticipants />} />
+              <Route path="participants" element={<Navigate to="/coordinator/students" replace />} />
               <Route path="attendance" element={<CoordinatorAttendanceList />} />
               <Route path="attendance/:sessionId" element={<CoordinatorAttendanceSession />} />
               <Route path="transport" element={<CoordinatorTransport />} />

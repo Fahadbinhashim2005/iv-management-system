@@ -572,6 +572,96 @@ coordinatorRouter.get('/overview', (req, res) => {
     participants: db.participants.length,
   });
 });
+
+coordinatorRouter.get('/students', async (req, res) => {
+  try {
+    const sb = req.supabase || supabaseAdmin;
+
+    if (!isSupabaseConfiguredOnServer) {
+      const approved = db.users
+        .filter(
+          (u) =>
+            String(u.role || '').toLowerCase() === 'student' &&
+            (u.approval_status || 'approved') === 'approved'
+        )
+        .map((u) => ({
+          ...u,
+          bus_no: null,
+          seat_no: null,
+          room_no: null,
+          hotel_name: null,
+          room_assignments: [],
+        }));
+      return res.json({ success: true, count: approved.length, students: approved });
+    }
+
+    if (!sb) {
+      return res.status(503).json({ error: 'Database client unavailable.' });
+    }
+
+    const { data: profiles, error: pErr } = await sb
+      .from('profiles')
+      .select(
+        'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, guardian_name, emergency_phone, blood_group, dietary_preference, consent_given, avatar_type, avatar_url, avatar_style, avatar_seed, created_at'
+      )
+      .eq('role', 'student')
+      .eq('approval_status', 'approved')
+      .order('full_name', { ascending: true });
+
+    if (pErr) {
+      return res.status(500).json({ error: pErr.message });
+    }
+
+    const [assignRes, occRes] = await Promise.all([
+      sb
+        .from('trip_assignments')
+        .select('user_id, bus_no, seat_no, hotel_name, room_no'),
+      sb
+        .from('room_occupants')
+        .select('user_id, rooms(room_no, floor), stays(name)'),
+    ]);
+
+    const assignmentMap = new Map();
+    if (!assignRes.error && Array.isArray(assignRes.data)) {
+      for (const row of assignRes.data) {
+        assignmentMap.set(row.user_id, row);
+      }
+    }
+
+    const roomMap = new Map();
+    if (!occRes.error && Array.isArray(occRes.data)) {
+      for (const row of occRes.data) {
+        const list = roomMap.get(row.user_id) || [];
+        if (row.rooms?.room_no) {
+          list.push({
+            room_no: row.rooms.room_no,
+            floor: row.rooms.floor || null,
+            stay_name: row.stays?.name || null,
+          });
+        }
+        roomMap.set(row.user_id, list);
+      }
+    }
+
+    const students = (profiles || []).map((p) => {
+      const trip = assignmentMap.get(p.id);
+      const roomList = roomMap.get(p.id) || [];
+      return {
+        ...p,
+        bus_no: trip?.bus_no || null,
+        seat_no: trip?.seat_no || null,
+        hotel_name: roomList[0]?.stay_name || trip?.hotel_name || null,
+        room_no: roomList[0]?.room_no || trip?.room_no || null,
+        room_assignments: roomList,
+      };
+    });
+
+    return res.json({ success: true, count: students.length, students });
+  } catch (err) {
+    console.error('[GET /api/coordinator/students Error]:', err);
+    return res.status(500).json({ error: 'Failed to retrieve approved students.' });
+  }
+});
 app.use('/api/coordinator', requireAuth, requireRole('coordinator', 'admin'), coordinatorRouter);
 
 const adminRouter = express.Router();
@@ -636,7 +726,7 @@ app.get('/api/participants', requireAuth, requireRole('coordinator', 'admin'), (
   });
 });
 
-app.patch('/api/participants/:id/status', requireAuth, requireRole('coordinator', 'admin'), (req, res) => {
+app.patch('/api/participants/:id/status', requireAuth, requireRole('admin'), (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { status } = req.body;
   const participant = db.participants.find((p) => p.id === id);

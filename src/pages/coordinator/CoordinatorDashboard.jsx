@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { api } from "../../services/api";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 import { roomsApi } from "../../features/rooms/api/roomsApi";
+import Avatar from "../../components/Avatar";
 import {
   Users,
   ClipboardCheck,
@@ -11,12 +12,10 @@ import {
   Plus,
   Bell,
   ArrowRight,
-  Check,
-  X,
-  Clock,
   MapPin,
   ScanLine,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function CoordinatorDashboard() {
@@ -27,6 +26,8 @@ export default function CoordinatorDashboard() {
   });
 
   const [stays, setStays] = useState([]);
+  const [approvedStudents, setApprovedStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -38,31 +39,39 @@ export default function CoordinatorDashboard() {
       .catch(() => {
         // Optional enhancement fallback
       });
+
+    api
+      .getApprovedStudents()
+      .then((res) => {
+        if (active && Array.isArray(res?.students)) {
+          setApprovedStudents(res.students);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setStudentsLoading(false);
+      });
+
     return () => {
       active = false;
     };
   }, []);
 
-  // Mock pending requests state with interactive approve/reject
-  const [pendingRequests, setPendingRequests] = useState([
-    { id: 101, name: "Sneha Sharma", roll: "CS-2026-042", batch: "CSE-A", cgpa: "8.9", date: "Today, 09:15 AM" },
-    { id: 102, name: "Vignesh Rajan", roll: "CS-2026-118", batch: "CSE-B", cgpa: "8.4", date: "Yesterday, 04:30 PM" },
-    { id: 103, name: "Meera Pillai", roll: "CS-2026-077", batch: "CSE-A", cgpa: "9.2", date: "Yesterday, 02:10 PM" },
-  ]);
-
-  const handleApprove = (id, name) => {
-    setPendingRequests((prev) => prev.filter((req) => req.id !== id));
-    toast.success(`Approved participation for ${name}. Notification sent.`);
-  };
-
-  const handleReject = (id, name) => {
-    setPendingRequests((prev) => prev.filter((req) => req.id !== id));
-    toast(`Declined application for ${name}.`, { icon: "ℹ️" });
-  };
-
   const totalRoomsCount = stays.reduce((acc, s) => acc + (s.summary?.roomCount || 0), 0);
   const occupiedBedsCount = stays.reduce((acc, s) => acc + (s.summary?.occupiedBeds || 0), 0);
   const totalBedsCount = stays.reduce((acc, s) => acc + (s.summary?.totalBeds || 0), 0);
+
+  const studentCount = approvedStudents.length;
+  const activeStudentCount = approvedStudents.filter((s) => s.is_active !== false).length;
+  const consentDoneCount = approvedStudents.filter((s) => Boolean(s.consent_given)).length;
+  const incompleteProfileCount = approvedStudents.filter(
+    (s) => !s.consent_given || !s.emergency_phone || !s.blood_group || !s.gender
+  ).length;
+  const roomedStudentCount = approvedStudents.filter(
+    (s) => Boolean(s.room_no || (s.room_assignments && s.room_assignments.length > 0))
+  ).length;
+  const consentPct = studentCount > 0 ? Math.round((consentDoneCount / studentCount) * 100) : 0;
+  const roomedPct = studentCount > 0 ? Math.round((roomedStudentCount / studentCount) * 100) : 0;
 
   return (
     <div className="space-y-8">
@@ -80,7 +89,7 @@ export default function CoordinatorDashboard() {
             Coordinator Command Center
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Monitor real-time participant registrations, logistics readiness, and digital attendance.
+            Monitor approved students, logistics readiness, room allocations, and live attendance.
           </p>
         </div>
 
@@ -110,37 +119,45 @@ export default function CoordinatorDashboard() {
         {/* Metric 1 */}
         <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Enrolled Students</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Approved Students</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <Users size={18} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">128 <span className="text-sm font-semibold text-gray-400">/ 135</span></p>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {studentsLoading ? "--" : studentCount}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-semibold text-emerald-600">94.8% Capacity</span>
-            <span>7 Seats Left</span>
+            <span className="font-semibold text-emerald-600">{activeStudentCount} Active</span>
+            <button
+              type="button"
+              onClick={() => navigate("/coordinator/students")}
+              className="font-bold text-emerald-700 hover:underline"
+            >
+              View Students →
+            </button>
           </div>
         </div>
 
         {/* Metric 2 */}
         <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Pending Approvals</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Profile Readiness</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-              <Clock size={18} />
+              <ShieldCheck size={18} />
             </div>
           </div>
           <p className="mt-3 text-2xl font-black text-amber-700 sm:text-3xl">
-            {pendingRequests.length}
+            {studentsLoading ? "--" : `${consentDoneCount}/${studentCount}`}
           </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span>Awaiting Review</span>
-            <button 
-              type="button" 
-              onClick={() => navigate("/coordinator/participants")} 
+            <span>{incompleteProfileCount} need follow-up</span>
+            <button
+              type="button"
+              onClick={() => navigate("/coordinator/students")}
               className="font-bold text-emerald-700 hover:underline"
             >
-              Review All →
+              Inspect →
             </button>
           </div>
         </div>
@@ -240,18 +257,20 @@ export default function CoordinatorDashboard() {
         {/* Operational Checklist Meters */}
         <div className="mt-8 grid grid-cols-2 gap-4 border-t border-gray-100 pt-6 sm:grid-cols-4">
           <div className="rounded-xl bg-gray-50/70 p-3.5">
-            <p className="text-xs text-gray-500 font-medium">Participant Roster</p>
-            <p className="mt-1 text-lg font-bold text-emerald-950">128 Confirmed</p>
+            <p className="text-xs text-gray-500 font-medium">Approved Students</p>
+            <p className="mt-1 text-lg font-bold text-emerald-950">{studentCount} Confirmed</p>
             <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
-              <div className="h-1.5 rounded-full bg-emerald-600" style={{ width: "95%" }} />
+              <div className="h-1.5 rounded-full bg-emerald-600" style={{ width: studentCount > 0 ? "100%" : "0%" }} />
             </div>
           </div>
 
           <div className="rounded-xl bg-gray-50/70 p-3.5">
             <p className="text-xs text-gray-500 font-medium">Parent Consent Letters</p>
-            <p className="mt-1 text-lg font-bold text-emerald-950">122 / 128 Done</p>
+            <p className="mt-1 text-lg font-bold text-emerald-950">
+              {consentDoneCount} / {studentCount} Done
+            </p>
             <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
-              <div className="h-1.5 rounded-full bg-blue-600" style={{ width: "95%" }} />
+              <div className="h-1.5 rounded-full bg-blue-600" style={{ width: `${consentPct}%` }} />
             </div>
           </div>
 
@@ -265,9 +284,11 @@ export default function CoordinatorDashboard() {
 
           <div className="rounded-xl bg-gray-50/70 p-3.5">
             <p className="text-xs text-gray-500 font-medium">Hotel Room Distribution</p>
-            <p className="mt-1 text-lg font-bold text-emerald-950">100% Distributed</p>
+            <p className="mt-1 text-lg font-bold text-emerald-950">
+              {roomedStudentCount} / {studentCount} Mapped
+            </p>
             <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
-              <div className="h-1.5 rounded-full bg-emerald-600" style={{ width: "100%" }} />
+              <div className="h-1.5 rounded-full bg-emerald-600" style={{ width: `${roomedPct}%` }} />
             </div>
           </div>
         </div>
@@ -275,67 +296,78 @@ export default function CoordinatorDashboard() {
 
       {/* Two-Column Working Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Pending Requests Widget */}
+        {/* Approved Students Readiness Snapshot */}
         <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-emerald-950">Pending Student Registrations</h3>
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
-                {pendingRequests.length}
+              <h3 className="font-bold text-emerald-950">Students Directory</h3>
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                {studentCount} Approved
               </span>
             </div>
             <button
               type="button"
-              onClick={() => navigate("/coordinator/participants")}
+              onClick={() => navigate("/coordinator/students")}
               className="text-xs font-bold text-emerald-700 hover:underline"
             >
-              View Roster
+              View Students →
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Students eligible by attendance and academic criteria awaiting approval.
+            Synced directly with Admin-approved student accounts (account approvals remain Admin-only).
           </p>
 
           <div className="mt-4 space-y-3">
-            {pendingRequests.length === 0 ? (
+            {studentsLoading ? (
               <div className="rounded-xl bg-gray-50 p-6 text-center text-xs text-gray-500 font-medium">
-                No pending registrations. All student requests have been processed!
+                Loading approved students...
+              </div>
+            ) : approvedStudents.length === 0 ? (
+              <div className="rounded-xl bg-gray-50 p-6 text-center text-xs text-gray-500 font-medium">
+                No Admin-approved students found yet.
               </div>
             ) : (
-              pendingRequests.map((student) => (
+              approvedStudents.slice(0, 4).map((student) => (
                 <div
                   key={student.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3.5 transition hover:bg-emerald-50/20"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">{student.name}</h4>
-                      <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-mono font-bold text-gray-700">
-                        {student.roll}
-                      </span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar profile={student} size="sm" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="truncate text-xs font-bold text-emerald-950 sm:text-sm">
+                          {student.full_name || "Student"}
+                        </h4>
+                        {student.roll_no && (
+                          <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-mono font-bold text-gray-700">
+                            {student.roll_no}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-gray-500">
+                        {student.department || "CSE"} • {student.room_no ? `Room ${student.room_no}` : "Room unallocated"}
+                      </p>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-gray-500">
-                      Batch: {student.batch} • CGPA: {student.cgpa} • Applied: {student.date}
-                    </p>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleApprove(student.id, student.name)}
-                      className="flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800"
+                  <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-auto shrink-0">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                        student.gender ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-800"
+                      }`}
                     >
-                      <Check size={14} />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleReject(student.id, student.name)}
-                      className="flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
+                      {student.gender || "Gender unset"}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        student.consent_given
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-50 text-amber-800"
+                      }`}
                     >
-                      <X size={14} />
-                      <span>Reject</span>
-                    </button>
+                      {student.consent_given ? "Consent ✓" : "No Consent"}
+                    </span>
                   </div>
                 </div>
               ))

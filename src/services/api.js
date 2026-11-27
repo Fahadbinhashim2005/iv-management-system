@@ -506,6 +506,89 @@ export const api = {
     }
   },
 
+  // Read-only Approved Students directory (for Coordinator & Admin)
+  async getApprovedStudents() {
+    if (isSupabaseConfigured && supabase) {
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select(
+          'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, guardian_name, emergency_phone, blood_group, dietary_preference, consent_given, avatar_type, avatar_url, avatar_style, avatar_seed, created_at'
+        )
+        .eq('role', 'student')
+        .eq('approval_status', 'approved')
+        .order('full_name', { ascending: true });
+
+      if (!pErr && Array.isArray(profiles)) {
+        const [assignRes, occRes] = await Promise.all([
+          supabase
+            .from('trip_assignments')
+            .select('user_id, bus_no, seat_no, hotel_name, room_no'),
+          supabase
+            .from('room_occupants')
+            .select('user_id, rooms(room_no, floor), stays(name)'),
+        ]);
+
+        const assignmentMap = new Map();
+        if (!assignRes.error && Array.isArray(assignRes.data)) {
+          for (const row of assignRes.data) {
+            assignmentMap.set(row.user_id, row);
+          }
+        }
+
+        const roomMap = new Map();
+        if (!occRes.error && Array.isArray(occRes.data)) {
+          for (const row of occRes.data) {
+            const list = roomMap.get(row.user_id) || [];
+            if (row.rooms?.room_no) {
+              list.push({
+                room_no: row.rooms.room_no,
+                floor: row.rooms.floor || null,
+                stay_name: row.stays?.name || null,
+              });
+            }
+            roomMap.set(row.user_id, list);
+          }
+        }
+
+        const students = profiles.map((p) => {
+          const trip = assignmentMap.get(p.id);
+          const roomList = roomMap.get(p.id) || [];
+          return {
+            ...p,
+            bus_no: trip?.bus_no || null,
+            seat_no: trip?.seat_no || null,
+            hotel_name: roomList[0]?.stay_name || trip?.hotel_name || null,
+            room_no: roomList[0]?.room_no || trip?.room_no || null,
+            room_assignments: roomList,
+          };
+        });
+
+        return { success: true, count: students.length, students };
+      }
+
+      try {
+        const backendRes = await request('/coordinator/students');
+        if (backendRes?.students) return backendRes;
+      } catch (e) {
+        console.warn('[getApprovedStudents Backend note]:', e.message);
+      }
+
+      return { success: true, count: 0, students: [] };
+    }
+
+    try {
+      return await request('/coordinator/students');
+    } catch {
+      const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
+      const fallback = offlineUsers.filter(
+        (u) =>
+          String(u.role || '').toLowerCase() === 'student' &&
+          (u.approval_status || 'approved') === 'approved'
+      );
+      return { success: true, count: fallback.length, students: fallback };
+    }
+  },
+
   async createAdminUser(userData) {
     if (isSupabaseConfigured) {
       // Prefer Backend API first (so service_role can create confirmed auth user cleanly)

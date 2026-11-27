@@ -28,7 +28,7 @@ const navItems = [
   { to: "/coordinator/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/coordinator/visits", label: "Industrial Visits", icon: Briefcase },
   { to: "/coordinator/itinerary", label: "Itinerary Planner", icon: CalendarCheck },
-  { to: "/coordinator/participants", label: "Student Roster", icon: Users },
+  { to: "/coordinator/students", label: "Students", icon: Users },
   { to: "/coordinator/attendance", label: "Live Attendance", icon: ScanLine },
   { to: "/coordinator/transport", label: "Transport Allocation", icon: Bus },
   { to: "/coordinator/accommodation", label: "Accommodation & Rooms", icon: BedDouble },

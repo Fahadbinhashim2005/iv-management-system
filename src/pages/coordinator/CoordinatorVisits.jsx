@@ -278,10 +278,10 @@ export default function CoordinatorVisits() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate("/coordinator/participants")}
+                  onClick={() => navigate("/coordinator/students")}
                   className="rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
                 >
-                  Roster
+                  Students
                 </button>
               </div>
             </div>

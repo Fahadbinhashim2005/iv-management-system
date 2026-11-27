@@ -27,9 +27,9 @@ function CoordinatorBottomNav() {
         <div className="w-16 shrink-0" />
 
         <div className="flex flex-1 items-center justify-around">
-          <NavLink to="/coordinator/participants" className={navLinkClass}>
+          <NavLink to="/coordinator/students" className={navLinkClass}>
             <Users size={22} />
-            <span className="text-[11px]">Roster</span>
+            <span className="text-[11px]">Students</span>
           </NavLink>
 
           <NavLink to="/coordinator/reports" className={navLinkClass}>
