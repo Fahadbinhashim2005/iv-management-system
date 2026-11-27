@@ -1,61 +1,190 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
+  Calendar,
   Clock,
   MapPin,
+  Building2,
+  Coffee,
+  Bus,
+  Info,
+  Search,
   Plus,
   Trash2,
   Bell,
-  Check,
   X,
 } from "lucide-react";
 
-const DEFAULT_SCHEDULE = {
-  1: [
-    { id: 1, time: "06:00 AM", activity: "Assembly & Luggage Verification", venue: "College Gate #2", inCharge: "Prof. Anjali Menon", type: "Departure" },
-    { id: 2, time: "07:00 AM", activity: "Convoy Departure via NH 48", venue: "Expressway Transit", inCharge: "Mr. Suresh (Lead Driver)", type: "Travel" },
-    { id: 3, time: "02:30 PM", activity: "Hotel Check-in & Key Handover", venue: "Hotel Grand Ambience", inCharge: "Dr. Rajesh Kumar", type: "Stay" },
-    { id: 4, time: "05:30 PM", activity: "Sabarmati Riverfront Briefing", venue: "Riverfront Promenade", inCharge: "Faculty Team", type: "Activity" },
-  ],
-  2: [
-    { id: 5, time: "08:30 AM", activity: "Departure to GIFT City", venue: "Gandhinagar Route", inCharge: "Bus Coordinators", type: "Travel" },
-    { id: 6, time: "10:00 AM", activity: "FinTech Hub & Server Datacenter Tour", venue: "GIFT Tower 1", inCharge: "GIFT Technical Team", type: "Industry" },
-    { id: 7, time: "01:30 PM", activity: "Networking Lunch & Q&A Session", venue: "GIFT Convention Club", inCharge: "Industry Panel", type: "Industry" },
-    { id: 8, time: "03:30 PM", activity: "Automated Utility Tunnel Walk", venue: "Command Control Center", inCharge: "GIFT Infrastructure In-Charge", type: "Industry" },
-  ],
-  3: [
-    { id: 9, time: "09:30 AM", activity: "ISRO Space Applications Centre Tour", venue: "SAC Ahmedabad", inCharge: "ISRO Scientists", type: "Industry" },
-    { id: 10, time: "02:00 PM", activity: "Robotics & AI Simulation Labs", venue: "Gujarat Science City", inCharge: "Science City Guides", type: "Activity" },
-  ],
-  4: [
-    { id: 11, time: "08:00 AM", activity: "Room Clearance & Checkout", venue: "Hotel Grand Ambience", inCharge: "Hotel Committee", type: "Stay" },
-    { id: 12, time: "09:00 AM", activity: "Departure for Return Journey", venue: "Highway Return Route", inCharge: "Driver Team", type: "Travel" },
-    { id: 13, time: "07:00 PM", activity: "Arrival at Campus Main Gate", venue: "College Campus", inCharge: "HOD & Coordinators", type: "Departure" },
-  ],
-};
+const DEFAULT_ITINERARY_DAYS = [
+  {
+    day: "Day 1",
+    date: "Dec 5, 2026",
+    title: "Departure & Arrival in Ahmedabad",
+    events: [
+      {
+        id: "d1-1",
+        time: "06:00 AM",
+        activity: "Assembly at College Main Campus",
+        location: "Gate #2 Parking",
+        category: "Travel",
+        inCharge: "Prof. Anjali Menon",
+        details: "Attendance verification & luggage loading into assigned buses.",
+      },
+      {
+        id: "d1-2",
+        time: "07:00 AM",
+        activity: "Departure to Ahmedabad via Highway Route",
+        location: "NH 48",
+        category: "Travel",
+        inCharge: "Mr. Suresh (Lead Driver)",
+        details: "Breakfast stop arranged at Highway Palace (approx 09:30 AM).",
+      },
+      {
+        id: "d1-3",
+        time: "02:30 PM",
+        activity: "Hotel Check-in & Lunch",
+        location: "Hotel Grand Ambience, Ahmedabad",
+        category: "Stay",
+        inCharge: "Dr. Rajesh Kumar",
+        details: "Room keys distribution by faculty coordinators. Rest & refresh.",
+      },
+      {
+        id: "d1-4",
+        time: "05:30 PM",
+        activity: "Sabarmati Riverfront Walk & Evening Orientation",
+        location: "Sabarmati Riverfront Promenade",
+        category: "Activity",
+        inCharge: "Faculty Team",
+        details: "Group briefing regarding next day's industrial visit protocols.",
+      },
+    ],
+  },
+  {
+    day: "Day 2",
+    date: "Dec 6, 2026",
+    title: "GIFT City Financial & Tech Hub",
+    events: [
+      {
+        id: "d2-1",
+        time: "08:30 AM",
+        activity: "Departure to GIFT City",
+        location: "Gandhinagar",
+        category: "Travel",
+        inCharge: "Bus Coordinators",
+        details: "Mandatory formal dress code & college ID card required.",
+      },
+      {
+        id: "d2-2",
+        time: "10:00 AM",
+        activity: "FinTech Innovation Center & Datacenter Tour",
+        location: "GIFT Tower 1",
+        category: "Industry",
+        inCharge: "GIFT Technical Team",
+        details: "Guided tour through server architectures, automated systems, and disaster recovery setups.",
+      },
+      {
+        id: "d2-3",
+        time: "01:30 PM",
+        activity: "Networking Lunch with Tech Leaders",
+        location: "GIFT Club & Convention Hall",
+        category: "Activity",
+        inCharge: "Industry Panel",
+        details: "Interactive Q&A session on career opportunities in cloud & fintech.",
+      },
+      {
+        id: "d2-4",
+        time: "03:30 PM",
+        activity: "Smart City Infrastructure Command Center",
+        location: "Utility Command Tunnel",
+        category: "Industry",
+        inCharge: "GIFT Infrastructure In-Charge",
+        details: "Observing automated waste collection, district cooling systems, and green power grids.",
+      },
+    ],
+  },
+  {
+    day: "Day 3",
+    date: "Dec 7, 2026",
+    title: "Science & Aerospace Exhibition",
+    events: [
+      {
+        id: "d3-1",
+        time: "09:30 AM",
+        activity: "ISRO Space Applications Centre Exhibition",
+        location: "ISRO SAC Ahmedabad",
+        category: "Industry",
+        inCharge: "ISRO Scientists",
+        details: "Satellite telemetry, Chandrayaan models, and aerospace engineering exhibits.",
+      },
+      {
+        id: "d3-2",
+        time: "02:00 PM",
+        activity: "Gujarat Science City Robotic Gallery",
+        location: "Science City Road",
+        category: "Activity",
+        inCharge: "Science City Guides",
+        details: "Robotics simulations, AI interactive labs, and 3D engineering demonstrations.",
+      },
+    ],
+  },
+  {
+    day: "Day 4",
+    date: "Dec 8, 2026",
+    title: "Return Journey",
+    events: [
+      {
+        id: "d4-1",
+        time: "08:00 AM",
+        activity: "Hotel Checkout & Farewell",
+        location: "Hotel Grand Ambience",
+        category: "Stay",
+        inCharge: "Hotel Committee",
+        details: "Room inspection, clearance and baggage check.",
+      },
+      {
+        id: "d4-2",
+        time: "09:00 AM",
+        activity: "Departure back to College",
+        location: "Ahmedabad Highway",
+        category: "Travel",
+        inCharge: "Driver Team",
+        details: "Expected arrival at college campus by 07:00 PM.",
+      },
+    ],
+  },
+];
+
+const CATEGORIES = ["All", "Industry", "Travel", "Stay", "Activity"];
+
+function getCategoryIcon(category) {
+  if (category === "Travel") return Bus;
+  if (category === "Stay" || category === "Industry") return Building2;
+  if (category === "Activity") return Coffee;
+  return Info;
+}
 
 export default function CoordinatorItinerary() {
-  const [selectedDay, setSelectedDay] = useState(1);
-  const [broadcastSent, setBroadcastSent] = useState(false);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Multi-day itinerary state
-  const [schedule, setSchedule] = useState(() => {
+  const [days, setDays] = useState(() => {
     try {
-      const saved = localStorage.getItem("iv_coordinator_schedule_v1");
-      return saved ? JSON.parse(saved) : DEFAULT_SCHEDULE;
+      const saved = localStorage.getItem("iv_coordinator_itinerary_days_v2");
+      return saved ? JSON.parse(saved) : DEFAULT_ITINERARY_DAYS;
     } catch {
-      return DEFAULT_SCHEDULE;
+      return DEFAULT_ITINERARY_DAYS;
     }
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem("iv_coordinator_schedule_v1", JSON.stringify(schedule));
+      localStorage.setItem("iv_coordinator_itinerary_days_v2", JSON.stringify(days));
     } catch {
       // Ignore storage limits
     }
-  }, [schedule]);
+  }, [days]);
 
   useEffect(() => {
     if (!showAddModal) return;
@@ -66,170 +195,238 @@ export default function CoordinatorItinerary() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showAddModal]);
 
-  // New Event Form State
   const [newEvent, setNewEvent] = useState({
     time: "",
     activity: "",
-    venue: "",
+    location: "",
+    category: "Industry",
     inCharge: "Dr. Rajesh Kumar",
-    type: "Industry",
+    details: "",
+  });
+
+  const currentDay = days[selectedDayIndex] || days[0];
+  const filteredEvents = currentDay.events.filter((ev) => {
+    const matchesCategory =
+      selectedCategory === "All" || ev.category === selectedCategory;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      ev.activity.toLowerCase().includes(q) ||
+      ev.location.toLowerCase().includes(q) ||
+      (ev.details || "").toLowerCase().includes(q) ||
+      (ev.inCharge || "").toLowerCase().includes(q);
+    return matchesCategory && matchesSearch;
   });
 
   const handleAddEvent = (e) => {
     e.preventDefault();
     const created = {
-      id: Date.now(),
+      id: `ev-${Date.now()}`,
       ...newEvent,
     };
-    setSchedule({
-      ...schedule,
-      [selectedDay]: [...(schedule[selectedDay] || []), created],
-    });
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === selectedDayIndex ? { ...d, events: [...d.events, created] } : d
+      )
+    );
     setShowAddModal(false);
-    setNewEvent({ time: "", activity: "", venue: "", inCharge: "Dr. Rajesh Kumar", type: "Industry" });
-    toast.success(`Added "${created.activity}" to Day ${selectedDay}.`);
+    setNewEvent({
+      time: "",
+      activity: "",
+      location: "",
+      category: "Industry",
+      inCharge: "Dr. Rajesh Kumar",
+      details: "",
+    });
+    toast.success(`Added "${created.activity}" to ${currentDay.day}.`);
   };
 
   const handleDeleteEvent = (id, title) => {
-    setSchedule({
-      ...schedule,
-      [selectedDay]: schedule[selectedDay].filter((item) => item.id !== id),
-    });
-    toast.success(`Removed "${title}" from Day ${selectedDay}.`);
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === selectedDayIndex
+          ? { ...d, events: d.events.filter((item) => item.id !== id) }
+          : d
+      )
+    );
+    toast.success(`Removed "${title}" from ${currentDay.day}.`);
   };
-
-  const handleBroadcast = () => {
-    setBroadcastSent(true);
-    toast.success("Schedule update broadcast queued for enrolled students.");
-    setTimeout(() => setBroadcastSent(false), 3000);
-  };
-
-  const currentEvents = schedule[selectedDay] || [];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-emerald-800">Schedule Management</p>
+          <p className="text-sm font-semibold text-emerald-700">Trip Schedule</p>
           <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-            Itinerary Planner & Broadcast
+            Industrial Visit Itinerary
           </h1>
-          <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Add, update, and realign daily tour legs and push schedule adjustments directly to students.
+          <p className="mt-1 text-sm text-gray-500">
+            Complete day-by-day plan, timings, and venue details for our Ahmedabad tour.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleBroadcast}
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50 active:scale-95"
+            onClick={() => toast.success("Itinerary update notification queued for students.")}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-50 active:scale-95"
           >
-            <Bell size={16} />
-            <span>{broadcastSent ? "Broadcast Pushed! ✓" : "Broadcast Changes"}</span>
+            <Bell size={15} />
+            <span>Broadcast Changes</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95"
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span>Add Activity</span>
           </button>
         </div>
       </div>
 
-      {/* Broadcast Alert Confirmation Banner */}
-      {broadcastSent && (
-        <div className="flex items-center gap-2 rounded-2xl bg-emerald-800 p-4 text-xs font-bold text-white shadow-md">
-          <Check size={18} />
-          <span>Real-time push notification and SMS dispatched to all 128 enrolled students.</span>
+      {/* Day Selector Tabs */}
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+        {days.map((dayPlan, index) => {
+          const isSelected = selectedDayIndex === index;
+          return (
+            <button
+              key={dayPlan.day}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => setSelectedDayIndex(index)}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                isSelected
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
+            >
+              <Calendar size={16} />
+              <span>{dayPlan.day}</span>
+              <span className={`text-xs font-normal ${isSelected ? "text-emerald-100" : "text-gray-400"}`}>
+                • {dayPlan.date}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search & Category Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search stops, venues, or leads..."
+            aria-label="Search itinerary activities or venues"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-xs text-gray-900 shadow-xs focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
+
+        <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              aria-pressed={selectedCategory === cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+                selectedCategory === cat
+                  ? "bg-emerald-950 text-white shadow-xs"
+                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Day Overview Banner */}
+      <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+              {currentDay.day} Highlights
+            </span>
+            <h2 className="text-xl font-bold text-emerald-950">{currentDay.title}</h2>
+          </div>
+          <span className="self-start sm:self-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {currentDay.events.length} Planned Activities
+          </span>
+        </div>
+      </div>
+
+      {/* Timeline Events */}
+      {filteredEvents.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
+          No activities match your current search or category filter on {currentDay.day}.
+        </div>
+      ) : (
+        <div className="relative space-y-4 before:absolute before:bottom-3 before:left-10 before:top-3 before:w-0.5 before:bg-emerald-100">
+          {filteredEvents.map((event) => {
+            const EventIcon = getCategoryIcon(event.category);
+            return (
+              <div
+                key={event.id}
+                className="relative flex items-start gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md"
+              >
+                <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                  <EventIcon size={18} />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock size={14} />
+                        <span>{event.time}</span>
+                      </span>
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        {event.category}
+                      </span>
+                      {event.inCharge && (
+                        <span className="text-[11px] font-medium text-gray-500">
+                          • Lead: <strong className="text-gray-700">{event.inCharge}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEvent(event.id, event.activity)}
+                      aria-label={`Remove ${event.activity}`}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
+                      title="Remove activity"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+
+                  <h3 className="mt-1.5 text-base font-bold text-emerald-950 sm:text-lg">
+                    {event.activity}
+                  </h3>
+
+                  <div className="mt-1 flex items-start gap-1.5 text-xs text-gray-500">
+                    <MapPin size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <span className="break-words">{event.location}</span>
+                  </div>
+
+                  {event.details && (
+                    <p className="mt-2 text-xs leading-relaxed text-gray-600 sm:text-sm">
+                      {event.details}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {/* Day Selector Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {[
-          { day: 1, label: "Day 1 (Dec 5)", sub: "Departure & Hotel Arrival" },
-          { day: 2, label: "Day 2 (Dec 6)", sub: "GIFT City FinTech Tour" },
-          { day: 3, label: "Day 3 (Dec 7)", sub: "ISRO SAC & Science City" },
-          { day: 4, label: "Day 4 (Dec 8)", sub: "Return to Campus" },
-        ].map((d) => (
-          <button
-            key={d.day}
-            type="button"
-            onClick={() => setSelectedDay(d.day)}
-            className={`flex flex-col items-start rounded-2xl px-5 py-3 text-left transition shrink-0 ${
-              selectedDay === d.day
-                ? "bg-emerald-800 text-white shadow-sm"
-                : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-900"
-            }`}
-          >
-            <span className="text-xs font-black">{d.label}</span>
-            <span className={`text-[10px] ${selectedDay === d.day ? "text-emerald-200" : "text-gray-400"}`}>
-              {d.sub}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Schedule Items List */}
-      <div className="space-y-3">
-        {currentEvents.length === 0 ? (
-          <div className="rounded-2xl bg-white p-8 text-center text-xs text-gray-500">
-            No events scheduled for Day {selectedDay}. Click "Add Activity" to insert schedule slots.
-          </div>
-        ) : (
-          currentEvents.map((item, index) => (
-            <div
-              key={item.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md"
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-emerald-800">
-                  {index + 1}
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="flex items-center gap-1 text-xs font-bold text-emerald-800">
-                      <Clock size={14} />
-                      {item.time}
-                    </span>
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
-                      {item.type}
-                    </span>
-                  </div>
-                  <h3 className="mt-1 text-sm font-bold text-emerald-950 sm:text-base">
-                    {item.activity}
-                  </h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <MapPin size={13} className="text-emerald-700" />
-                      {item.venue}
-                    </span>
-                    <span>•</span>
-                    <span>Lead: <strong>{item.inCharge}</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => handleDeleteEvent(item.id, item.activity)}
-                  aria-label={`Remove ${item.activity}`}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
-                  title="Remove activity"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
 
       {/* Add Activity Modal */}
       {showAddModal && (
@@ -237,7 +434,7 @@ export default function CoordinatorItinerary() {
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          aria-label={`Add Activity to Day ${selectedDay}`}
+          aria-label={`Add Activity to ${currentDay.day}`}
           onClick={() => setShowAddModal(false)}
         >
           <div
@@ -247,7 +444,7 @@ export default function CoordinatorItinerary() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold text-emerald-950">
-                  Add Activity to Day {selectedDay}
+                  Add Activity to {currentDay.day}
                 </h3>
                 <p className="text-xs text-gray-500">
                   Insert a new milestone, company tour, or transit stop.
@@ -277,10 +474,10 @@ export default function CoordinatorItinerary() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700">Activity Type</label>
+                  <label className="block text-xs font-bold text-gray-700">Category</label>
                   <select
-                    value={newEvent.type}
-                    onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
+                    value={newEvent.category}
+                    onChange={(e) => setNewEvent({ ...newEvent, category: e.target.value })}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                   >
                     <option value="Industry">Industry Visit</option>
@@ -309,8 +506,8 @@ export default function CoordinatorItinerary() {
                   type="text"
                   required
                   placeholder="e.g. CDAC Gandhinagar Centre"
-                  value={newEvent.venue}
-                  onChange={(e) => setNewEvent({ ...newEvent, venue: e.target.value })}
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -323,6 +520,17 @@ export default function CoordinatorItinerary() {
                   value={newEvent.inCharge}
                   onChange={(e) => setNewEvent({ ...newEvent, inCharge: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700">Details &amp; Protocols</label>
+                <textarea
+                  rows="2"
+                  placeholder="Optional instructions or notes..."
+                  value={newEvent.details}
+                  onChange={(e) => setNewEvent({ ...newEvent, details: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
 

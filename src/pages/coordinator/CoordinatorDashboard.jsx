@@ -1,36 +1,51 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { api } from "../../services/api";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 import { useAnnouncementAlerts } from "../../features/updates/hooks/useAnnouncementAlerts";
+import Avatar from "../../components/Avatar";
 import {
   Users,
   ClipboardCheck,
   Bus,
   BedDouble,
-  Plus,
   Bell,
   ArrowRight,
   MapPin,
   Calendar,
   Clock,
-  ScanLine,
   AlertCircle,
   ShieldCheck,
   FileSpreadsheet,
   UserCheck,
 } from "lucide-react";
 
+function getTimeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function CoordinatorDashboard() {
   const navigate = useNavigate();
+  const { profile, user } = useAuth();
   const { sessions, hasActive } = useActiveSessions({
     mode: "staff",
     pollIntervalMs: 15000,
   });
-  const { announcements } = useAnnouncementAlerts({
+  const { announcements, unreadCount } = useAnnouncementAlerts({
     pollIntervalMs: 15000,
     enableAlerts: false,
   });
+
+  const staffName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Coordinator";
+  const firstName = staffName.split(" ")[0] || "Coordinator";
 
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,39 +97,45 @@ export default function CoordinatorDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-extrabold text-emerald-800">
-              Department of Computer Science
-            </span>
-            <span className="text-xs text-gray-400">• Academic Year 2026-27</span>
-          </div>
-          <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-            Coordinator Command Center
-          </h1>
-          <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Overview of approved students, faculty leads, live attendance gates, and tour schedule.
+      <header className="flex items-center justify-between gap-4">
+        <section>
+          <p className="text-sm font-semibold tracking-wide text-emerald-700">
+            Welcome Back!
           </p>
-        </div>
+          <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
+            {getTimeGreeting()}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {profile?.department || "Department of Computer Science"} • Academic Year 2026-27
+          </p>
+        </section>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="hidden lg:flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate("/coordinator/visits")}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95"
+            onClick={() => navigate("/coordinator/announcements")}
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:bg-emerald-50 hover:text-emerald-700"
+            aria-label={
+              unreadCount > 0
+                ? `View notices (${unreadCount} unread)`
+                : "View notices"
+            }
           >
-            <Plus size={16} />
-            <span>Create Visit</span>
+            <Bell size={20} className="text-emerald-600" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           <button
             type="button"
-            onClick={() => navigate("/coordinator/attendance")}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50 active:scale-95"
+            onClick={() => navigate("/coordinator/profile")}
+            className="flex items-center justify-center rounded-2xl overflow-hidden shadow-sm ring-2 ring-emerald-200 transition hover:ring-emerald-400 active:scale-95"
+            aria-label="View profile"
           >
-            <ScanLine size={16} />
-            <span>QR Scanner</span>
+            <Avatar profile={profile} size="sm" />
           </button>
         </div>
       </header>

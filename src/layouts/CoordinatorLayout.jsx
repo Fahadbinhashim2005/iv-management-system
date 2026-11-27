@@ -2,7 +2,6 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Briefcase,
   CalendarCheck,
   Users,
   ScanLine,
@@ -12,7 +11,6 @@ import {
   FileSpreadsheet,
   Settings,
   LogOut,
-  ArrowLeftRight,
   Menu,
   X,
   PhoneCall,
@@ -26,8 +24,7 @@ import AttendanceBanner from "../features/attendance/components/AttendanceBanner
 
 const navItems = [
   { to: "/coordinator/dashboard", label: "Overview", icon: LayoutDashboard },
-  { to: "/coordinator/visits", label: "Industrial Visits", icon: Briefcase },
-  { to: "/coordinator/itinerary", label: "Itinerary Planner", icon: CalendarCheck },
+  { to: "/coordinator/itinerary", label: "Itinerary", icon: CalendarCheck },
   { to: "/coordinator/students", label: "Students", icon: Users },
   { to: "/coordinator/attendance", label: "Live Attendance", icon: ScanLine },
   { to: "/coordinator/transport", label: "Transport Allocation", icon: Bus },
@@ -96,16 +93,6 @@ export default function CoordinatorLayout() {
             aria-label="Emergency & Helpline Contacts"
           >
             <PhoneCall size={17} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/student/dashboard")}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-[11px] font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition"
-            title="Preview student perspective"
-          >
-            <ArrowLeftRight size={13} />
-            <span className="hidden sm:inline">Student View</span>
           </button>
 
           <button
@@ -184,44 +171,30 @@ export default function CoordinatorLayout() {
         </div>
 
         <div className="border-t border-gray-100 pt-3 space-y-2">
-          <div className={`grid gap-2 text-[11px] font-bold ${isAdminUser ? "grid-cols-2" : "grid-cols-2"}`}>
+          {isAdminUser ? (
             <button
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                navigate("/student/dashboard");
+                navigate("/admin/dashboard");
               }}
-              className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 py-2 text-gray-700 hover:bg-gray-100 transition"
+              className="flex w-full min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100 transition"
             >
-              <ArrowLeftRight size={13} />
-              <span>Student View</span>
+              <span>Admin Deck</span>
             </button>
-
-            {isAdminUser ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate("/admin/dashboard");
-                }}
-                className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2 text-amber-900 hover:bg-amber-100 transition"
-              >
-                <span>Admin Deck</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setSosOpen(true);
-                }}
-                className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 py-2 text-red-700 hover:bg-red-100 transition"
-              >
-                <PhoneCall size={13} />
-                <span>Helplines</span>
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setSosOpen(true);
+              }}
+              className="flex w-full min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 py-2 text-[11px] font-bold text-red-700 hover:bg-red-100 transition"
+            >
+              <PhoneCall size={13} />
+              <span>Emergency Helplines</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -295,26 +268,14 @@ export default function CoordinatorLayout() {
               <span>Emergency Helplines</span>
             </button>
 
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
-              <button
-                type="button"
-                onClick={() => navigate("/student/dashboard")}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-gray-700 transition hover:bg-gray-50 hover:text-emerald-800"
-                title="Preview what students see"
-              >
-                <ArrowLeftRight size={13} />
-                <span>Student View</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-red-100 bg-red-50 py-2 text-red-700 transition hover:bg-red-100"
-              >
-                <LogOut size={13} />
-                <span>Sign Out</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-100 bg-red-50 py-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
+            >
+              <LogOut size={14} />
+              <span>Sign Out</span>
+            </button>
           </div>
         </aside>
 

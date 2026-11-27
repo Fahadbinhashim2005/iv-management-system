@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Briefcase, QrCode, Users, Menu } from "lucide-react";
+import { LayoutDashboard, CalendarCheck, QrCode, Users, Menu } from "lucide-react";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 
 function CoordinatorBottomNav() {
@@ -18,9 +18,9 @@ function CoordinatorBottomNav() {
             <span className="text-[11px]">Dashboard</span>
           </NavLink>
 
-          <NavLink to="/coordinator/visits" className={navLinkClass}>
-            <Briefcase size={22} />
-            <span className="text-[11px]">Visits</span>
+          <NavLink to="/coordinator/itinerary" className={navLinkClass}>
+            <CalendarCheck size={22} />
+            <span className="text-[11px]">Itinerary</span>
           </NavLink>
         </div>
 

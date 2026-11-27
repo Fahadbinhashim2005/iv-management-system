@@ -22,7 +22,6 @@ import StudentProfile from './pages/StudentProfile';
 // Coordinator Portal (Field Operations & Attendance)
 import CoordinatorLayout from './layouts/CoordinatorLayout';
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
-import CoordinatorVisits from './pages/coordinator/CoordinatorVisits';
 import CoordinatorItinerary from './pages/coordinator/CoordinatorItinerary';
 import CoordinatorParticipants from './pages/coordinator/CoordinatorParticipants';
 import CoordinatorAttendanceList from './features/attendance/pages/CoordinatorAttendanceList';
@@ -78,7 +77,7 @@ function App() {
             <Route path="/coordinator" element={<CoordinatorLayout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<CoordinatorDashboard />} />
-              <Route path="visits" element={<CoordinatorVisits />} />
+              <Route path="visits" element={<Navigate to="/coordinator/itinerary" replace />} />
               <Route path="itinerary" element={<CoordinatorItinerary />} />
               <Route path="students" element={<CoordinatorParticipants />} />
               <Route path="participants" element={<Navigate to="/coordinator/students" replace />} />
