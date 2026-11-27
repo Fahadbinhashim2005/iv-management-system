@@ -10,13 +10,15 @@ import {
   CheckCircle2,
   ShieldCheck,
   Phone,
-  Bus,
-  BedDouble,
   Ban,
-  AlertCircle,
   Users,
-  FileCheck2,
+  GraduationCap,
+  HeartPulse,
+  Utensils,
+  UserCheck,
+  X,
   Loader2,
+  Info,
 } from "lucide-react";
 
 export default function CoordinatorParticipants() {
@@ -25,7 +27,9 @@ export default function CoordinatorParticipants() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const loadStudents = useCallback(async (isManual = false) => {
     try {
@@ -48,6 +52,72 @@ export default function CoordinatorParticipants() {
     return () => clearTimeout(timer);
   }, [loadStudents]);
 
+  useEffect(() => {
+    if (!selectedStudent) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setSelectedStudent(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedStudent]);
+
+  const hasGuardianContact = (s) => Boolean(s.guardian_name && s.emergency_phone);
+  const hasMedicalOrDietFlag = (s) =>
+    Boolean((s.medical_notes && s.medical_notes.trim()) || s.dietary_preference);
+
+  const uniqueBatches = Array.from(
+    new Set(students.map((s) => s.batch).filter(Boolean))
+  );
+  const uniqueDepartments = Array.from(
+    new Set(students.map((s) => s.department).filter(Boolean))
+  );
+
+  const counts = {
+    all: students.length,
+    active: students.filter((s) => s.is_active !== false).length,
+    missingGuardian: students.filter((s) => !hasGuardianContact(s)).length,
+    medicalNotes: students.filter(
+      (s) => Boolean(s.medical_notes && s.medical_notes.trim())
+    ).length,
+  };
+
+  const guardianReadyCount = students.filter(hasGuardianContact).length;
+  const medicalDietCount = students.filter(hasMedicalOrDietFlag).length;
+
+  const filtered = students.filter((s) => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      (s.full_name || "").toLowerCase().includes(q) ||
+      (s.roll_no || "").toLowerCase().includes(q) ||
+      (s.email || "").toLowerCase().includes(q) ||
+      (s.phone || "").toLowerCase().includes(q) ||
+      (s.guardian_name || "").toLowerCase().includes(q) ||
+      (s.department || "").toLowerCase().includes(q);
+
+    if (!matchesSearch) return false;
+
+    if (departmentFilter !== "all" && (s.department || "") !== departmentFilter) {
+      return false;
+    }
+
+    if (genderFilter === "unset" && s.gender) return false;
+    if (
+      genderFilter !== "all" &&
+      genderFilter !== "unset" &&
+      (s.gender || "").toLowerCase() !== genderFilter
+    ) {
+      return false;
+    }
+
+    if (filterMode === "active") return s.is_active !== false;
+    if (filterMode === "missingGuardian") return !hasGuardianContact(s);
+    if (filterMode === "medicalNotes") {
+      return Boolean(s.medical_notes && s.medical_notes.trim());
+    }
+    return true;
+  });
+
   const exportCSV = () => {
     if (filtered.length === 0) {
       toast("No students in current view to export.", { icon: "ℹ️" });
@@ -61,16 +131,16 @@ export default function CoordinatorParticipants() {
         "Email",
         "Department",
         "Batch",
+        "Semester",
         "Gender",
         "Account Status",
-        "Room",
-        "Stay",
-        "Bus",
-        "Seat",
-        "Phone",
+        "Student Phone",
+        "Guardian Name",
+        "Guardian Relation",
         "Emergency Phone",
         "Blood Group",
-        "Consent",
+        "Dietary Preference",
+        "Medical Notes",
       ],
       filtered.map((s) => [
         s.full_name || "Student",
@@ -78,57 +148,20 @@ export default function CoordinatorParticipants() {
         s.email || "",
         s.department || "",
         s.batch || "",
+        s.semester ?? "",
         s.gender || "Unset",
         s.is_active === false ? "Deactivated" : "Approved",
-        s.room_no || "Unallocated",
-        s.hotel_name || "",
-        s.bus_no || "Unassigned",
-        s.seat_no || "",
         s.phone || "",
+        s.guardian_name || "",
+        s.guardian_relation || "",
         s.emergency_phone || "",
         s.blood_group || "",
-        s.consent_given ? "Verified" : "Pending",
+        s.dietary_preference || "",
+        s.medical_notes || "",
       ])
     );
     toast.success(`Exported ${filtered.length} approved student(s) to CSV.`);
   };
-
-  const hasRoom = (s) => Boolean(s.room_no || (s.room_assignments && s.room_assignments.length > 0));
-  const needsReadiness = (s) => !s.consent_given || !s.emergency_phone || !s.blood_group || !s.gender;
-
-  const counts = {
-    all: students.length,
-    roomed: students.filter(hasRoom).length,
-    unallocated: students.filter((s) => !hasRoom(s)).length,
-    consented: students.filter((s) => Boolean(s.consent_given)).length,
-    needsReadiness: students.filter(needsReadiness).length,
-  };
-
-  const filtered = students.filter((s) => {
-    const q = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      (s.full_name || "").toLowerCase().includes(q) ||
-      (s.roll_no || "").toLowerCase().includes(q) ||
-      (s.email || "").toLowerCase().includes(q) ||
-      (s.department || "").toLowerCase().includes(q) ||
-      (s.room_no || "").toLowerCase().includes(q);
-
-    if (!matchesSearch) return false;
-
-    if (genderFilter === "unset" && s.gender) return false;
-    if (genderFilter !== "all" && genderFilter !== "unset" && (s.gender || "").toLowerCase() !== genderFilter) {
-      return false;
-    }
-
-    if (filterMode === "roomed") return hasRoom(s);
-    if (filterMode === "unallocated") return !hasRoom(s);
-    if (filterMode === "consented") return Boolean(s.consent_given);
-    if (filterMode === "needsReadiness") return needsReadiness(s);
-    return true;
-  });
-
-  const activeCount = students.filter((s) => s.is_active !== false).length;
 
   return (
     <div className="space-y-6">
@@ -140,7 +173,7 @@ export default function CoordinatorParticipants() {
             Students
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Live roster of Admin-approved students synced with room allocations, medical readiness, and emergency contacts.
+            Live directory of Admin-approved students with academic, contact, guardian, and medical details.
           </p>
         </div>
 
@@ -182,51 +215,69 @@ export default function CoordinatorParticipants() {
             <Users size={16} className="text-emerald-700" />
           </div>
           <p className="mt-2 text-2xl font-black text-emerald-950">{counts.all}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{activeCount} active accounts</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{counts.active} active accounts</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Rooms Assigned</span>
-            <BedDouble size={16} className="text-purple-700" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Academic Batches</span>
+            <GraduationCap size={16} className="text-blue-700" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.roomed}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{counts.unallocated} unallocated</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{uniqueBatches.length}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">
+            {uniqueDepartments.length} department{uniqueDepartments.length === 1 ? "" : "s"}
+          </p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Consent Verified</span>
-            <FileCheck2 size={16} className="text-blue-700" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Guardian Contacts</span>
+            <UserCheck size={16} className="text-emerald-700" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.consented}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">of {counts.all} students</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">
+            {guardianReadyCount} <span className="text-sm font-semibold text-gray-400">/ {counts.all}</span>
+          </p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{counts.missingGuardian} missing details</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Profile Follow-up</span>
-            <AlertCircle size={16} className="text-amber-600" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Medical &amp; Dietary</span>
+            <HeartPulse size={16} className="text-red-600" />
           </div>
-          <p className="mt-2 text-2xl font-black text-amber-700">{counts.needsReadiness}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">Missing consent/medical/gender</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{medicalDietCount}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{counts.medicalNotes} with medical notes</p>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
-          <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search name, roll no, email, department, or room..."
+              placeholder="Search name, roll no, email, phone, or guardian..."
               aria-label="Search approved students"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none shadow-2xs"
             />
           </div>
+
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            aria-label="Filter students by department"
+            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-bold text-gray-700 focus:border-emerald-600 focus:outline-none"
+          >
+            <option value="all">All Departments</option>
+            {uniqueDepartments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </select>
 
           <select
             value={genderFilter}
@@ -245,10 +296,9 @@ export default function CoordinatorParticipants() {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: "all", label: "All", count: counts.all },
-            { id: "roomed", label: "Room Assigned", count: counts.roomed },
-            { id: "unallocated", label: "No Room", count: counts.unallocated },
-            { id: "consented", label: "Consented", count: counts.consented },
-            { id: "needsReadiness", label: "Incomplete Profile", count: counts.needsReadiness },
+            { id: "active", label: "Active", count: counts.active },
+            { id: "missingGuardian", label: "Missing Guardian/Phone", count: counts.missingGuardian },
+            { id: "medicalNotes", label: "Has Medical Notes", count: counts.medicalNotes },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -288,19 +338,23 @@ export default function CoordinatorParticipants() {
           {/* Mobile Card View (Screens < 768px) */}
           <div className="flex flex-col gap-3 md:hidden">
             {filtered.map((s) => {
-              const roomLabel = s.room_no ? `Room ${s.room_no}` : "Unallocated";
-              const contactPhone = s.emergency_phone || s.phone;
               const isActive = s.is_active !== false;
 
               return (
-                <div key={s.id} className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100 space-y-3">
+                <div
+                  key={s.id}
+                  className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100 space-y-3"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Avatar profile={s} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate font-extrabold text-sm text-emerald-950">{s.full_name || "Student"}</p>
+                        <p className="truncate font-extrabold text-sm text-emerald-950">
+                          {s.full_name || "Student"}
+                        </p>
                         <p className="truncate font-mono text-[11px] text-gray-500">
-                          {s.roll_no || "No Roll No"} • {s.batch || s.department || "CSE"}
+                          {s.roll_no || "No Roll"} • {s.batch || "--"}
+                          {s.semester ? ` • Sem ${s.semester}` : ""}
                         </p>
                         <p className="truncate text-[11px] text-gray-400">{s.email}</p>
                       </div>
@@ -312,53 +366,77 @@ export default function CoordinatorParticipants() {
                       }`}
                     >
                       {isActive ? <CheckCircle2 size={11} /> : <Ban size={11} />}
-                      {isActive ? "Approved" : "Inactive"}
+                      {isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                    <div className="flex items-center gap-1.5 text-gray-700 min-w-0">
-                      <BedDouble size={13} className="shrink-0 text-emerald-700" />
-                      <span className="truncate">{roomLabel}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-700 min-w-0">
-                      <Bus size={13} className="shrink-0 text-emerald-700" />
-                      <span className="truncate">
-                        {s.bus_no ? `${s.bus_no}${s.seat_no ? ` (${s.seat_no})` : ""}` : "Bus Pending"}
+                  <div className="grid grid-cols-1 gap-2 text-[11px] bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 truncate">{s.department || "Department unset"}</span>
+                      <span className="capitalize font-bold text-blue-800 shrink-0">
+                        {s.gender || "Gender unset"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-gray-600 col-span-2 min-w-0">
-                      <Phone size={13} className="shrink-0 text-gray-400" />
-                      {contactPhone ? (
-                        <a href={`tel:${contactPhone.replace(/\s+/g, "")}`} className="font-semibold text-emerald-800 hover:underline truncate">
-                          {contactPhone}
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500">Student Phone:</span>
+                      {s.phone ? (
+                        <a
+                          href={`tel:${s.phone.replace(/\s+/g, "")}`}
+                          className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:underline"
+                        >
+                          <Phone size={11} />
+                          {s.phone}
                         </a>
                       ) : (
-                        <span className="text-amber-700">No emergency phone</span>
+                        <span className="text-gray-400">Not set</span>
                       )}
-                      <span className="text-gray-300">•</span>
-                      <span>
-                        Blood: <strong className="text-red-700">{s.blood_group || "--"}</strong>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 truncate">
+                        Guardian: <strong className="text-gray-800">{s.guardian_name || "Unset"}</strong>
+                        {s.guardian_relation ? ` (${s.guardian_relation})` : ""}
                       </span>
+                      {s.emergency_phone ? (
+                        <a
+                          href={`tel:${s.emergency_phone.replace(/\s+/g, "")}`}
+                          className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:underline shrink-0"
+                        >
+                          <Phone size={11} />
+                          {s.emergency_phone}
+                        </a>
+                      ) : (
+                        <span className="text-amber-700 font-semibold shrink-0">No emergency phone</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-bold capitalize ${
-                        s.gender ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      Gender: {s.gender || "Unset"}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 font-bold text-red-700">
+                        Blood: {s.blood_group || "--"}
+                      </span>
+                      {s.dietary_preference && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 font-bold text-amber-800">
+                          {s.dietary_preference}
+                        </span>
+                      )}
+                      {s.medical_notes && s.medical_notes.trim() && (
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 font-bold text-purple-800">
+                          Medical Note
+                        </span>
+                      )}
+                    </div>
 
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-bold ${
-                        s.consent_given ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudent(s)}
+                      className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:underline"
                     >
-                      {s.consent_given ? "Consent Verified ✓" : "Consent Pending"}
-                    </span>
+                      <Info size={13} />
+                      <span>Details</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -372,17 +450,17 @@ export default function CoordinatorParticipants() {
                 <thead className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   <tr>
                     <th className="px-5 py-3.5">Student</th>
-                    <th className="px-5 py-3.5">Gender &amp; Account</th>
-                    <th className="px-5 py-3.5">Allocated Room</th>
-                    <th className="px-5 py-3.5">Transport</th>
-                    <th className="px-5 py-3.5">Emergency Contact &amp; Medical</th>
-                    <th className="px-5 py-3.5 text-right">Readiness</th>
+                    <th className="px-5 py-3.5">Academic Details</th>
+                    <th className="px-5 py-3.5">Contact &amp; Gender</th>
+                    <th className="px-5 py-3.5">Guardian &amp; Emergency</th>
+                    <th className="px-5 py-3.5">Medical &amp; Dietary</th>
+                    <th className="px-5 py-3.5 text-right">Profile</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map((s) => {
                     const isActive = s.is_active !== false;
-                    const contactPhone = s.emergency_phone || s.phone;
+                    const hasMedical = Boolean(s.medical_notes && s.medical_notes.trim());
 
                     return (
                       <tr key={s.id} className="hover:bg-gray-50/60 transition">
@@ -390,25 +468,46 @@ export default function CoordinatorParticipants() {
                           <div className="flex items-center gap-3">
                             <Avatar profile={s} size="sm" />
                             <div>
-                              <p className="font-bold text-emerald-950 text-sm">{s.full_name || "Student"}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-emerald-950 text-sm">
+                                  {s.full_name || "Student"}
+                                </p>
+                                {!isActive && (
+                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
                               <p className="font-mono text-[11px] text-gray-500">
-                                {s.roll_no || "No Roll"} • {s.batch || s.department || "CSE"}
+                                {s.roll_no || "No Roll"}
                               </p>
                               <p className="text-[11px] text-gray-400">{s.email}</p>
                             </div>
                           </div>
                         </td>
 
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-gray-900">
+                            {s.department || "Unassigned"}
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {s.batch || "Batch unset"}
+                            {s.semester ? ` • Semester ${s.semester}` : ""}
+                          </p>
+                        </td>
+
                         <td className="px-5 py-4 space-y-1">
                           <div>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                                isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {isActive ? <CheckCircle2 size={11} /> : <Ban size={11} />}
-                              {isActive ? "Approved" : "Deactivated"}
-                            </span>
+                            {s.phone ? (
+                              <a
+                                href={`tel:${s.phone.replace(/\s+/g, "")}`}
+                                className="font-semibold text-emerald-800 hover:underline"
+                              >
+                                {s.phone}
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-gray-400">No phone</span>
+                            )}
                           </div>
                           <div>
                             <span
@@ -422,49 +521,56 @@ export default function CoordinatorParticipants() {
                         </td>
 
                         <td className="px-5 py-4">
-                          {s.room_no ? (
-                            <>
-                              <p className="font-bold text-emerald-950">Room #{s.room_no}</p>
-                              <p className="text-[11px] text-gray-500">{s.hotel_name || "Stay Assigned"}</p>
-                            </>
-                          ) : (
-                            <span className="text-xs font-semibold text-amber-700">Unallocated</span>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-emerald-950">{s.bus_no || "Pending"}</p>
-                          <p className="text-[11px] text-gray-500">
-                            {s.seat_no ? `Seat: ${s.seat_no}` : "Seat unassigned"}
+                          <p className="font-semibold text-gray-900">
+                            {s.guardian_name || <span className="text-amber-700">Guardian unset</span>}
+                            {s.guardian_relation ? (
+                              <span className="text-[11px] font-normal text-gray-500">
+                                {" "}({s.guardian_relation})
+                              </span>
+                            ) : null}
                           </p>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          {contactPhone ? (
+                          {s.emergency_phone ? (
                             <a
-                              href={`tel:${contactPhone.replace(/\s+/g, "")}`}
-                              className="font-semibold text-emerald-800 hover:underline"
+                              href={`tel:${s.emergency_phone.replace(/\s+/g, "")}`}
+                              className="text-[11px] font-semibold text-emerald-800 hover:underline"
                             >
-                              {contactPhone}
+                              {s.emergency_phone}
                             </a>
                           ) : (
-                            <span className="text-[11px] font-semibold text-amber-700">No emergency phone</span>
+                            <span className="text-[11px] font-semibold text-amber-700">
+                              No emergency phone
+                            </span>
                           )}
-                          <p className="text-[11px] text-red-600 font-bold">
-                            Blood Group: {s.blood_group || "--"}
-                          </p>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                              {s.blood_group || "Blood --"}
+                            </span>
+                            {s.dietary_preference && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                <Utensils size={10} />
+                                {s.dietary_preference}
+                              </span>
+                            )}
+                          </div>
+                          {hasMedical && (
+                            <p className="mt-1 max-w-[200px] truncate text-[11px] text-purple-800 font-medium" title={s.medical_notes}>
+                              Note: {s.medical_notes}
+                            </p>
+                          )}
                         </td>
 
                         <td className="px-5 py-4 text-right">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                              s.consent_given
-                                ? "bg-emerald-50 text-emerald-800"
-                                : "bg-amber-50 text-amber-800"
-                            }`}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudent(s)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-bold text-emerald-900 hover:bg-emerald-50 transition"
                           >
-                            {s.consent_given ? "Consent Verified" : "Consent Pending"}
-                          </span>
+                            <Info size={13} />
+                            <span>View</span>
+                          </button>
                         </td>
                       </tr>
                     );
@@ -474,6 +580,125 @@ export default function CoordinatorParticipants() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Student Profile Detail Modal */}
+      {selectedStudent && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Details for ${selectedStudent.full_name || "Student"}`}
+          onClick={() => setSelectedStudent(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar profile={selectedStudent} size="md" />
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-extrabold text-emerald-950">
+                    {selectedStudent.full_name || "Student"}
+                  </h3>
+                  <p className="truncate font-mono text-xs text-gray-500">
+                    {selectedStudent.roll_no || "No Roll No"} • {selectedStudent.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close student details"
+                onClick={() => setSelectedStudent(null)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="rounded-2xl bg-gray-50 p-3.5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Academic</p>
+                <p className="font-bold text-emerald-950">{selectedStudent.department || "Unassigned"}</p>
+                <p className="text-gray-600">
+                  {selectedStudent.batch || "Batch unset"}
+                  {selectedStudent.semester ? ` • Sem ${selectedStudent.semester}` : ""}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-gray-50 p-3.5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Identity &amp; Contact</p>
+                <p className="font-bold text-emerald-950 capitalize">
+                  Gender: {selectedStudent.gender || "Unset"}
+                </p>
+                <p className="text-gray-600">Phone: {selectedStudent.phone || "Not provided"}</p>
+              </div>
+
+              <div className="rounded-2xl bg-gray-50 p-3.5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Guardian &amp; Emergency</p>
+                <p className="font-bold text-emerald-950">
+                  {selectedStudent.guardian_name || "Not provided"}
+                  {selectedStudent.guardian_relation ? ` (${selectedStudent.guardian_relation})` : ""}
+                </p>
+                <p className="text-gray-600">
+                  Emergency: {selectedStudent.emergency_phone || "Not provided"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-gray-50 p-3.5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Medical &amp; Dietary</p>
+                <p className="font-bold text-red-700">
+                  Blood Group: {selectedStudent.blood_group || "--"}
+                </p>
+                <p className="text-gray-600">
+                  Diet: {selectedStudent.dietary_preference || "Not specified"}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3.5 text-xs space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Medical Notes</p>
+              <p className="text-gray-700 leading-relaxed">
+                {selectedStudent.medical_notes?.trim() || "No medical notes or allergies reported."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs">
+              <span className="text-gray-500">
+                Consent:{" "}
+                <strong className={selectedStudent.consent_given ? "text-emerald-700" : "text-amber-700"}>
+                  {selectedStudent.consent_given
+                    ? selectedStudent.consent_at
+                      ? `Signed (${new Date(selectedStudent.consent_at).toLocaleDateString()})`
+                      : "Signed"
+                    : "Pending"}
+                </strong>
+              </span>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedStudent.phone && (
+                  <a
+                    href={`tel:${selectedStudent.phone.replace(/\s+/g, "")}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-3.5 py-2 font-bold text-emerald-800 hover:bg-emerald-50"
+                  >
+                    <Phone size={13} />
+                    <span>Call Student</span>
+                  </a>
+                )}
+                {selectedStudent.emergency_phone && (
+                  <a
+                    href={`tel:${selectedStudent.emergency_phone.replace(/\s+/g, "")}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-3.5 py-2 font-bold text-white hover:bg-emerald-900"
+                  >
+                    <Phone size={13} />
+                    <span>Call Guardian</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

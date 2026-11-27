@@ -346,27 +346,25 @@ export default function CoordinatorDashboard() {
                         )}
                       </div>
                       <p className="mt-0.5 truncate text-[11px] text-gray-500">
-                        {student.department || "CSE"} • {student.room_no ? `Room ${student.room_no}` : "Room unallocated"}
+                        {student.department || "CSE"}
+                        {student.batch ? ` • ${student.batch}` : ""}
+                        {student.phone ? ` • ${student.phone}` : ""}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 self-end sm:self-auto shrink-0">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
-                        student.gender ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      {student.gender || "Gender unset"}
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                      {student.blood_group || "Blood --"}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        student.consent_given
+                        student.emergency_phone
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-amber-50 text-amber-800"
                       }`}
                     >
-                      {student.consent_given ? "Consent ✓" : "No Consent"}
+                      {student.emergency_phone ? "Guardian ✓" : "No Guardian"}
                     </span>
                   </div>
                 </div>
