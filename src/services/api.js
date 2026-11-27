@@ -514,7 +514,7 @@ export const api = {
         .select(
           'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, guardian_name, guardian_relation, emergency_phone, blood_group, medical_notes, dietary_preference, consent_given, consent_at, avatar_type, avatar_url, avatar_style, avatar_seed, created_at'
         )
-        .eq('role', 'student')
+        .in('role', ['student', 'coordinator'])
         .eq('approval_status', 'approved')
         .order('full_name', { ascending: true });
 
@@ -538,7 +538,7 @@ export const api = {
       const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
       const fallback = offlineUsers.filter(
         (u) =>
-          String(u.role || '').toLowerCase() === 'student' &&
+          ['student', 'coordinator'].includes(String(u.role || '').toLowerCase()) &&
           (u.approval_status || 'approved') === 'approved'
       );
       return { success: true, count: fallback.length, students: fallback };

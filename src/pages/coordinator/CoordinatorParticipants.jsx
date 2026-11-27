@@ -61,28 +61,27 @@ export default function CoordinatorParticipants() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedStudent]);
 
-  const hasGuardianContact = (s) => Boolean(s.guardian_name && s.emergency_phone);
-  const hasMedicalOrDietFlag = (s) =>
-    Boolean((s.medical_notes && s.medical_notes.trim()) || s.dietary_preference);
-
-  const uniqueBatches = Array.from(
-    new Set(students.map((s) => s.batch).filter(Boolean))
-  );
   const uniqueDepartments = Array.from(
     new Set(students.map((s) => s.department).filter(Boolean))
   );
 
+  const isStudentRole = (s) => String(s.role || "student").toLowerCase() === "student";
+  const isCoordinatorRole = (s) => String(s.role || "").toLowerCase() === "coordinator";
+
+  const studentsOnly = students.filter(isStudentRole);
+  const coordinatorsOnly = students.filter(isCoordinatorRole);
+
   const counts = {
     all: students.length,
-    active: students.filter((s) => s.is_active !== false).length,
-    missingGuardian: students.filter((s) => !hasGuardianContact(s)).length,
+    totalStudents: studentsOnly.length,
+    activeStudents: studentsOnly.filter((s) => s.is_active !== false).length,
+    boys: studentsOnly.filter((s) => (s.gender || "").toLowerCase() === "male").length,
+    girls: studentsOnly.filter((s) => (s.gender || "").toLowerCase() === "female").length,
+    coordinators: coordinatorsOnly.length,
     medicalNotes: students.filter(
       (s) => Boolean(s.medical_notes && s.medical_notes.trim())
     ).length,
   };
-
-  const guardianReadyCount = students.filter(hasGuardianContact).length;
-  const medicalDietCount = students.filter(hasMedicalOrDietFlag).length;
 
   const filtered = students.filter((s) => {
     const q = searchTerm.trim().toLowerCase();
@@ -110,8 +109,15 @@ export default function CoordinatorParticipants() {
       return false;
     }
 
-    if (filterMode === "active") return s.is_active !== false;
-    if (filterMode === "missingGuardian") return !hasGuardianContact(s);
+    if (filterMode === "boys") {
+      return isStudentRole(s) && (s.gender || "").toLowerCase() === "male";
+    }
+    if (filterMode === "girls") {
+      return isStudentRole(s) && (s.gender || "").toLowerCase() === "female";
+    }
+    if (filterMode === "coordinators") {
+      return isCoordinatorRole(s);
+    }
     if (filterMode === "medicalNotes") {
       return Boolean(s.medical_notes && s.medical_notes.trim());
     }
@@ -168,12 +174,11 @@ export default function CoordinatorParticipants() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-emerald-800">Approved Directory</p>
           <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-            Students
+            Students List
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Live directory of Admin-approved students with academic, contact, guardian, and medical details.
+            List of students with academic, contact, guardian, and medical details.
           </p>
         </div>
 
@@ -199,54 +204,43 @@ export default function CoordinatorParticipants() {
         </div>
       </div>
 
-      {/* Admin-Only Approval Scope Notice */}
-      <div className="flex items-start sm:items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3.5 text-xs text-emerald-900">
-        <ShieldCheck size={18} className="mt-0.5 sm:mt-0 shrink-0 text-emerald-700" />
-        <p>
-          Showing <strong>Admin-approved students only</strong>. Student access requests, approvals, and account provisioning are managed exclusively by the Administrator.
-        </p>
-      </div>
 
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Approved Students</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total Students</span>
             <Users size={16} className="text-emerald-700" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.all}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{counts.active} active accounts</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.totalStudents}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{counts.activeStudents} active accounts</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Academic Batches</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total Boys</span>
             <GraduationCap size={16} className="text-blue-700" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">{uniqueBatches.length}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">
-            {uniqueDepartments.length} department{uniqueDepartments.length === 1 ? "" : "s"}
-          </p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.boys}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Approved male students</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Guardian Contacts</span>
-            <UserCheck size={16} className="text-emerald-700" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total Girls</span>
+            <HeartPulse size={16} className="text-pink-600" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">
-            {guardianReadyCount} <span className="text-sm font-semibold text-gray-400">/ {counts.all}</span>
-          </p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{counts.missingGuardian} missing details</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.girls}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Approved female students</p>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-xs ring-1 ring-gray-100">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Medical &amp; Dietary</span>
-            <HeartPulse size={16} className="text-red-600" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Total Coordinators</span>
+            <UserCheck size={16} className="text-amber-600" />
           </div>
-          <p className="mt-2 text-2xl font-black text-emerald-950">{medicalDietCount}</p>
-          <p className="mt-0.5 text-[11px] text-gray-500">{counts.medicalNotes} with medical notes</p>
+          <p className="mt-2 text-2xl font-black text-emerald-950">{counts.coordinators}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Approved faculty leads</p>
         </div>
       </div>
 
@@ -296,8 +290,9 @@ export default function CoordinatorParticipants() {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: "all", label: "All", count: counts.all },
-            { id: "active", label: "Active", count: counts.active },
-            { id: "missingGuardian", label: "Missing Guardian/Phone", count: counts.missingGuardian },
+            { id: "boys", label: "Boys", count: counts.boys },
+            { id: "girls", label: "Girls", count: counts.girls },
+            { id: "coordinators", label: "Coordinators", count: counts.coordinators },
             { id: "medicalNotes", label: "Has Medical Notes", count: counts.medicalNotes },
           ].map((tab) => (
             <button
@@ -305,11 +300,10 @@ export default function CoordinatorParticipants() {
               type="button"
               aria-pressed={filterMode === tab.id}
               onClick={() => setFilterMode(tab.id)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${
-                filterMode === tab.id
+              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${filterMode === tab.id
                   ? "bg-emerald-800 text-white shadow-xs"
                   : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
-              }`}
+                }`}
             >
               {tab.label} ({tab.count})
             </button>
@@ -349,9 +343,16 @@ export default function CoordinatorParticipants() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Avatar profile={s} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate font-extrabold text-sm text-emerald-950">
-                          {s.full_name || "Student"}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate font-extrabold text-sm text-emerald-950">
+                            {s.full_name || "Student"}
+                          </p>
+                          {isCoordinatorRole(s) && (
+                            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-amber-900">
+                              Coordinator
+                            </span>
+                          )}
+                        </div>
                         <p className="truncate font-mono text-[11px] text-gray-500">
                           {s.roll_no || "No Roll"} • {s.batch || "--"}
                           {s.semester ? ` • Sem ${s.semester}` : ""}
@@ -361,9 +362,8 @@ export default function CoordinatorParticipants() {
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shrink-0 ${
-                        isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shrink-0 ${isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                        }`}
                     >
                       {isActive ? <CheckCircle2 size={11} /> : <Ban size={11} />}
                       {isActive ? "Active" : "Inactive"}
@@ -472,6 +472,11 @@ export default function CoordinatorParticipants() {
                                 <p className="font-bold text-emerald-950 text-sm">
                                   {s.full_name || "Student"}
                                 </p>
+                                {isCoordinatorRole(s) && (
+                                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-amber-900">
+                                    Coordinator
+                                  </span>
+                                )}
                                 {!isActive && (
                                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">
                                     Inactive
@@ -511,9 +516,8 @@ export default function CoordinatorParticipants() {
                           </div>
                           <div>
                             <span
-                              className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
-                                s.gender ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-800"
-                              }`}
+                              className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${s.gender ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-800"
+                                }`}
                             >
                               {s.gender || "Gender unset"}
                             </span>
