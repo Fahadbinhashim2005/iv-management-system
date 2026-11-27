@@ -20,13 +20,25 @@ export default function ProfileHeader({
   completeness,
   onOpenAvatarPicker,
 }) {
-  const studentName = formData.full_name || profile?.full_name || "Student";
+  const normalizedRole = String(profile?.role || "student").toLowerCase();
+  const isCoordinator = normalizedRole === "coordinator";
+  const isStudentLike =
+    normalizedRole === "student" ||
+    (isCoordinator && formData.coordinator_type === "student");
+
+  const studentName = formData.full_name || profile?.full_name || "User";
   const studentDept = formData.department || "Computer Science & Engineering";
   const studentSem = formData.semester ? `Semester ${formData.semester}` : "Semester 5";
   const studentBatch = formData.batch ? `Batch ${formData.batch}` : "Batch 2023-27";
   const studentRoll = formData.roll_no || profile?.roll_no || "CS-2026-Pending";
-  const studentEmail = profile?.email || "student@college.edu";
-  const statusBadge = tripAssignment?.status || "Active Student";
+  const studentEmail = profile?.email || "user@college.edu";
+  const statusBadge = isCoordinator
+    ? formData.coordinator_type === "student"
+      ? "Student Coordinator"
+      : "Faculty Coordinator"
+    : normalizedRole === "admin"
+      ? "Chief Administrator"
+      : tripAssignment?.status || "Active Student";
 
   return (
     <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 sm:p-8">
@@ -69,14 +81,18 @@ export default function ProfileHeader({
           </div>
 
           <p className="text-xs font-medium text-gray-500 mt-1">
-            {studentDept} • {studentSem} • {studentBatch}
+            {isStudentLike
+              ? `${studentDept} • ${studentSem} • ${studentBatch}`
+              : studentDept}
           </p>
 
           <div className="mt-3.5 flex flex-wrap items-center justify-center sm:justify-start gap-3.5 text-xs text-gray-600">
-            <span className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 ring-1 ring-gray-200">
-              <IdCard size={15} className="text-emerald-600" />
-              <strong className="text-gray-700">Roll:</strong> {studentRoll}
-            </span>
+            {isStudentLike && (
+              <span className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 ring-1 ring-gray-200">
+                <IdCard size={15} className="text-emerald-600" />
+                <strong className="text-gray-700">Roll:</strong> {studentRoll}
+              </span>
+            )}
 
             <span className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 ring-1 ring-gray-200">
               <Mail size={15} className="text-emerald-600" />

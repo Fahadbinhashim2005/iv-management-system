@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { 
-  validateProfileForm, 
-  validateField, 
-  calculateProfileCompleteness, 
-  normalizePhoneNumber 
+import {
+  validateProfileForm,
+  validateField,
+  calculateProfileCompleteness,
+  normalizePhoneNumber
 } from "../lib/profileValidation";
 import toast from "react-hot-toast";
 
@@ -30,6 +30,7 @@ export function useProfile() {
   // State: Form Editable Values
   const [formData, setFormData] = useState({
     full_name: "",
+    coordinator_type: "faculty",
     roll_no: "",
     gender: "",
     phone: "",
@@ -140,8 +141,18 @@ export function useProfile() {
       setProfile(loadedProfile);
       setTripAssignment(loadedAssignment);
 
+      const storedCoordType = user?.id
+        ? localStorage.getItem(`iv_coord_type_${user.id}`)
+        : null;
+      const resolvedCoordType =
+        loadedProfile.coordinator_type ||
+        user?.user_metadata?.coordinator_type ||
+        storedCoordType ||
+        "faculty";
+
       const formValues = {
         full_name: loadedProfile.full_name || "",
+        coordinator_type: resolvedCoordType,
         roll_no: loadedProfile.roll_no || "",
         gender: loadedProfile.gender || "",
         phone: loadedProfile.phone || "",
@@ -210,160 +221,187 @@ export function useProfile() {
    * 4. Calculate profile completeness percentage (0 to 100%)
    */
   const completeness = useMemo(() => {
-    return calculateProfileCompleteness(formData);
-  }, [formData]);
+  const userRole = profile?.role || authProfile?.role || "student";
+  return calculateProfileCompleteness(formData, userRole);
+}, [formData, profile?.role, authProfile?.role]);
 
-  /**
-   * 5. Save Changes to Supabase
-   */
-  const saveProfile = async () => {
-    const userRole = profile?.role || authProfile?.role || "student";
-    const validationErrors = validateProfileForm(formData, userRole);
-    setErrors(validationErrors);
+/**
+ * 5. Save Changes to Supabase
+ */
+const saveProfile = async () => {
+  const userRole = profile?.role || authProfile?.role || "student";
+  const validationErrors = validateProfileForm(formData, userRole);
+  setErrors(validationErrors);
 
-    // Block submission if any blocking validation errors exist
-    const blockingKeys = Object.keys(validationErrors).filter(
-      (k) => k !== "emergency_phone_warning"
-    );
-    if (blockingKeys.length > 0) {
-      toast.error("Please resolve the highlighted errors before saving.", { id: "profile-error" });
-      return false;
-    }
+  // Block submission if any blocking validation errors exist
+  const blockingKeys = Object.keys(validationErrors).filter(
+    (k) => k !== "emergency_phone_warning"
+  );
+  if (blockingKeys.length > 0) {
+    toast.error("Please resolve the highlighted errors before saving.", { id: "profile-error" });
+    return false;
+  }
 
-    try {
-      setSaving(true);
+  try {
+    setSaving(true);
 
-      const isStudent = String(userRole).toLowerCase() === "student";
-      const updates = {
-        full_name: formData.full_name.trim(),
-        roll_no: isStudent ? formData.roll_no.trim() : formData.roll_no?.trim() || null,
-        gender: formData.gender ? formData.gender.toLowerCase() : null,
-        phone: normalizePhoneNumber(formData.phone),
-        department: formData.department,
-        semester: isStudent ? Number(formData.semester) : formData.semester ? Number(formData.semester) : null,
-        batch: isStudent ? formData.batch.trim() : formData.batch?.trim() || null,
-        guardian_name: formData.guardian_name?.trim() || null,
-        guardian_relation: formData.guardian_relation || null,
-        emergency_phone: formData.emergency_phone ? normalizePhoneNumber(formData.emergency_phone) : null,
-        blood_group: formData.blood_group || null,
-        medical_notes: formData.medical_notes ? formData.medical_notes.trim() : null,
-        dietary_preference: formData.dietary_preference || null,
-        notifications_enabled: formData.notifications_enabled,
-        consent_given: formData.consent_given,
-        consent_at: formData.consent_given ? (profile?.consent_at || new Date().toISOString()) : null,
-        avatar_type: formData.avatar_type,
-        avatar_url: formData.avatar_url,
-        avatar_style: formData.avatar_style,
-        avatar_seed: formData.avatar_seed,
-        updated_at: new Date().toISOString(),
-      };
+    const normalizedRole = String(userRole).toLowerCase();
+    const isStudentLike =
+      normalizedRole === "student" ||
+      (normalizedRole === "coordinator" && formData.coordinator_type === "student");
+    const updates = {
+      full_name: formData.full_name.trim(),
+      ...(normalizedRole === "coordinator"
+        ? { coordinator_type: formData.coordinator_type || "faculty" }
+        : {}),
+      roll_no: isStudentLike ? formData.roll_no.trim() : formData.roll_no?.trim() || null,
+      gender: formData.gender ? formData.gender.toLowerCase() : null,
+      phone: normalizePhoneNumber(formData.phone),
+      department: formData.department,
+      semester: isStudentLike ? Number(formData.semester) : formData.semester ? Number(formData.semester) : null,
+      batch: isStudentLike ? formData.batch.trim() : formData.batch?.trim() || null,
+      guardian_name: formData.guardian_name?.trim() || null,
+      guardian_relation: formData.guardian_relation || null,
+      emergency_phone: formData.emergency_phone ? normalizePhoneNumber(formData.emergency_phone) : null,
+      blood_group: formData.blood_group || null,
+      medical_notes: formData.medical_notes ? formData.medical_notes.trim() : null,
+      dietary_preference: formData.dietary_preference || null,
+      notifications_enabled: formData.notifications_enabled,
+      consent_given: formData.consent_given,
+      consent_at: formData.consent_given ? (profile?.consent_at || new Date().toISOString()) : null,
+      avatar_type: formData.avatar_type,
+      avatar_url: formData.avatar_url,
+      avatar_style: formData.avatar_style,
+      avatar_seed: formData.avatar_seed,
+      updated_at: new Date().toISOString(),
+    };
 
-      // A. Write to Supabase
-      if (isSupabaseConfigured && supabase && user?.id) {
-        const { error: updateErr } = await supabase
+    // A. Write to Supabase
+    if (isSupabaseConfigured && supabase && user?.id) {
+      let { error: updateErr } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id);
+
+      // Graceful fallback if coordinator_type SQL migration hasn't been applied yet
+      if (updateErr && updates.coordinator_type && String(updateErr.message || "").includes("coordinator_type")) {
+        const fallbackUpdates = { ...updates };
+        delete fallbackUpdates.coordinator_type;
+        const retry = await supabase
           .from("profiles")
-          .update(updates)
+          .update(fallbackUpdates)
           .eq("id", user.id);
-
-        if (updateErr) {
-          throw new Error(updateErr.message || "Failed to save profile to Supabase.");
-        }
+        updateErr = retry.error;
       }
 
-      // B. Save copy to LocalStorage for offline resilience
-      if (user?.id) {
-        localStorage.setItem(`iv_profile_${user.id}`, JSON.stringify({ ...profile, ...updates }));
+      if (updateErr) {
+        throw new Error(updateErr.message || "Failed to save profile to Supabase.");
       }
 
-      // C. Update baseline state so isDirty becomes false
-      setInitialData({ ...formData });
-      setProfile((prev) => ({ ...prev, ...updates }));
-
-      // D. Refresh AuthContext so sidebar and header reflect the new name/avatar immediately
-      if (refreshProfile) {
-        await refreshProfile();
+      if (normalizedRole === "coordinator") {
+        supabase.auth
+          .updateUser({ data: { coordinator_type: formData.coordinator_type || "faculty" } })
+          .catch(() => { });
       }
-
-      toast.success("Profile & Consent details updated successfully!", { id: "profile-save" });
-      return true;
-    } catch (err) {
-      console.error("[useProfile Save Error]:", err);
-      toast.error(err.message || "Failed to save profile. Please try again.", { id: "profile-save-err" });
-      return false;
-    } finally {
-      setSaving(false);
     }
-  };
 
-  /**
-   * 6. Quick Avatar Update (saves immediately without having to click main Save)
-   */
-  const updateAvatar = async ({ avatar_type, avatar_url, avatar_style, avatar_seed }) => {
-    try {
-      const avatarUpdates = {
-        avatar_type,
-        avatar_url: avatar_url || null,
-        avatar_style: avatar_style || "lorelei",
-        avatar_seed: avatar_seed || user?.id,
-      };
-
-      setFormData((prev) => ({ ...prev, ...avatarUpdates }));
-      setInitialData((prev) => ({ ...prev, ...avatarUpdates }));
-
-      if (isSupabaseConfigured && supabase && user?.id) {
-        const { error: avatarErr } = await supabase
-          .from("profiles")
-          .update(avatarUpdates)
-          .eq("id", user.id);
-        if (avatarErr) throw new Error(avatarErr.message);
+    // B. Save copy to LocalStorage for offline resilience
+    if (user?.id) {
+      if (normalizedRole === "coordinator") {
+        localStorage.setItem(`iv_coord_type_${user.id}`, formData.coordinator_type || "faculty");
       }
-
-      if (user?.id) {
-        localStorage.setItem(
-          `iv_profile_${user.id}`,
-          JSON.stringify({ ...profile, ...avatarUpdates })
-        );
-      }
-
-      if (refreshProfile) {
-        await refreshProfile();
-      }
-
-      toast.success("Profile avatar updated!", { id: "avatar-update" });
-      return true;
-    } catch (err) {
-      console.error("[useProfile updateAvatar Error]:", err);
-      toast.error("Failed to save avatar choice.");
-      return false;
+      localStorage.setItem(`iv_profile_${user.id}`, JSON.stringify({ ...profile, ...updates }));
     }
-  };
 
-  /**
-   * 7. Revert / Cancel Changes
-   */
-  const resetForm = () => {
-    if (initialData) {
-      setFormData({ ...initialData });
-      setErrors({});
-      toast("Reverted form to last saved values.", { icon: "↩️", id: "profile-reset" });
+    // C. Update baseline state so isDirty becomes false
+    setInitialData({ ...formData });
+    setProfile((prev) => ({ ...prev, ...updates }));
+
+    // D. Refresh AuthContext so sidebar and header reflect the new name/avatar immediately
+    if (refreshProfile) {
+      await refreshProfile();
     }
-  };
 
-  return {
-    profile,
-    tripAssignment,
-    formData,
-    initialData,
-    errors,
-    loading,
-    saving,
-    isDirty,
-    completeness,
-    fetchError,
-    handleFieldChange,
-    saveProfile,
-    updateAvatar,
-    resetForm,
-    reloadProfile: loadProfileData,
-  };
+    toast.success("Profile & Consent details updated successfully!", { id: "profile-save" });
+    return true;
+  } catch (err) {
+    console.error("[useProfile Save Error]:", err);
+    toast.error(err.message || "Failed to save profile. Please try again.", { id: "profile-save-err" });
+    return false;
+  } finally {
+    setSaving(false);
+  }
+};
+
+/**
+ * 6. Quick Avatar Update (saves immediately without having to click main Save)
+ */
+const updateAvatar = async ({ avatar_type, avatar_url, avatar_style, avatar_seed }) => {
+  try {
+    const avatarUpdates = {
+      avatar_type,
+      avatar_url: avatar_url || null,
+      avatar_style: avatar_style || "lorelei",
+      avatar_seed: avatar_seed || user?.id,
+    };
+
+    setFormData((prev) => ({ ...prev, ...avatarUpdates }));
+    setInitialData((prev) => ({ ...prev, ...avatarUpdates }));
+
+    if (isSupabaseConfigured && supabase && user?.id) {
+      const { error: avatarErr } = await supabase
+        .from("profiles")
+        .update(avatarUpdates)
+        .eq("id", user.id);
+      if (avatarErr) throw new Error(avatarErr.message);
+    }
+
+    if (user?.id) {
+      localStorage.setItem(
+        `iv_profile_${user.id}`,
+        JSON.stringify({ ...profile, ...avatarUpdates })
+      );
+    }
+
+    if (refreshProfile) {
+      await refreshProfile();
+    }
+
+    toast.success("Profile avatar updated!", { id: "avatar-update" });
+    return true;
+  } catch (err) {
+    console.error("[useProfile updateAvatar Error]:", err);
+    toast.error("Failed to save avatar choice.");
+    return false;
+  }
+};
+
+/**
+ * 7. Revert / Cancel Changes
+ */
+const resetForm = () => {
+  if (initialData) {
+    setFormData({ ...initialData });
+    setErrors({});
+    toast("Reverted form to last saved values.", { icon: "↩️", id: "profile-reset" });
+  }
+};
+
+return {
+  profile,
+  tripAssignment,
+  formData,
+  initialData,
+  errors,
+  loading,
+  saving,
+  isDirty,
+  completeness,
+  fetchError,
+  handleFieldChange,
+  saveProfile,
+  updateAvatar,
+  resetForm,
+  reloadProfile: loadProfileData,
+};
 }

@@ -142,21 +142,24 @@ export function validateField(field, value) {
  */
 export function validateProfileForm(formData, role = "student") {
   const errors = {};
-  const isStudent = String(role || "student").toLowerCase() === "student";
+  const normalizedRole = String(role || "student").toLowerCase();
+  const isStudentProfile =
+    normalizedRole === "student" ||
+    (normalizedRole === "coordinator" && formData?.coordinator_type === "student");
 
-  const requiredFields = isStudent
+  const requiredFields = isStudentProfile
     ? [
-        "full_name",
-        "roll_no",
-        "phone",
-        "department",
-        "semester",
-        "batch",
-        "guardian_name",
-        "emergency_phone",
-        "blood_group",
-        "consent_given",
-      ]
+      "full_name",
+      "roll_no",
+      "phone",
+      "department",
+      "semester",
+      "batch",
+      "guardian_name",
+      "emergency_phone",
+      "blood_group",
+      "consent_given",
+    ]
     : ["full_name", "phone", "department"];
 
   requiredFields.forEach((field) => {
@@ -177,45 +180,66 @@ export function validateProfileForm(formData, role = "student") {
     if (medError) errors.medical_notes = medError;
   }
 
+  if (!isStudentProfile && formData.blood_group) {
+    const bgError = validateField("blood_group", formData.blood_group);
+    if (bgError) errors.blood_group = bgError;
+  }
+
   // Cross-field check: Emergency phone should ideally not be identical to student's phone
   const studentDigits = (formData.phone || "").replace(/\D/g, "").slice(-10);
   const emergencyDigits = (formData.emergency_phone || "").replace(/\D/g, "").slice(-10);
-  if (studentDigits && emergencyDigits && studentDigits === emergencyDigits) {
-    // Non-blocking warning attached to emergency_phone_warning
-    errors.emergency_phone_warning =
-      "Note: Emergency phone is identical to your personal number. Providing a guardian's number is recommended.";
+    if (isStudentProfile && studentDigits && emergencyDigits && studentDigits === emergencyDigits) {
+      // Non-blocking warning attached to emergency_phone_warning
+      errors.emergency_phone_warning =
+        "Note: Emergency phone is identical to your personal number. Providing a guardian's number is recommended.";
+    }
+
+    return errors;
   }
 
-  return errors;
-}
+  /**
+   * Calculates profile completeness percentage (0 - 100%)
+   */
+    export function calculateProfileCompleteness(profile, roleOverride) {
+      if (!profile) return 0;
 
-/**
- * Calculates student profile completeness percentage (0 - 100%)
- */
-export function calculateProfileCompleteness(profile) {
-  if (!profile) return 0;
+      const normalizedRole = String(roleOverride || profile.role || "student").toLowerCase();
+      const isStudentProfile =
+        normalizedRole === "student" ||
+        (normalizedRole === "coordinator" && profile.coordinator_type === "student");
 
-  const coreFields = [
-    "full_name",
-    "roll_no",
-    "gender",
-    "phone",
-    "department",
-    "semester",
-    "batch",
-    "guardian_name",
-    "emergency_phone",
-    "blood_group",
-    "consent_given",
-  ];
+      const coreFields = isStudentProfile
+        ? [
+          "full_name",
+          "roll_no",
+          "gender",
+          "phone",
+          "department",
+          "semester",
+          "batch",
+          "guardian_name",
+          "emergency_phone",
+          "blood_group",
+          "consent_given",
+        ]
+        : normalizedRole === "coordinator"
+          ? [
+            "full_name",
+            "gender",
+            "phone",
+            "department",
+            "blood_group",
+            "dietary_preference",
+          ]
+          : ["full_name", "gender", "phone", "department"];
 
-  let completedCount = 0;
-  coreFields.forEach((field) => {
-    const val = profile[field];
-    if (val !== null && val !== undefined && val !== "" && val !== false) {
-      completedCount++;
+      let completedCount = 0;
+      coreFields.forEach((field) => {
+        const val = profile[field];
+        if (val !== null && val !== undefined && val !== "" && val !== false) {
+          completedCount++;
+        }
+      });
+
+      return Math.round((completedCount / coreFields.length) * 100);
     }
-  });
-
-  return Math.round((completedCount / coreFields.length) * 100);
-}

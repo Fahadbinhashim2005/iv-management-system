@@ -85,22 +85,28 @@ export default function ProfilePage() {
     );
   }
 
-  const isStudent = String(profile?.role || "student").toLowerCase() === "student";
+  const normalizedRole = String(profile?.role || "student").toLowerCase();
+  const isStudent = normalizedRole === "student";
+  const isCoordinator = normalizedRole === "coordinator";
+  const isStudentCoordinator = isCoordinator && formData.coordinator_type === "student";
+  const showMedicalAndPrefs = isStudent || isCoordinator;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-24">
       {/* Page Title & Breadcrumb */}
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-          Account & Security
+          Account &amp; Security
         </p>
         <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
-          {isStudent ? "My Profile & Consent" : "My Profile & Settings"}
+          {isStudent || isStudentCoordinator ? "My Profile & Consent" : "My Profile & Settings"}
         </h1>
         <p className="mt-1 text-xs text-gray-500">
-          {isStudent
+          {isStudent || isStudentCoordinator
             ? "Manage your personal information, emergency credentials, and travel consent for the upcoming Industrial Visit."
-            : "Update your name, contact phone, department, gender (for room selection), and avatar."}
+            : isCoordinator
+              ? "Choose Faculty or Student Coordinator and manage your contact, blood group, medical notes, meal preference, and alerts."
+              : "Update your name, contact phone, department, gender (for room selection), and avatar."}
         </p>
       </div>
 
@@ -113,26 +119,26 @@ export default function ProfilePage() {
         onOpenAvatarPicker={() => setAvatarPickerOpen(true)}
       />
 
-      {/* 2. Academic / Identity Section & Locked Tour Logistics */}
+      {/* 2. Academic / Identity Section */}
       <AcademicSection
         role={profile?.role || "student"}
         formData={formData}
-        tripAssignment={tripAssignment}
         errors={errors}
         onChange={handleFieldChange}
       />
 
-      {/* 3 & 4. Student Emergency Contacts & Consent Sections */}
-      {isStudent && (
+        {/* 3 & 4. Emergency / Medical & Food / Notification Preferences */ }
+      {showMedicalAndPrefs && (
         <>
           <EmergencySection
+            facultyMode={isCoordinator && !isStudentCoordinator}
             formData={formData}
-            tripAssignment={tripAssignment}
             errors={errors}
             onChange={handleFieldChange}
           />
 
           <PreferencesSection
+            facultyMode={isCoordinator && !isStudentCoordinator}
             formData={formData}
             errors={errors}
             onChange={handleFieldChange}
@@ -141,9 +147,8 @@ export default function ProfilePage() {
       )}
 
       {/* 5. Sticky Bottom Action Bar (Responsive Mobile & Desktop) */}
-      <div className={`sticky bottom-4 z-30 rounded-2xl bg-white/95 backdrop-blur-md p-4 shadow-xl ring-1 ring-gray-200 transition-all duration-300 ${
-        isDirty ? "translate-y-0 opacity-100" : "opacity-95"
-      }`}>
+      <div className={`sticky bottom-4 z-30 rounded-2xl bg-white/95 backdrop-blur-md p-4 shadow-xl ring-1 ring-gray-200 transition-all duration-300 ${isDirty ? "translate-y-0 opacity-100" : "opacity-95"
+        }`}>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-center sm:text-left">
             <span className="text-xs font-bold text-emerald-950 flex items-center justify-center sm:justify-start gap-1.5">
