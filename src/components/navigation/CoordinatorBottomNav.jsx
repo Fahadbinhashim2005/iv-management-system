@@ -10,7 +10,7 @@ function CoordinatorBottomNav() {
     }`;
 
   return (
-    <nav className="no-print fixed bottom-0 left-0 z-50 w-full border-t border-gray-100 bg-white px-4 pb-5 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] lg:hidden">
+    <nav className="no-print fixed bottom-0 left-0 z-50 w-full border-t border-gray-100 bg-white px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] lg:hidden">
       <div className="mx-auto flex max-w-md items-center justify-around">
         <div className="flex flex-1 items-center justify-around">
           <NavLink to="/coordinator/dashboard" className={navLinkClass}>

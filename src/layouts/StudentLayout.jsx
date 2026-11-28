@@ -80,7 +80,7 @@ function StudentLayoutInner() {
       </a>
 
       {/* Mobile & Tablet Top Bar */}
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:hidden shadow-xs">
+      <header className="sticky top-0 z-40 flex min-h-[calc(4rem+env(safe-area-inset-top))] w-full items-center justify-between border-b border-gray-100 bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-6 lg:hidden shadow-xs">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -336,7 +336,7 @@ function StudentLayoutInner() {
         </aside>
 
         {/* Active Page Content */}
-        <main id="main-content" tabIndex={-1} className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-28 sm:pb-28 lg:pb-10 outline-none">
+        <main id="main-content" tabIndex={-1} className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10 outline-none">
           <Suspense
             fallback={
               <div className="space-y-4">
