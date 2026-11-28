@@ -1,12 +1,14 @@
 import { NavLink } from "react-router-dom";
 import { Home, Map, Bell, UserRound, ScanQrCode } from "lucide-react";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
+import { useAnnouncementAlerts } from "../../features/updates/hooks/useAnnouncementAlerts";
 
 function StudentBottomNav() {
   const { hasUnmarked } = useActiveSessions({ mode: "student", pollIntervalMs: 10000 });
+  const { unreadCount } = useAnnouncementAlerts({ pollIntervalMs: 5000, enableAlerts: true });
   const navLinkClass = ({ isActive }) =>
-    `flex flex-col items-center gap-1 transition ${
-      isActive ? "font-semibold text-emerald-600" : "text-gray-500 hover:text-emerald-600"
+    `relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-1 px-2 transition ${
+      isActive ? "font-semibold text-emerald-600" : "text-gray-600 hover:text-emerald-600"
     }`;
 
   return (
@@ -27,8 +29,22 @@ function StudentBottomNav() {
         <div className="w-16 shrink-0" />
 
         <div className="flex flex-1 items-center justify-around">
-          <NavLink to="/student/announcements" className={navLinkClass}>
-            <Bell size={22} />
+          <NavLink
+            to="/student/announcements"
+            className={navLinkClass}
+            aria-label={unreadCount > 0 ? `Updates (${unreadCount} unread)` : "Updates"}
+          >
+            <span className="relative inline-flex">
+              <Bell size={22} />
+              {unreadCount > 0 && (
+                <span
+                  aria-live="polite"
+                  className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white"
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
             <span className="text-xs">Updates</span>
           </NavLink>
 
