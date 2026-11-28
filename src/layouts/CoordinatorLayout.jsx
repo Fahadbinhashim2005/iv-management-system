@@ -21,6 +21,7 @@ import EmergencyHelpModal from "../components/common/EmergencyHelpModal";
 import Avatar from "../components/Avatar";
 import { useAuth } from "../context/AuthContext";
 import AttendanceBanner from "../features/attendance/components/AttendanceBanner";
+import PortalFeedsProvider from "../context/PortalFeedsProvider";
 
 const navItems = [
   { to: "/coordinator/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -35,6 +36,19 @@ const navItems = [
 ];
 
 export default function CoordinatorLayout() {
+  return (
+    <PortalFeedsProvider
+      mode="staff"
+      sessionsPollIntervalMs={5000}
+      announcementsPollIntervalMs={15000}
+      enableAlerts={false}
+    >
+      <CoordinatorLayoutInner />
+    </PortalFeedsProvider>
+  );
+}
+
+function CoordinatorLayoutInner() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
   const navigate = useNavigate();

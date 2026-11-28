@@ -1,14 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { attendanceApi } from '../api/attendanceApi';
 
-export function useActiveSessions({ mode = 'staff', pollIntervalMs = 5000, enabled = true } = {}) {
+export const ActiveSessionsContext = createContext(null);
+
+export function useActiveSessions({
+  mode = 'staff',
+  pollIntervalMs = 5000,
+  enabled = true,
+  standalone = false,
+} = {}) {
+  const sharedCtx = useContext(ActiveSessionsContext);
+  const shouldPoll = Boolean(enabled) && (standalone || !sharedCtx);
+
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(Boolean(enabled));
+  const [loading, setLoading] = useState(shouldPoll);
   const [error, setError] = useState(null);
   const mountedRef = useRef(true);
 
   const fetchActive = useCallback(async () => {
-    if (!enabled) return;
+    if (!shouldPoll) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     try {
       const data =
         mode === 'student'
@@ -27,15 +38,19 @@ export function useActiveSessions({ mode = 'staff', pollIntervalMs = 5000, enabl
       setError(err.message || 'Failed to load active sessions');
       setLoading(false);
     }
-  }, [mode, enabled]);
+  }, [mode, shouldPoll]);
 
   useEffect(() => {
     mountedRef.current = true;
-    if (!enabled) {
+    if (!shouldPoll) {
       return;
     }
 
-    const initTimer = setTimeout(fetchActive, 0);
+    const initTimer = setTimeout(() => {
+      if (document.visibilityState !== 'hidden') {
+        fetchActive();
+      }
+    }, 0);
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchActive();
@@ -57,7 +72,11 @@ export function useActiveSessions({ mode = 'staff', pollIntervalMs = 5000, enabl
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', onVis);
     };
-  }, [fetchActive, pollIntervalMs, enabled]);
+  }, [fetchActive, pollIntervalMs, shouldPoll]);
+
+  if (!standalone && sharedCtx) {
+    return sharedCtx;
+  }
 
   const hasUnmarked =
     mode === 'student' ? sessions.some((s) => !s.alreadyMarked) : sessions.length > 0;

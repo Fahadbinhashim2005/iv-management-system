@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updatesApi } from '../api/updatesApi';
 import { triggerAnnouncementAlert } from '../utils/notificationAlert.jsx';
 
 const SEEN_STORAGE_KEY = 'iv_seen_announcement_ids';
+
+export const AnnouncementAlertsContext = createContext(null);
 
 function getStoredSeenIds() {
   try {
@@ -23,15 +25,24 @@ function saveSeenIds(ids) {
   }
 }
 
-export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = true } = {}) {
+export function useAnnouncementAlerts({
+  pollIntervalMs = 5000,
+  enableAlerts = true,
+  standalone = false,
+} = {}) {
+  const sharedCtx = useContext(AnnouncementAlertsContext);
+  const shouldPoll = standalone || !sharedCtx;
+
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(shouldPoll);
   const [error, setError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const mountedRef = useRef(true);
 
   const fetchUpdates = useCallback(async () => {
+    if (!shouldPoll) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     try {
       const list = await updatesApi.getAll();
       if (!mountedRef.current) return;
@@ -44,7 +55,6 @@ export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = tr
 
       const seen = getStoredSeenIds();
       if (!seen) {
-        // First time: seed seen IDs silently so old announcements don't chime
         saveSeenIds(new Set(items.map((a) => a.id)));
         return;
       }
@@ -56,7 +66,6 @@ export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = tr
         saveSeenIds(updatedSeen);
         setUnreadCount((c) => c + newlyArrived.length);
 
-        // Alert for the newest broadcast
         triggerAnnouncementAlert(newlyArrived[0], {
           onView: () => navigate('/student/announcements'),
         });
@@ -66,11 +75,17 @@ export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = tr
       setError(err.message || 'Failed to load updates');
       setLoading(false);
     }
-  }, [enableAlerts, navigate]);
+  }, [enableAlerts, navigate, shouldPoll]);
 
   useEffect(() => {
     mountedRef.current = true;
-    const initTimer = setTimeout(fetchUpdates, 0);
+    if (!shouldPoll) return;
+
+    const initTimer = setTimeout(() => {
+      if (document.visibilityState !== 'hidden') {
+        fetchUpdates();
+      }
+    }, 0);
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -93,7 +108,7 @@ export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = tr
       document.removeEventListener('visibilitychange', onFocus);
       window.removeEventListener('focus', onFocus);
     };
-  }, [fetchUpdates, pollIntervalMs]);
+  }, [fetchUpdates, pollIntervalMs, shouldPoll]);
 
   const markAllSeen = useCallback(() => {
     setUnreadCount(0);
@@ -101,6 +116,10 @@ export function useAnnouncementAlerts({ pollIntervalMs = 5000, enableAlerts = tr
       saveSeenIds(new Set(announcements.map((a) => a.id)));
     }
   }, [announcements]);
+
+  if (!standalone && sharedCtx) {
+    return sharedCtx;
+  }
 
   return {
     announcements,

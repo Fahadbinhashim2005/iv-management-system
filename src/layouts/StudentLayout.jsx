@@ -20,6 +20,7 @@ import EmergencyHelpModal from "../components/common/EmergencyHelpModal";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
+import PortalFeedsProvider from "../context/PortalFeedsProvider";
 
 const activeNavItems = [
   { to: "/student/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +33,19 @@ const activeNavItems = [
 ];
 
 export default function StudentLayout() {
+  return (
+    <PortalFeedsProvider
+      mode="student"
+      sessionsPollIntervalMs={10000}
+      announcementsPollIntervalMs={5000}
+      enableAlerts={true}
+    >
+      <StudentLayoutInner />
+    </PortalFeedsProvider>
+  );
+}
+
+function StudentLayoutInner() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
   const navigate = useNavigate();
