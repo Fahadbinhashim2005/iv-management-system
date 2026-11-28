@@ -2,6 +2,8 @@
 // Central single source of truth for Industrial Visit trip configuration.
 // Hotel, bus/train allocations, and any static fallback helplines can be updated here.
 
+export const TRIP_TZ = "Asia/Kolkata";
+
 export const tripConfig = {
   trip: {
     displayName: "Industrial Visit 2026 — Rajasthan & Delhi",
