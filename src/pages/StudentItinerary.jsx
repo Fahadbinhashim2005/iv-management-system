@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   Clock,
@@ -12,6 +12,7 @@ import {
   Circle,
 } from "lucide-react";
 import { tripConfig } from "../config/tripConfig";
+import { loadSharedItinerary } from "../utils/itineraryStore";
 
 function getCategoryIcon(category) {
   if (category === "Travel") return Bus;
@@ -20,11 +21,11 @@ function getCategoryIcon(category) {
   return Info;
 }
 
-const ITINERARY_DAYS = tripConfig.defaultItineraryDays;
-
 const CATEGORIES = ["All", "Industry", "Travel", "Stay", "Activity"];
 
 export default function StudentItinerary() {
+  const [days, setDays] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -37,22 +38,38 @@ export default function StudentItinerary() {
     }
   });
 
-  const currentDay = ITINERARY_DAYS[selectedDayIndex];
-  const filteredEvents = currentDay.events.filter((ev) => {
-    const matchesCategory =
-      selectedCategory === "All" || ev.category === selectedCategory;
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      ev.activity.toLowerCase().includes(q) ||
-      ev.location.toLowerCase().includes(q) ||
-      ev.details.toLowerCase().includes(q);
-    return matchesCategory && matchesSearch;
-  });
+  useEffect(() => {
+    let active = true;
+    loadSharedItinerary()
+      .then((res) => {
+        if (active) setDays(res.days || []);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const completedInDay = currentDay.events.filter((ev) =>
-    completedIds.includes(ev.id)
-  ).length;
+  const currentDay = days[selectedDayIndex] || days[0];
+  const filteredEvents = currentDay
+    ? currentDay.events.filter((ev) => {
+        const matchesCategory =
+          selectedCategory === "All" || ev.category === selectedCategory;
+        const q = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+          !q ||
+          ev.activity.toLowerCase().includes(q) ||
+          ev.location.toLowerCase().includes(q) ||
+          (ev.details || "").toLowerCase().includes(q);
+        return matchesCategory && matchesSearch;
+      })
+    : [];
+
+  const completedInDay = currentDay
+    ? currentDay.events.filter((ev) => completedIds.includes(ev.id)).length
+    : 0;
 
   const toggleCompleted = (eventId) => {
     setCompletedIds((prev) => {
@@ -82,30 +99,41 @@ export default function StudentItinerary() {
       </div>
 
       {/* Day Selector Tabs */}
-      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
-        {ITINERARY_DAYS.map((dayPlan, index) => {
-          const isSelected = selectedDayIndex === index;
-          return (
-            <button
-              key={dayPlan.day}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => setSelectedDayIndex(index)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                isSelected
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
-              }`}
-            >
-              <Calendar size={16} />
-              <span>{dayPlan.day}</span>
-              <span className={`text-xs font-normal ${isSelected ? "text-emerald-100" : "text-gray-400"}`}>
-                • {dayPlan.date}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-12 rounded-2xl bg-white motion-safe:animate-pulse ring-1 ring-gray-100" />
+          <div className="h-36 rounded-2xl bg-white motion-safe:animate-pulse ring-1 ring-gray-100" />
+        </div>
+      ) : !currentDay ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-600">
+          No itinerary published yet.
+        </div>
+      ) : (
+        <>
+          <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+            {days.map((dayPlan, index) => {
+              const isSelected = selectedDayIndex === index;
+              return (
+                <button
+                  key={dayPlan.day}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedDayIndex(index)}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                    isSelected
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
+                  }`}
+                >
+                  <Calendar size={16} />
+                  <span>{dayPlan.day}</span>
+                  <span className={`text-xs font-normal ${isSelected ? "text-emerald-100" : "text-gray-400"}`}>
+                    • {dayPlan.date}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
       {/* Search & Category Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -229,6 +257,8 @@ export default function StudentItinerary() {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Calendar,
@@ -15,8 +15,12 @@ import {
   X,
 } from "lucide-react";
 import { tripConfig } from "../../config/tripConfig";
-
-const DEFAULT_ITINERARY_DAYS = tripConfig.defaultItineraryDays;
+import { updatesApi } from "../../features/updates/api/updatesApi";
+import {
+  loadSharedItinerary,
+  addSharedItineraryEvent,
+  deleteSharedItineraryEvent,
+} from "../../utils/itineraryStore";
 
 const CATEGORIES = ["All", "Industry", "Travel", "Stay", "Activity"];
 
@@ -32,23 +36,26 @@ export default function CoordinatorItinerary() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [days, setDays] = useState([]);
+  const [visitId, setVisitId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
 
-  const [days, setDays] = useState(() => {
+  const fetchItinerary = useCallback(async () => {
     try {
-      const saved = localStorage.getItem("iv_coordinator_itinerary_days_v2");
-      return saved ? JSON.parse(saved) : DEFAULT_ITINERARY_DAYS;
-    } catch {
-      return DEFAULT_ITINERARY_DAYS;
+      const res = await loadSharedItinerary();
+      setDays(res.days || []);
+      setVisitId(res.visitId || null);
+    } finally {
+      setLoading(false);
     }
-  });
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("iv_coordinator_itinerary_days_v2", JSON.stringify(days));
-    } catch {
-      // Ignore storage limits
-    }
-  }, [days]);
+    const t = setTimeout(fetchItinerary, 0);
+    return () => clearTimeout(t);
+  }, [fetchItinerary]);
 
   useEffect(() => {
     if (!showAddModal) return;
@@ -69,51 +76,76 @@ export default function CoordinatorItinerary() {
   });
 
   const currentDay = days[selectedDayIndex] || days[0];
-  const filteredEvents = currentDay.events.filter((ev) => {
-    const matchesCategory =
-      selectedCategory === "All" || ev.category === selectedCategory;
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      ev.activity.toLowerCase().includes(q) ||
-      ev.location.toLowerCase().includes(q) ||
-      (ev.details || "").toLowerCase().includes(q) ||
-      (ev.inCharge || "").toLowerCase().includes(q);
-    return matchesCategory && matchesSearch;
-  });
+  const filteredEvents = currentDay
+    ? currentDay.events.filter((ev) => {
+        const matchesCategory =
+          selectedCategory === "All" || ev.category === selectedCategory;
+        const q = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+          !q ||
+          ev.activity.toLowerCase().includes(q) ||
+          ev.location.toLowerCase().includes(q) ||
+          (ev.details || "").toLowerCase().includes(q) ||
+          (ev.inCharge || "").toLowerCase().includes(q);
+        return matchesCategory && matchesSearch;
+      })
+    : [];
 
-  const handleAddEvent = (e) => {
+  const handleAddEvent = async (e) => {
     e.preventDefault();
-    const created = {
-      id: `ev-${Date.now()}`,
-      ...newEvent,
-    };
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIndex ? { ...d, events: [...d.events, created] } : d
-      )
-    );
-    setShowAddModal(false);
-    setNewEvent({
-      time: "",
-      activity: "",
-      location: "",
-      category: "Industry",
-      inCharge: "Coordinators",
-      details: "",
-    });
-    toast.success(`Added "${created.activity}" to ${currentDay.day}.`);
+    if (!currentDay) return;
+    setSaving(true);
+    try {
+      await addSharedItineraryEvent({
+        visitId,
+        dayIndex: selectedDayIndex,
+        currentDays: days,
+        newEvent,
+      });
+      await fetchItinerary();
+      setShowAddModal(false);
+      setNewEvent({
+        time: "",
+        activity: "",
+        location: "",
+        category: "Industry",
+        inCharge: "Coordinators",
+        details: "",
+      });
+      toast.success(`Added "${newEvent.activity}" to ${currentDay.day}.`);
+    } catch (err) {
+      toast.error(err?.message || "Could not save itinerary item to database.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteEvent = (id, title) => {
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIndex
-          ? { ...d, events: d.events.filter((item) => item.id !== id) }
-          : d
-      )
-    );
-    toast.success(`Removed "${title}" from ${currentDay.day}.`);
+  const handleDeleteEvent = async (id, title) => {
+    try {
+      await deleteSharedItineraryEvent(id);
+      await fetchItinerary();
+      toast.success(`Removed "${title}" from ${currentDay.day}.`);
+    } catch (err) {
+      toast.error(err?.message || "Could not remove itinerary item from database.");
+    }
+  };
+
+  const handleBroadcastItineraryUpdate = async () => {
+    if (!currentDay) return;
+    setBroadcasting(true);
+    try {
+      await updatesApi.broadcast({
+        title: `Itinerary updated for ${currentDay.day}`,
+        category: "logistics",
+        content: `Schedule updated for ${currentDay.day} (${currentDay.title}). Please check My Itinerary for the latest timings and venues.`,
+        playSound: true,
+      });
+      toast.success("Notice published. Students see it within a few seconds while the app is open.");
+    } catch (err) {
+      toast.error(err?.message || "Failed to publish itinerary update notice.");
+    } finally {
+      setBroadcasting(false);
+    }
   };
 
   return (
@@ -133,23 +165,37 @@ export default function CoordinatorItinerary() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => toast.success("Itinerary update notification queued for students.")}
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-50 active:scale-95"
+            disabled={broadcasting || !currentDay}
+            onClick={handleBroadcastItineraryUpdate}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-50 active:scale-95 disabled:opacity-60"
           >
             <Bell size={15} />
-            <span>Broadcast Changes</span>
+            <span>{broadcasting ? "Publishing..." : "Publish Update Notice"}</span>
           </button>
 
           <button
             type="button"
+            disabled={!currentDay}
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-900 active:scale-95 disabled:opacity-60"
           >
             <Plus size={15} />
             <span>Add Activity</span>
           </button>
         </div>
       </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          <div className="h-12 rounded-2xl bg-white motion-safe:animate-pulse ring-1 ring-gray-100" />
+          <div className="h-36 rounded-2xl bg-white motion-safe:animate-pulse ring-1 ring-gray-100" />
+        </div>
+      ) : !currentDay ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-600">
+          No itinerary days configured yet.
+        </div>
+      ) : (
+        <>
 
       {/* Day Selector Tabs */}
       <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
@@ -293,7 +339,7 @@ export default function CoordinatorItinerary() {
       )}
 
       {/* Add Activity Modal */}
-      {showAddModal && (
+      {showAddModal && currentDay && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           role="dialog"
@@ -408,14 +454,17 @@ export default function CoordinatorItinerary() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-800 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-900"
+                  disabled={saving}
+                  className="rounded-xl bg-emerald-800 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-900 disabled:opacity-60"
                 >
-                  Insert Event
+                  {saving ? "Saving..." : "Insert Event"}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
