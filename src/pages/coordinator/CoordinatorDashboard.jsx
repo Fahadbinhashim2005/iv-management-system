@@ -282,8 +282,8 @@ export default function CoordinatorDashboard() {
                   {tripSchedule.status === "upcoming"
                     ? "Upcoming Visit"
                     : tripSchedule.status === "ongoing"
-                    ? "Live Now"
-                    : "Completed"}
+                      ? "Live Now"
+                      : "Completed"}
                 </span>
                 {tripConfig.trip.ivCode && (
                   <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">

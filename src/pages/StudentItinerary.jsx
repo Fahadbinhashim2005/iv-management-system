@@ -118,24 +118,24 @@ export default function StudentItinerary() {
   const currentDay = days[selectedDayIndex] || days[0];
   const filteredEvents = currentDay
     ? currentDay.events.filter((ev) => {
-        const matchesCategory =
-          selectedCategory === "All" || ev.category === selectedCategory;
-        const q = searchQuery.trim().toLowerCase();
-        const matchesSearch =
-          !q ||
-          ev.activity.toLowerCase().includes(q) ||
-          ev.location.toLowerCase().includes(q) ||
-          (ev.details || "").toLowerCase().includes(q);
-        return matchesCategory && matchesSearch;
-      })
+      const matchesCategory =
+        selectedCategory === "All" || ev.category === selectedCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        ev.activity.toLowerCase().includes(q) ||
+        ev.location.toLowerCase().includes(q) ||
+        (ev.details || "").toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    })
     : [];
 
   const completedInDay = currentDay
     ? currentDay.events.filter(
-        (ev) =>
-          getEventStatus(currentDay.isoDate, ev.time, completedIds.includes(ev.id)) ===
-          "Done"
-      ).length
+      (ev) =>
+        getEventStatus(currentDay.isoDate, ev.time, completedIds.includes(ev.id)) ===
+        "Done"
+    ).length
     : 0;
 
   const toggleCompleted = (eventId) => {
@@ -190,11 +190,10 @@ export default function StudentItinerary() {
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelectedDayIndex(index)}
-                  className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                    isSelected
+                  className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${isSelected
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
-                  }`}
+                    }`}
                 >
                   <Calendar size={16} />
                   <span>{dayPlan.day}</span>
@@ -227,11 +226,10 @@ export default function StudentItinerary() {
                   type="button"
                   aria-pressed={selectedCategory === cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`min-h-[44px] shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
-                    selectedCategory === cat
+                  className={`min-h-[44px] shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${selectedCategory === cat
                       ? "bg-emerald-950 text-white shadow-xs"
                       : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50"
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>
@@ -281,14 +279,12 @@ export default function StudentItinerary() {
                 return (
                   <div
                     key={event.id}
-                    className={`relative flex items-start gap-4 rounded-2xl p-5 shadow-sm ring-1 transition hover:shadow-md ${
-                      isDone ? "bg-emerald-50/40 ring-emerald-200" : "bg-white ring-gray-100"
-                    }`}
+                    className={`relative flex items-start gap-4 rounded-2xl p-5 shadow-sm ring-1 transition hover:shadow-md ${isDone ? "bg-emerald-50/40 ring-emerald-200" : "bg-white ring-gray-100"
+                      }`}
                   >
                     <div
-                      className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
-                        isDone ? "bg-emerald-700" : "bg-emerald-600"
-                      }`}
+                      className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${isDone ? "bg-emerald-700" : "bg-emerald-600"
+                        }`}
                     >
                       <EventIcon size={18} />
                     </div>
@@ -304,13 +300,12 @@ export default function StudentItinerary() {
                             {event.category}
                           </span>
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              eventStatus === "Now"
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${eventStatus === "Now"
                                 ? "bg-amber-100 text-amber-900"
                                 : eventStatus === "Done"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-gray-100 text-gray-700"
+                              }`}
                           >
                             {eventStatus}
                           </span>
@@ -320,11 +315,10 @@ export default function StudentItinerary() {
                           type="button"
                           aria-pressed={isManuallyDone}
                           onClick={() => toggleCompleted(event.id)}
-                          className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition ${
-                            isManuallyDone
+                          className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition ${isManuallyDone
                               ? "bg-emerald-600 text-white"
                               : "bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
-                          }`}
+                            }`}
                         >
                           {isManuallyDone ? <CheckCircle2 size={12} /> : <Circle size={12} />}
                           <span>{isManuallyDone ? "Completed" : "Mark Done"}</span>
