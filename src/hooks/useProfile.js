@@ -125,17 +125,8 @@ export function useProfile() {
         }
       }
 
-      if (!loadedAssignment) {
-        loadedAssignment = {
-          bus_no: "Bus #04",
-          seat_no: "14A",
-          hotel_name: "Hotel Grand Ambience (Ahmedabad)",
-          room_no: "Room #304",
-          faculty_mentor: "Prof. Anjali Menon",
-          is_verified: true,
-          status: "Active Student",
-        };
-      }
+      // 3. Do not fabricate trip_assignments when no DB row exists
+      // (UI renders honest "Not assigned yet" state)
 
       // Hydrate state
       setProfile(loadedProfile);

@@ -2,41 +2,27 @@ import { useEffect } from 'react';
 import { PhoneCall, ShieldAlert, X, Building2, Bus, Copy, Stethoscope, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { tripConfig } from '../../config/tripConfig';
 
-const HELPLINES = [
-  {
-    title: 'Lead Faculty Coordinator',
-    subtitle: 'Dr. Rajesh Kumar (HOD CS)',
-    phone: '+919447123456',
-    display: '+91 94471 23456',
-    icon: Users,
-    tone: 'bg-emerald-100 text-emerald-800',
-  },
-  {
-    title: 'Medical & Safety Officer',
-    subtitle: 'Prof. Vikram Mohan',
-    phone: '+919446011223',
-    display: '+91 94460 11223',
-    icon: Stethoscope,
-    tone: 'bg-red-100 text-red-700',
-  },
-  {
-    title: 'Hotel Reception (24/7 Desk)',
-    subtitle: 'Hotel Grand Ambience',
-    phone: '+917926581234',
-    display: '+91 79 2658 1234',
-    icon: Building2,
-    tone: 'bg-purple-100 text-purple-800',
-  },
-  {
-    title: 'Transport / Lead Driver',
-    subtitle: 'Mr. Suresh Patel (Bus 04)',
-    phone: '+919876543210',
-    display: '+91 98765 43210',
-    icon: Bus,
-    tone: 'bg-blue-100 text-blue-800',
-  },
-];
+function getHelplineIcon(role = '') {
+  const lower = role.toLowerCase();
+  if (lower.includes('medical') || lower.includes('safety')) return { icon: Stethoscope, tone: 'bg-red-100 text-red-700' };
+  if (lower.includes('hotel')) return { icon: Building2, tone: 'bg-purple-100 text-purple-800' };
+  if (lower.includes('transport') || lower.includes('driver')) return { icon: Bus, tone: 'bg-blue-100 text-blue-800' };
+  return { icon: Users, tone: 'bg-emerald-100 text-emerald-800' };
+}
+
+const HELPLINES = (tripConfig.helplines || []).map((h) => {
+  const { icon, tone } = getHelplineIcon(h.role);
+  return {
+    title: h.role,
+    subtitle: h.person,
+    phone: h.phone,
+    display: h.display || h.phone,
+    icon,
+    tone,
+  };
+});
 
 export default function EmergencyHelpModal({ isOpen, onClose }) {
   const { profile } = useAuth();

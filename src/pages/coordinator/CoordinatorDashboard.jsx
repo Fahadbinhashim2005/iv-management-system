@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { api } from "../../services/api";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 import { useAnnouncementAlerts } from "../../features/updates/hooks/useAnnouncementAlerts";
+import { tripConfig } from "../../config/tripConfig";
 import Avatar from "../../components/Avatar";
 import {
   Users,
@@ -106,7 +107,7 @@ export default function CoordinatorDashboard() {
             {getTimeGreeting()}, {firstName}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            {profile?.department || "Department of Computer Science"} • Academic Year 2026-27
+            {profile?.department || "Department of Computer Science"} • Academic Year {tripConfig.trip.academicYear}
           </p>
         </section>
 
@@ -252,21 +253,23 @@ export default function CoordinatorDashboard() {
                 <span className="rounded-full bg-emerald-50/95 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-800 shadow-sm backdrop-blur-sm">
                   Active Visit
                 </span>
-                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
-                  IV Code: CSE-2026-AHM
-                </span>
+                {tripConfig.trip.ivCode && (
+                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                    IV Code: {tripConfig.trip.ivCode}
+                  </span>
+                )}
               </div>
               <span className="flex items-center gap-1.5 text-xs text-white/85">
                 <Clock size={14} />
-                4 Days • Departs in 14 days
+                {tripConfig.trip.dateRangeLabel}
               </span>
             </div>
 
             <h2 className="text-2xl font-extrabold sm:text-3xl text-white">
-              Industrial Visit 2026 — GIFT City &amp; Ahmedabad
+              {tripConfig.trip.displayName}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
-              An immersive educational tour exploring technological infrastructure, financial tech hubs, and innovation centers in Gujarat.
+              {tripConfig.trip.description}
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-w-xl">
@@ -279,7 +282,7 @@ export default function CoordinatorDashboard() {
                     Destination
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
-                    GIFT City &amp; Ahmedabad
+                    {tripConfig.trip.destination}
                   </p>
                 </div>
               </div>
@@ -293,7 +296,7 @@ export default function CoordinatorDashboard() {
                     Travel Date
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
-                    5 - 8 December 2026
+                    {tripConfig.trip.dateRangeLabel}
                   </p>
                 </div>
               </div>

@@ -11,75 +11,52 @@ import {
   Search,
   Download,
 } from "lucide-react";
+import { tripConfig } from "../../config/tripConfig";
 
-const INITIAL_BUSES = [
-  {
-    id: "BUS-04",
-    name: "Bus 04 (Alpha Unit)",
-    type: "Volvo 9600 Multi-Axle AC",
-    regNo: "GJ-01-BX-8824",
-    capacity: 45,
-    allocated: 43,
-    driverName: "Mr. Suresh Patel",
-    driverPhone: "+91 98765 43210",
-    coordinator: "Prof. Anjali Menon (+91 98123 45678)",
-    pickupPoint: "College Gate #2 Main Parking",
-    pickupTime: "06:00 AM",
-    status: "Ready for Departure",
-    manifest: [
-      { seat: "01A", student: "Arjun Verma", roll: "CS-2026-004", checkedIn: true },
-      { seat: "01B", student: "Deepak S", roll: "CS-2026-031", checkedIn: true },
-      { seat: "14A", student: "Fahad Bin Hashim", roll: "CS-2026-084", checkedIn: true },
-      { seat: "14B", student: "Rohan Varma", roll: "CS-2026-091", checkedIn: true },
-      { seat: "15A", student: "Aditya Nair", roll: "CS-2026-015", checkedIn: true },
-      { seat: "15B", student: "Manish K", roll: "CS-2026-062", checkedIn: false },
-    ],
-  },
-  {
-    id: "BUS-01",
-    name: "Bus 01 (Beta Unit)",
-    type: "BharatBenz Glider AC",
-    regNo: "GJ-01-CT-4412",
-    capacity: 45,
-    allocated: 45,
-    driverName: "Mr. Ramesh Kumar",
-    driverPhone: "+91 97451 22334",
-    coordinator: "Prof. Vikram Mohan (+91 94460 11223)",
-    pickupPoint: "College Gate #1 North Wing",
-    pickupTime: "06:15 AM",
-    status: "Inspection Completed",
-    manifest: [
-      { seat: "06A", student: "Ananya Iyer", roll: "CS-2026-022", checkedIn: true },
-      { seat: "06B", student: "Kavya Ramesh", roll: "CS-2026-056", checkedIn: true },
-      { seat: "07A", student: "Nikhil Joshi", roll: "CS-2026-079", checkedIn: true },
-    ],
-  },
-  {
-    id: "BUS-02",
-    name: "Bus 02 (Gamma Unit)",
-    type: "Scania Metrolink AC",
-    regNo: "GJ-01-DD-9102",
-    capacity: 45,
-    allocated: 40,
-    driverName: "Mr. Harish Patel",
-    driverPhone: "+91 98950 44556",
-    coordinator: "Dr. Rajesh Kumar (+91 94471 23456)",
-    pickupPoint: "College Auditorium Gate",
-    pickupTime: "06:00 AM",
-    status: "Ready for Departure",
-    manifest: [
-      { seat: "11A", student: "Sneha Sharma", roll: "CS-2026-042", checkedIn: false },
-      { seat: "11B", student: "Vignesh Rajan", roll: "CS-2026-118", checkedIn: false },
-    ],
-  },
-];
+const INITIAL_BUSES = Object.values(tripConfig.buses || {}).map((b) => ({
+  id: b.id,
+  name: b.name || b.id,
+  type: b.coachType || "",
+  regNo: b.regNo || "",
+  capacity: b.capacity || 0,
+  allocated: 0,
+  driverName: b.driverName || "",
+  driverPhone: b.driverPhone || "",
+  coordinator: [b.coordinatorName, b.coordinatorPhone].filter(Boolean).join(" ") || "",
+  pickupPoint: b.boardingPoint || "",
+  pickupTime: b.boardingTime || "",
+  status: "Configured",
+  manifest: [],
+}));
 
 export default function CoordinatorTransport() {
-  const [selectedBusId, setSelectedBusId] = useState("BUS-04");
+  const [selectedBusId, setSelectedBusId] = useState(INITIAL_BUSES[0]?.id || "");
   const [buses, setBuses] = useState(INITIAL_BUSES);
   const [manifestSearch, setManifestSearch] = useState("");
 
   const currentBus = buses.find((b) => b.id === selectedBusId) || buses[0];
+  if (!currentBus) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-semibold text-emerald-800">Fleet &amp; Seating Logistics</p>
+          <h1 className="mt-1 text-2xl font-extrabold text-emerald-950 sm:text-3xl">
+            Transport &amp; Vehicle Allocation
+          </h1>
+          <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+            Manage vehicle manifests, driver contacts, and boarding checks.
+          </p>
+        </div>
+        <div className="rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-gray-100">
+          <Bus size={36} className="mx-auto text-emerald-600 opacity-60" />
+          <h2 className="mt-3 text-base font-bold text-emerald-950">Transport Not Assigned Yet</h2>
+          <p className="mt-1 text-xs text-gray-500 max-w-md mx-auto">
+            Buses and seat allocations have not been configured yet. Once transport details are added, manifests will appear here.
+          </p>
+        </div>
+      </div>
+    );
+  }
   const filteredManifest = currentBus.manifest.filter((p) => {
     const q = manifestSearch.trim().toLowerCase();
     return (

@@ -1,6 +1,7 @@
 import toast from "react-hot-toast";
 import { downloadCsvFile, downloadTextFile } from "../../lib/exportUtils";
 import { roomsApi } from "../../features/rooms/api/roomsApi";
+import { tripConfig } from "../../config/tripConfig";
 import {
   FileSpreadsheet,
   Download,
@@ -17,10 +18,7 @@ export default function CoordinatorReports() {
       "Attendance_Audit_Report.csv",
       ["Checkpoint", "Date", "Verified Students", "Total Strength", "Status"],
       [
-        ["Gate #2 Departure Assembly", "2026-12-05 06:00", 126, 128, "Cleared"],
-        ["Hotel Check-in Roll Call", "2026-12-05 14:30", 128, 128, "Cleared"],
-        ["GIFT City Corporate Gate", "2026-12-06 09:30", 127, 128, "Cleared"],
-        ["ISRO SAC Security Entry", "2026-12-07 09:30", 128, 128, "Cleared"],
+        ["Checkpoints will populate from live attendance sessions", "-", 0, 0, "Pending"],
       ]
     );
     toast.success("Downloaded Attendance_Audit_Report.csv");
@@ -45,7 +43,7 @@ export default function CoordinatorReports() {
       "IV CONNECT — OFFICIAL TOUR DOSSIER RECORD",
       `Document: ${title}`,
       `Generated: ${new Date().toLocaleString()}`,
-      "Program: Industrial Visit 2026 — GIFT City & Ahmedabad",
+      `Program: ${tripConfig.trip.displayName}`,
       "--------------------------------------------------",
       ...bodyLines,
     ].join("\n");
@@ -169,23 +167,23 @@ export default function CoordinatorReports() {
                 <ShieldCheck size={20} />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">RTO Highway Transit & Police Clearance</h4>
-                <p className="text-[11px] text-gray-500">All-India tourist permit for Buses 01, 02, and 04</p>
+                  <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">RTO Highway Transit &amp; Travel Clearance</h4>
+                  <p className="text-[11px] text-gray-500">Transport &amp; route clearance summary for {tripConfig.trip.destination}</p>
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                downloadDocumentSummary(
-                  "Highway_Transit_Permit_Summary.txt",
-                  "RTO Highway Transit & Police Clearance",
-                  [
-                    "Permit Scope: All-India Commercial Tourist Transit",
-                    "Cleared Coaches: GJ-01-CT-4412 (Bus 01), GJ-01-DD-9102 (Bus 02), GJ-01-BX-8824 (Bus 04)",
-                    "Validity: Dec 1 - Dec 15, 2026",
-                  ]
-                )
-              }
+              <button
+                type="button"
+                onClick={() =>
+                  downloadDocumentSummary(
+                    "Highway_Transit_Permit_Summary.txt",
+                    "RTO Highway Transit & Travel Clearance",
+                    [
+                      `Route: ${tripConfig.trip.route}`,
+                      `Travel Window: ${tripConfig.trip.dateRangeLabel}`,
+                      `Vehicles Configured: ${Object.keys(tripConfig.buses).length || "To be assigned"}`,
+                    ]
+                  )
+                }
               aria-label="Download RTO Highway Transit Clearance"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
               title="Download Summary"
@@ -201,7 +199,7 @@ export default function CoordinatorReports() {
                 <Building size={20} />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">GIFT City Corporate Permission Letter</h4>
+                <h4 className="text-xs font-bold text-emerald-950 sm:text-sm">Industry Visit Permission Letters</h4>
                 <p className="text-[11px] text-gray-500">Official security clearance and visitor passes protocol</p>
               </div>
             </div>
@@ -209,16 +207,16 @@ export default function CoordinatorReports() {
               type="button"
               onClick={() =>
                 downloadDocumentSummary(
-                  "GIFT_City_Permission_Summary.txt",
-                  "GIFT City Corporate Permission Letter",
+                  "Industry_Visit_Permission_Summary.txt",
+                  "Industry Visit Permission Letters",
                   [
-                    "Host Venue: Gujarat International Finance Tec-City (GIFT Tower 1 & Utility Command)",
-                    "Scheduled Entry: Dec 6, 2026 @ 10:00 AM",
+                    `Program: ${tripConfig.trip.displayName}`,
+                    `Host Industries: ${tripConfig.trip.industries.join("; ")}`,
                     "Requirements: Institutional ID cards & formal dress code mandatory.",
                   ]
                 )
               }
-              aria-label="Download GIFT City Permission Summary"
+              aria-label="Download Industry Visit Permission Summary"
               className="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 transition"
               title="Download Summary"
             >

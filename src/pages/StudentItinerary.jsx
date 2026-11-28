@@ -11,157 +11,16 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
+import { tripConfig } from "../config/tripConfig";
 
-const ITINERARY_DAYS = [
-  {
-    day: "Day 1",
-    date: "Dec 5, 2026",
-    title: "Departure & Arrival in Ahmedabad",
-    events: [
-      {
-        id: "d1-1",
-        time: "06:00 AM",
-        activity: "Assembly at College Main Campus",
-        location: "Gate #2 Parking",
-        icon: Bus,
-        category: "Travel",
-        status: "Upcoming",
-        details: "Attendance verification & luggage loading into assigned buses.",
-      },
-      {
-        id: "d1-2",
-        time: "07:00 AM",
-        activity: "Departure to Ahmedabad via Highway Route",
-        location: "NH 48",
-        icon: Bus,
-        category: "Travel",
-        status: "Upcoming",
-        details: "Breakfast stop arranged at Highway Palace (approx 09:30 AM).",
-      },
-      {
-        id: "d1-3",
-        time: "02:30 PM",
-        activity: "Hotel Check-in & Lunch",
-        location: "Hotel Grand Ambience, Ahmedabad",
-        icon: Building2,
-        category: "Stay",
-        status: "Upcoming",
-        details: "Room keys distribution by faculty coordinators. Rest & refresh.",
-      },
-      {
-        id: "d1-4",
-        time: "05:30 PM",
-        activity: "Sabarmati Riverfront Walk & Evening Orientation",
-        location: "Sabarmati Riverfront Promenade",
-        icon: Coffee,
-        category: "Activity",
-        status: "Upcoming",
-        details: "Group briefing regarding next day's industrial visit protocols.",
-      },
-    ],
-  },
-  {
-    day: "Day 2",
-    date: "Dec 6, 2026",
-    title: "GIFT City Financial & Tech Hub",
-    events: [
-      {
-        id: "d2-1",
-        time: "08:30 AM",
-        activity: "Departure to GIFT City",
-        location: "Gandhinagar",
-        icon: Bus,
-        category: "Travel",
-        status: "Upcoming",
-        details: "Mandatory formal dress code & college ID card required.",
-      },
-      {
-        id: "d2-2",
-        time: "10:00 AM",
-        activity: "FinTech Innovation Center & Datacenter Tour",
-        location: "GIFT Tower 1",
-        icon: Building2,
-        category: "Industry",
-        status: "Upcoming",
-        details: "Guided tour through server architectures, automated systems, and disaster recovery setups.",
-      },
-      {
-        id: "d2-3",
-        time: "01:30 PM",
-        activity: "Networking Lunch with Tech Leaders",
-        location: "GIFT Club & Convention Hall",
-        icon: Coffee,
-        category: "Activity",
-        status: "Upcoming",
-        details: "Interactive Q&A session on career opportunities in cloud & fintech.",
-      },
-      {
-        id: "d2-4",
-        time: "03:30 PM",
-        activity: "Smart City Infrastructure Command Center",
-        location: "Utility Command Tunnel",
-        icon: Info,
-        category: "Industry",
-        status: "Upcoming",
-        details: "Observing automated waste collection, district cooling systems, and green power grids.",
-      },
-    ],
-  },
-  {
-    day: "Day 3",
-    date: "Dec 7, 2026",
-    title: "Science & Aerospace Exhibition",
-    events: [
-      {
-        id: "d3-1",
-        time: "09:30 AM",
-        activity: "ISRO Space Applications Centre Exhibition",
-        location: "ISRO SAC Ahmedabad",
-        icon: Building2,
-        category: "Industry",
-        status: "Upcoming",
-        details: "Satellite telemetry, Chandrayaan models, and aerospace engineering exhibits.",
-      },
-      {
-        id: "d3-2",
-        time: "02:00 PM",
-        activity: "Gujarat Science City Robotic Gallery",
-        location: "Science City Road",
-        icon: Info,
-        category: "Activity",
-        status: "Upcoming",
-        details: "Robotics simulations, AI interactive labs, and 3D engineering demonstrations.",
-      },
-    ],
-  },
-  {
-    day: "Day 4",
-    date: "Dec 8, 2026",
-    title: "Return Journey",
-    events: [
-      {
-        id: "d4-1",
-        time: "08:00 AM",
-        activity: "Hotel Checkout & Farewell",
-        location: "Hotel Grand Ambience",
-        icon: Building2,
-        category: "Stay",
-        status: "Upcoming",
-        details: "Room inspection, clearance and baggage check.",
-      },
-      {
-        id: "d4-2",
-        time: "09:00 AM",
-        activity: "Departure back to College",
-        location: "Ahmedabad Highway",
-        icon: Bus,
-        category: "Travel",
-        status: "Upcoming",
-        details: "Expected arrival at college campus by 07:00 PM.",
-      },
-    ],
-  },
-];
+function getCategoryIcon(category) {
+  if (category === "Travel") return Bus;
+  if (category === "Stay" || category === "Industry") return Building2;
+  if (category === "Activity") return Coffee;
+  return Info;
+}
+
+const ITINERARY_DAYS = tripConfig.defaultItineraryDays;
 
 const CATEGORIES = ["All", "Industry", "Travel", "Stay", "Activity"];
 
@@ -218,7 +77,7 @@ export default function StudentItinerary() {
           Industrial Visit Itinerary
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Complete day-by-day plan, timings, and venue details for our Ahmedabad tour.
+          Complete day-by-day plan, timings, and venue details for {tripConfig.trip.displayName}.
         </p>
       </div>
 
@@ -309,7 +168,7 @@ export default function StudentItinerary() {
       ) : (
         <div className="relative space-y-4 before:absolute before:bottom-3 before:left-10 before:top-3 before:w-0.5 before:bg-emerald-100">
           {filteredEvents.map((event) => {
-            const EventIcon = event.icon;
+            const EventIcon = event.icon || getCategoryIcon(event.category);
             const isDone = completedIds.includes(event.id);
             return (
               <div

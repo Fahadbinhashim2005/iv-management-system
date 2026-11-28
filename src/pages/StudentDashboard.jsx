@@ -5,6 +5,7 @@ import { useProfile } from "../hooks/useProfile";
 import { useActiveSessions } from "../features/attendance/hooks/useActiveSessions";
 import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
 import { roomsApi } from "../features/rooms/api/roomsApi";
+import { tripConfig } from "../config/tripConfig";
 import Avatar from "../components/Avatar";
 import {
   Bell,
@@ -117,10 +118,21 @@ function StudentDashboard() {
   const isProfileIncomplete =
     !profile?.consent_given || !profile?.emergency_phone || !profile?.blood_group;
 
-  const assignedBus = tripAssignment?.bus_number || "Bus #04";
-  const assignedSeat = tripAssignment?.seat_number || "14A";
-  const assignedDriver = tripAssignment?.driver_name || "Mr. Suresh";
-  const assignedDriverPhone = tripAssignment?.driver_phone || "+91 98765 43210";
+  const busId = tripAssignment?.bus_no || tripAssignment?.bus_number || "";
+  const busConfig = busId ? tripConfig.buses[busId] : null;
+  const assignedBus = busConfig?.name || busId;
+  const assignedSeat = tripAssignment?.seat_no || tripAssignment?.seat_number || "";
+  const assignedDriver = busConfig?.driverName || "";
+  const assignedDriverPhone = busConfig?.driverPhone || "";
+
+  const hotelLabel = tripConfig.hotel?.name
+    ? [tripConfig.hotel.name, tripConfig.hotel.address].filter(Boolean).join(", ")
+    : "Contact details will be shared soon";
+
+  const coordinatorsCopy =
+    tripConfig.coordinators.length > 0
+      ? `${tripConfig.coordinators.join(" & ")} are available 24/7 during the tour.`
+      : "Contact details will be shared soon.";
 
   const roomBadge = roomSummary?.room_no
     ? `Room ${roomSummary.room_no}`
@@ -253,10 +265,10 @@ function StudentDashboard() {
             </div>
 
             <h3 className="text-2xl font-extrabold sm:text-3xl text-white">
-              Industrial Visit 2026
+              {tripConfig.trip.displayName}
             </h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/85 sm:text-base">
-              An immersive educational tour exploring technological infrastructure, financial tech hubs, and innovation centers in Gujarat.
+              {tripConfig.trip.description}
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-w-xl">
@@ -269,7 +281,7 @@ function StudentDashboard() {
                     Destination
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
-                    GIFT City & Ahmedabad
+                    {tripConfig.trip.destination}
                   </p>
                 </div>
               </div>
@@ -283,7 +295,7 @@ function StudentDashboard() {
                     Travel Date
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
-                    5 - 8 December 2026
+                    {tripConfig.trip.dateRangeLabel}
                   </p>
                 </div>
               </div>
@@ -358,12 +370,14 @@ function StudentDashboard() {
               <Bus size={20} />
             </div>
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-              {assignedBus} • Seat {assignedSeat}
+              {assignedBus && assignedSeat ? `${assignedBus} • Seat ${assignedSeat}` : "Not assigned yet"}
             </span>
           </div>
           <h4 className="mt-4 font-bold text-emerald-950">Assigned Transport</h4>
           <p className="mt-1 text-xs text-gray-500">
-            Driver: {assignedDriver} (Ph: {assignedDriverPhone}).
+            {assignedDriver
+              ? `Driver: ${assignedDriver}${assignedDriverPhone ? ` (Ph: ${assignedDriverPhone})` : ""}.`
+              : "Not assigned yet — your coordinator will confirm."}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-600 transition group-hover:translate-x-1">
             <span>View Bus Details</span>
@@ -399,7 +413,7 @@ function StudentDashboard() {
               ? `${staySummary?.name || "Hotel Stay"} • ${roomSummary.type_label || "Assigned Room"} (${roomSummary.occupant_count}/${roomSummary.capacity} beds)`
               : staySummary
               ? `${staySummary.name} • Tap to select your live room on the grid.`
-              : "Hotel Grand Ambience, Ashram Road. View room allocation & roommates."}
+              : `${hotelLabel}. View room allocation & roommates.`}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-purple-600 transition group-hover:translate-x-1">
             <span>{roomSummary?.room_no ? "View Room & Roommates" : "Select Room"}</span>
@@ -477,7 +491,7 @@ function StudentDashboard() {
               Faculty Coordinators On Duty
             </h5>
             <p className="text-xs text-emerald-800">
-              Dr. Rajesh Kumar (HOD CS) & Prof. Anjali Menon are available 24/7 during the tour.
+              {coordinatorsCopy}
             </p>
           </div>
         </div>

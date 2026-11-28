@@ -11,20 +11,23 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useProfile } from "../hooks/useProfile";
+import { tripConfig } from "../config/tripConfig";
 
 export default function StudentTransport() {
   const { profile, tripAssignment } = useProfile();
 
-  const busName = tripAssignment?.bus_number || "Bus 04 (Alpha Unit)";
-  const coachType = tripAssignment?.coach_type || "Volvo 9600 Multi-Axle AC";
-  const regNo = tripAssignment?.registration_no || "GJ-01-BX-8824";
-  const seatNo = tripAssignment?.seat_number || "14A";
-  const seatNote = tripAssignment?.seat_note || "Window Seat • Left Side";
-  const boardingPoint = tripAssignment?.boarding_point || "College Main Campus, Gate #2 (05:45 AM)";
-  const driverName = tripAssignment?.driver_name || "Mr. Suresh Patel";
-  const driverPhone = tripAssignment?.driver_phone || "+91 98765 43210";
-  const coordName = tripAssignment?.coordinator_name || "Prof. Anjali Menon";
-  const coordPhone = tripAssignment?.coordinator_phone || "+91 98123 45678";
+  const busId = tripAssignment?.bus_no || tripAssignment?.bus_number || "";
+  const busConfig = busId ? tripConfig.buses[busId] : null;
+  const busName = busConfig?.name || busId || "Not assigned yet";
+  const coachType = busConfig?.coachType || "";
+  const regNo = busConfig?.regNo || "";
+  const seatNo = tripAssignment?.seat_no || tripAssignment?.seat_number || "";
+  const seatNote = tripAssignment?.seat_note || "";
+  const boardingPoint = busConfig?.boardingPoint || "";
+  const driverName = busConfig?.driverName || "";
+  const driverPhone = busConfig?.driverPhone || "";
+  const coordName = busConfig?.coordinatorName || "";
+  const coordPhone = busConfig?.coordinatorPhone || "";
 
   const copyBoardingPass = async () => {
     const passText = [

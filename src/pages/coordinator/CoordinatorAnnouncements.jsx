@@ -230,7 +230,7 @@ export default function CoordinatorAnnouncements() {
 
               <input
                 type="text"
-                placeholder="Location / Venue name (e.g. GIFT City Gate #2)"
+                placeholder="Location / Venue name (e.g. Kottayam Railway Station)"
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
