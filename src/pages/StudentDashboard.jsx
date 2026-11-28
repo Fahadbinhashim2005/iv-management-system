@@ -6,6 +6,7 @@ import { useActiveSessions } from "../features/attendance/hooks/useActiveSession
 import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncementAlerts";
 import { roomsApi } from "../features/rooms/api/roomsApi";
 import { tripConfig } from "../config/tripConfig";
+import { getTripScheduleStatus } from "../utils/tripDates";
 import Avatar from "../components/Avatar";
 import {
   Bell,
@@ -74,7 +75,11 @@ function StudentDashboard() {
     user?.email?.split("@")[0] ||
     "Student";
   const firstName = studentName.split(" ")[0] || "Student";
-  const tripStatus = "upcoming";
+  const tripSchedule = getTripScheduleStatus(
+    tripConfig.trip.startDate,
+    tripConfig.trip.endDate
+  );
+  const tripStatus = tripSchedule.status;
 
   const readinessItems = [
     {
@@ -260,7 +265,7 @@ function StudentDashboard() {
               </span>
               <span className="flex items-center gap-1.5 text-xs text-white/80">
                 <Clock size={14} />
-                Departs in 14 days
+                {tripSchedule.countdownLabel}
               </span>
             </div>
 
