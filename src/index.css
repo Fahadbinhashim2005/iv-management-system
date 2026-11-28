@@ -58,3 +58,23 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  aside,
+  header,
+  nav,
+  .no-print,
+  [data-rht-toaster] {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  main#main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+}
