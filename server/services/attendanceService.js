@@ -396,13 +396,19 @@ export function createSupabaseAttendanceStore(getClient) {
       const sessionIds = sessions.map((s) => s.id);
       const distinctVisitIds = Array.from(new Set(sessions.map((s) => s.visit_id)));
 
-      const [{ data: recRows }, { data: enrollRows }] = await Promise.all([
+      const [{ data: recRows }, { data: enrollRows }, { data: approvedProfiles }] = await Promise.all([
         sb.from('attendance_records').select('session_id').in('session_id', sessionIds),
         sb
           .from('visit_enrollments')
-          .select('visit_id')
+          .select('visit_id, student_id')
           .in('visit_id', distinctVisitIds)
           .eq('status', 'approved'),
+        sb
+          .from('profiles')
+          .select('id')
+          .eq('role', 'student')
+          .eq('approval_status', 'approved')
+          .neq('is_active', false),
       ]);
 
       const presentBySession = {};
@@ -410,16 +416,18 @@ export function createSupabaseAttendanceStore(getClient) {
         presentBySession[r.session_id] = (presentBySession[r.session_id] || 0) + 1;
       });
 
-      const totalByVisit = {};
+      const approvedIds = new Set((approvedProfiles || []).map((p) => p.id));
+      const idsByVisit = {};
       (enrollRows || []).forEach((e) => {
-        totalByVisit[e.visit_id] = (totalByVisit[e.visit_id] || 0) + 1;
+        if (!idsByVisit[e.visit_id]) idsByVisit[e.visit_id] = new Set(approvedIds);
+        idsByVisit[e.visit_id].add(e.student_id);
       });
 
       return sessions.map((s) => ({
         ...s,
         effectiveStatus: computeEffectiveStatus(s),
         counts: {
-          total: totalByVisit[s.visit_id] || 0,
+          total: idsByVisit[s.visit_id]?.size ?? approvedIds.size,
           present: presentBySession[s.id] || 0,
         },
       }));
@@ -427,25 +435,47 @@ export function createSupabaseAttendanceStore(getClient) {
 
     async getApprovedParticipants(req, visitId) {
       const sb = getClient(req);
-      const { data, error } = await sb
-        .from('visit_enrollments')
-        .select(
-          'student_id, profiles:student_id(id, full_name, email, roll_number, department, academic_batch, phone_number)'
-        )
-        .eq('visit_id', visitId)
-        .eq('status', 'approved');
-      if (error) throw error;
-      return (data || [])
-        .filter((row) => row.profiles)
-        .map((row) => ({
-          id: row.profiles.id,
-          name: row.profiles.full_name,
-          email: row.profiles.email,
-          rollNumber: row.profiles.roll_number || '',
-          department: row.profiles.department || '',
-          batch: row.profiles.academic_batch || '',
-          phone: row.profiles.phone_number || '',
-        }));
+      const [{ data: enrollData, error: enrollErr }, { data: profileData, error: profErr }] =
+        await Promise.all([
+          sb
+            .from('visit_enrollments')
+            .select(
+              'student_id, profiles:student_id(id, full_name, email, roll_no, department, batch, phone)'
+            )
+            .eq('visit_id', visitId)
+            .eq('status', 'approved'),
+          sb
+            .from('profiles')
+            .select('id, full_name, email, roll_no, department, batch, phone')
+            .eq('role', 'student')
+            .eq('approval_status', 'approved')
+            .neq('is_active', false)
+            .order('full_name', { ascending: true }),
+        ]);
+
+      if (enrollErr && profErr) throw enrollErr;
+
+      const byId = new Map();
+      const mapRow = (p) => ({
+        id: p.id,
+        name: p.full_name || p.email?.split('@')[0] || 'Student',
+        email: p.email || '',
+        rollNumber: p.roll_no || p.roll_number || '',
+        department: p.department || '',
+        batch: p.batch || p.academic_batch || '',
+        phone: p.phone || p.phone_number || '',
+      });
+
+      for (const p of profileData || []) {
+        if (p?.id) byId.set(p.id, mapRow(p));
+      }
+      for (const row of enrollData || []) {
+        if (row?.profiles?.id && !byId.has(row.profiles.id)) {
+          byId.set(row.profiles.id, mapRow(row.profiles));
+        }
+      }
+
+      return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
     },
 
     async getSessionRecords(req, sessionId) {
@@ -484,15 +514,23 @@ export function createSupabaseAttendanceStore(getClient) {
 
     async isStudentEnrolledApproved(req, visitId, studentId) {
       const sb = getClient(req);
-      const { data, error } = await sb
-        .from('visit_enrollments')
-        .select('id')
-        .eq('visit_id', visitId)
-        .eq('student_id', studentId)
-        .eq('status', 'approved')
-        .maybeSingle();
-      if (error) throw error;
-      return Boolean(data);
+      const [{ data: enroll, error: eErr }, { data: prof, error: pErr }] = await Promise.all([
+        sb
+          .from('visit_enrollments')
+          .select('id')
+          .eq('visit_id', visitId)
+          .eq('student_id', studentId)
+          .eq('status', 'approved')
+          .maybeSingle(),
+        sb
+          .from('profiles')
+          .select('id, approval_status, is_active')
+          .eq('id', studentId)
+          .maybeSingle(),
+      ]);
+      if (eErr && pErr) throw eErr;
+      if (enroll) return true;
+      return Boolean(prof && prof.approval_status === 'approved' && prof.is_active !== false);
     },
 
     async insertQrRecord(req, { sessionId, studentId, viaUserId, clientMeta }) {
@@ -610,21 +648,34 @@ export function createSupabaseAttendanceStore(getClient) {
 
     async getStudentActiveSessions(req, studentId) {
       const sb = getClient(req);
-      const { data: enrollments, error: eErr } = await sb
-        .from('visit_enrollments')
-        .select('visit_id')
-        .eq('student_id', studentId)
-        .eq('status', 'approved');
+      const [{ data: enrollments, error: eErr }, { data: prof }] = await Promise.all([
+        sb
+          .from('visit_enrollments')
+          .select('visit_id')
+          .eq('student_id', studentId)
+          .eq('status', 'approved'),
+        sb
+          .from('profiles')
+          .select('id, approval_status, is_active')
+          .eq('id', studentId)
+          .maybeSingle(),
+      ]);
       if (eErr) throw eErr;
+      const isApprovedProfile = Boolean(
+        prof && prof.approval_status === 'approved' && prof.is_active !== false
+      );
       const visitIds = (enrollments || []).map((e) => e.visit_id);
-      if (visitIds.length === 0) return [];
+      if (visitIds.length === 0 && !isApprovedProfile) return [];
 
-      const { data: sessions, error: sErr } = await sb
+      let sessQuery = sb
         .from('attendance_sessions')
         .select('id, visit_id, title, purpose, details, status, starts_at, closes_at, require_location, created_at, industrial_visits(title, code)')
-        .in('visit_id', visitIds)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
+      if (!isApprovedProfile) {
+        sessQuery = sessQuery.in('visit_id', visitIds);
+      }
+      const { data: sessions, error: sErr } = await sessQuery;
       if (sErr) throw sErr;
 
       const active = (sessions || []).filter((s) => computeEffectiveStatus(s) === 'active');
@@ -650,21 +701,34 @@ export function createSupabaseAttendanceStore(getClient) {
 
     async getStudentHistory(req, studentId) {
       const sb = getClient(req);
-      const { data: enrollments, error: eErr } = await sb
-        .from('visit_enrollments')
-        .select('visit_id')
-        .eq('student_id', studentId)
-        .eq('status', 'approved');
+      const [{ data: enrollments, error: eErr }, { data: prof }] = await Promise.all([
+        sb
+          .from('visit_enrollments')
+          .select('visit_id')
+          .eq('student_id', studentId)
+          .eq('status', 'approved'),
+        sb
+          .from('profiles')
+          .select('id, approval_status, is_active')
+          .eq('id', studentId)
+          .maybeSingle(),
+      ]);
       if (eErr) throw eErr;
+      const isApprovedProfile = Boolean(
+        prof && prof.approval_status === 'approved' && prof.is_active !== false
+      );
       const visitIds = (enrollments || []).map((e) => e.visit_id);
-      if (visitIds.length === 0) return [];
+      if (visitIds.length === 0 && !isApprovedProfile) return [];
 
-      const { data: sessions, error: sErr } = await sb
+      let histQuery = sb
         .from('attendance_sessions')
         .select('id, visit_id, title, purpose, status, starts_at, closes_at, created_at')
-        .in('visit_id', visitIds)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
+      if (!isApprovedProfile) {
+        histQuery = histQuery.in('visit_id', visitIds);
+      }
+      const { data: sessions, error: sErr } = await histQuery;
       if (sErr) throw sErr;
       if (!sessions?.length) return [];
 
