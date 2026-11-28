@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../services/api";
 import { useActiveSessions } from "../../features/attendance/hooks/useActiveSessions";
 import { useAnnouncementAlerts } from "../../features/updates/hooks/useAnnouncementAlerts";
 import { tripConfig } from "../../config/tripConfig";
+import { getTripScheduleStatus } from "../../utils/tripDates";
 import Avatar from "../../components/Avatar";
 import {
   Users,
@@ -50,25 +51,30 @@ export default function CoordinatorDashboard() {
 
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
+  const loadPeople = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFetchError(null);
+      const res = await api.getApprovedStudents();
+      setPeople(Array.isArray(res?.students) ? res.students : []);
+    } catch (err) {
+      setFetchError(err?.message || "Failed to load student and staff counts.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    api
-      .getApprovedStudents()
-      .then((res) => {
-        if (active && Array.isArray(res?.students)) {
-          setPeople(res.students);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const t = setTimeout(loadPeople, 0);
+    return () => clearTimeout(t);
+  }, [loadPeople]);
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  const tripSchedule = getTripScheduleStatus(
+    tripConfig.trip.startDate,
+    tripConfig.trip.endDate
+  );
 
   const studentsOnly = people.filter(
     (p) => String(p.role || "student").toLowerCase() === "student"
@@ -140,6 +146,26 @@ export default function CoordinatorDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Inline fetch error */}
+      {fetchError && (
+        <div
+          role="alert"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-900"
+        >
+          <div className="flex items-center gap-2.5 font-semibold">
+            <AlertCircle size={18} className="shrink-0 text-red-700" />
+            <span>{fetchError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadPeople}
+            className="self-start sm:self-auto rounded-xl bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-800 transition"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Top 4 Live KPI Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
@@ -251,7 +277,11 @@ export default function CoordinatorDashboard() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-emerald-50/95 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-800 shadow-sm backdrop-blur-sm">
-                  Active Visit
+                  {tripSchedule.status === "upcoming"
+                    ? "Upcoming Visit"
+                    : tripSchedule.status === "ongoing"
+                    ? "Live Now"
+                    : "Completed"}
                 </span>
                 {tripConfig.trip.ivCode && (
                   <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
@@ -261,7 +291,7 @@ export default function CoordinatorDashboard() {
               </div>
               <span className="flex items-center gap-1.5 text-xs text-white/85">
                 <Clock size={14} />
-                {tripConfig.trip.dateRangeLabel}
+                {tripSchedule.durationCountdownLabel}
               </span>
             </div>
 
