@@ -1,44 +1,74 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PhoneCall, ShieldAlert, X, Building2, Bus, Copy, Stethoscope, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
-import { tripConfig } from '../../config/tripConfig';
+import { loadTripHelplines } from '../../utils/helplines';
 
 function getHelplineIcon(role = '') {
   const lower = role.toLowerCase();
-  if (lower.includes('medical') || lower.includes('safety')) return { icon: Stethoscope, tone: 'bg-red-100 text-red-700' };
-  if (lower.includes('hotel')) return { icon: Building2, tone: 'bg-purple-100 text-purple-800' };
-  if (lower.includes('transport') || lower.includes('driver')) return { icon: Bus, tone: 'bg-blue-100 text-blue-800' };
+  if (lower.includes('medical') || lower.includes('safety')) {
+    return { icon: Stethoscope, tone: 'bg-red-100 text-red-700' };
+  }
+  if (lower.includes('hotel')) {
+    return { icon: Building2, tone: 'bg-purple-100 text-purple-800' };
+  }
+  if (lower.includes('transport') || lower.includes('driver')) {
+    return { icon: Bus, tone: 'bg-blue-100 text-blue-800' };
+  }
   return { icon: Users, tone: 'bg-emerald-100 text-emerald-800' };
 }
 
-const HELPLINES = (tripConfig.helplines || []).map((h) => {
-  const { icon, tone } = getHelplineIcon(h.role);
-  return {
-    title: h.role,
-    subtitle: h.person,
-    phone: h.phone,
-    display: h.display || h.phone,
-    icon,
-    tone,
-  };
-});
-
 export default function EmergencyHelpModal({ isOpen, onClose }) {
   const { profile } = useAuth();
+  const [helplines, setHelplines] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    let active = true;
+    const t = setTimeout(() => {
+      setLoading(true);
+      loadTripHelplines()
+        .then((list) => {
+          if (active) setHelplines(list);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }, 0);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement;
+    const focusTimer = setTimeout(() => {
+      dialogRef.current?.focus();
+    }, 0);
+
     const onKey = (e) => {
       if (e.key === 'Escape') onClose?.();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKey);
+      const prev = previousFocusRef.current;
+      if (prev && typeof prev.focus === 'function') {
+        prev.focus();
+      }
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const copySafetyCard = () => {
+  const copySafetyCard = async () => {
     const text = [
       `IV Connect Safety Card`,
       `Name: ${profile?.full_name || 'Participant'}`,
@@ -50,8 +80,12 @@ export default function EmergencyHelpModal({ isOpen, onClose }) {
     ]
       .filter(Boolean)
       .join('\n');
-    navigator.clipboard?.writeText(text);
-    toast.success('Copied emergency safety details to clipboard.');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied emergency safety details to clipboard.');
+    } catch {
+      toast.error('Could not copy automatically. Please copy manually.');
+    }
   };
 
   return (
@@ -60,10 +94,12 @@ export default function EmergencyHelpModal({ isOpen, onClose }) {
       className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs p-0 sm:p-4"
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Tour Emergency & Helpline Contacts"
-        className="w-full sm:max-w-lg max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        className="w-full sm:max-w-lg max-h-[88dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] outline-none"
       >
         <div className="mx-auto h-1 w-10 rounded-full bg-gray-200 sm:hidden" />
 
@@ -74,14 +110,14 @@ export default function EmergencyHelpModal({ isOpen, onClose }) {
             </div>
             <div>
               <h3 className="text-lg font-black text-emerald-950">Emergency &amp; Helplines</h3>
-              <p className="text-xs text-gray-500">24/7 tour support, medical &amp; hotel contacts</p>
+              <p className="text-xs text-gray-600">24/7 tour support, coordinator &amp; hotel contacts</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close emergency contacts"
-            className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
           >
             <X size={18} />
           </button>
@@ -105,29 +141,61 @@ export default function EmergencyHelpModal({ isOpen, onClose }) {
 
         {/* Tour Helplines */}
         <div className="space-y-2.5">
-          {HELPLINES.map((item) => {
-            const Icon = item.icon;
-            return (
-              <a
-                key={item.title}
-                href={`tel:${item.phone}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 hover:bg-emerald-50/50 transition"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.tone}`}>
-                    <Icon size={17} />
+          {loading ? (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-center text-xs text-gray-600">
+              Loading helplines...
+            </div>
+          ) : helplines.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center text-xs font-semibold text-gray-600">
+              Helplines not configured yet
+            </div>
+          ) : (
+            helplines.map((item) => {
+              const { icon: Icon, tone } = getHelplineIcon(item.role);
+              if (!item.phone) {
+                return (
+                  <div
+                    key={item.id || `${item.role}-${item.person}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                        <Icon size={17} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-extrabold text-emerald-950">{item.role}</p>
+                        <p className="truncate text-[11px] text-gray-600">{item.person}</p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-500 ring-1 ring-gray-200">
+                      No phone yet
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-extrabold text-emerald-950">{item.title}</p>
-                    <p className="truncate text-[11px] text-gray-500">{item.subtitle}</p>
+                );
+              }
+
+              return (
+                <a
+                  key={item.id || `${item.role}-${item.phone}`}
+                  href={`tel:${item.phone}`}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-3 hover:bg-emerald-50/50 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                      <Icon size={17} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-extrabold text-emerald-950">{item.role}</p>
+                      <p className="truncate text-[11px] text-gray-600">{item.person}</p>
+                    </div>
                   </div>
-                </div>
-                <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-emerald-800 ring-1 ring-gray-200">
-                  {item.display}
-                </span>
-              </a>
-            );
-          })}
+                  <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-emerald-800 ring-1 ring-gray-200">
+                    {item.display || item.phone}
+                  </span>
+                </a>
+              );
+            })
+          )}
         </div>
 
         {/* User's quick safety card */}
@@ -138,7 +206,7 @@ export default function EmergencyHelpModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={copySafetyCard}
-                className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100"
               >
                 <Copy size={12} /> Copy Card
               </button>
