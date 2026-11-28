@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import toast, { Toaster, useToasterStore } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -49,36 +49,10 @@ import AdminRoomsPage from './features/rooms/pages/AdminRoomsPage';
 const AdminItineraryList = lazy(() => import('./features/itinerary/pages/AdminItineraryList'));
 const AdminItineraryEditor = lazy(() => import('./features/itinerary/pages/AdminItineraryEditor'));
 
-function LimitedToaster() {
-  const { toasts } = useToasterStore();
-
-  useEffect(() => {
-    toasts
-      .filter((t) => t.visible)
-      .filter((_, idx) => idx >= 2)
-      .forEach((t) => toast.dismiss(t.id));
-  }, [toasts]);
-
-  return (
-    <Toaster
-      position="top-center"
-      containerStyle={{
-        top: 'max(0.75rem, env(safe-area-inset-top))',
-        zIndex: 90,
-      }}
-      toastOptions={{
-        duration: 3000,
-        success: { duration: 2500 },
-        error: { duration: 4000 },
-      }}
-    />
-  );
-}
-
 function App() {
   return (
     <AuthProvider>
-      <LimitedToaster />
+      <Toaster position="top-right" />
       <BrowserRouter>
         <Suspense
           fallback={
@@ -89,44 +63,44 @@ function App() {
           }
         >
           <Routes>
-          {/* Public Landing & Authentication */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/change-password" element={<ChangePassword />} />
+            {/* Public Landing & Authentication */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ChangePassword />} />
 
-          {/* Student Portal (Protected) */}
-          <Route element={<ProtectedRoute allowedRoles={['student']} />}>
-            <Route path="/student" element={<StudentLayout />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<StudentDashboard />} />
-              <Route path="itinerary" element={<StudentItinerary />} />
-              <Route path="attendance" element={<StudentAttendance />} />
-              <Route path="attendance/scan" element={<StudentScan />} />
-              <Route path="transport" element={<StudentTransport />} />
-              <Route path="accommodation" element={<StudentAccommodation />} />
-              <Route path="announcements" element={<StudentAnnouncements />} />
-              <Route path="profile" element={<StudentProfile />} />
+            {/* Student Portal (Protected) */}
+            <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+              <Route path="/student" element={<StudentLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<StudentDashboard />} />
+                <Route path="itinerary" element={<StudentItinerary />} />
+                <Route path="attendance" element={<StudentAttendance />} />
+                <Route path="attendance/scan" element={<StudentScan />} />
+                <Route path="transport" element={<StudentTransport />} />
+                <Route path="accommodation" element={<StudentAccommodation />} />
+                <Route path="announcements" element={<StudentAnnouncements />} />
+                <Route path="profile" element={<StudentProfile />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Coordinator Portal (Protected) */}
-          <Route element={<ProtectedRoute allowedRoles={['coordinator']} />}>
-            <Route path="/coordinator" element={<CoordinatorLayout />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<CoordinatorDashboard />} />
-              <Route path="visits" element={<Navigate to="/coordinator/itinerary" replace />} />
-              <Route path="itinerary" element={<CoordinatorItinerary />} />
-              <Route path="students" element={<CoordinatorParticipants />} />
-              <Route path="participants" element={<Navigate to="/coordinator/students" replace />} />
-              <Route path="attendance" element={<CoordinatorAttendanceList />} />
-              <Route path="attendance/:sessionId" element={<CoordinatorAttendanceSession />} />
-              <Route path="transport" element={<CoordinatorTransport />} />
-              <Route path="accommodation" element={<CoordinatorAccommodation />} />
-              <Route path="announcements" element={<CoordinatorAnnouncements />} />
-              <Route path="reports" element={<CoordinatorReports />} />
-              <Route path="profile" element={<ProfilePage />} />
+            {/* Coordinator Portal (Protected) */}
+            <Route element={<ProtectedRoute allowedRoles={['coordinator']} />}>
+              <Route path="/coordinator" element={<CoordinatorLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<CoordinatorDashboard />} />
+                <Route path="visits" element={<Navigate to="/coordinator/itinerary" replace />} />
+                <Route path="itinerary" element={<CoordinatorItinerary />} />
+                <Route path="students" element={<CoordinatorParticipants />} />
+                <Route path="participants" element={<Navigate to="/coordinator/students" replace />} />
+                <Route path="attendance" element={<CoordinatorAttendanceList />} />
+                <Route path="attendance/:sessionId" element={<CoordinatorAttendanceSession />} />
+                <Route path="transport" element={<CoordinatorTransport />} />
+                <Route path="accommodation" element={<CoordinatorAccommodation />} />
+                <Route path="announcements" element={<CoordinatorAnnouncements />} />
+                <Route path="reports" element={<CoordinatorReports />} />
+                <Route path="profile" element={<ProfilePage />} />
+              </Route>
             </Route>
-          </Route>
 
           {/* Admin Portal (Protected) */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
@@ -147,12 +121,11 @@ function App() {
               <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>
-          </Route>
 
-          {/* Direct Shortcuts & Fallbacks */}
-          <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            {/* Direct Shortcuts & Fallbacks */}
+            <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
         </Suspense>
       </BrowserRouter>
     </AuthProvider>
