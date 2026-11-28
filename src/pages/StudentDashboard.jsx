@@ -273,7 +273,7 @@ function StudentDashboard() {
           className="overflow-hidden rounded-3xl bg-emerald-900 shadow-lg"
           style={{
             backgroundImage:
-              "linear-gradient(90deg, rgba(5,35,27,0.88) 0%, rgba(5,35,27,0.7) 45%, rgba(5,35,27,0.35) 75%, rgba(5,35,27,0.15) 100%), url('/images/itinerary-bg.png')",
+              "linear-gradient(90deg, rgba(5,35,27,0.88) 0%, rgba(5,35,27,0.7) 45%, rgba(5,35,27,0.35) 75%, rgba(5,35,27,0.15) 100%), url('/images/itinerary-bg.webp')",
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
