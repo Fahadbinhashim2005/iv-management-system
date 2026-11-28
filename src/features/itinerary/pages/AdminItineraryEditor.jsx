@@ -24,6 +24,8 @@ import ImageUploader from "../components/ImageUploader";
 import StopEditorSheet from "../components/StopEditorSheet";
 import LiveBanner from "../components/LiveBanner";
 import ItineraryView from "../components/ItineraryView";
+import StopLiveActions from "../components/StopLiveActions";
+import ChangesLogPanel from "../components/ChangesLogPanel";
 
 export default function AdminItineraryEditor() {
   const { id } = useParams();
@@ -62,6 +64,7 @@ export default function AdminItineraryEditor() {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [editingStop, setEditingStop] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'day'|'stop', id, label }
+  const [changesRefreshKey, setChangesRefreshKey] = useState(0);
 
   const days = itinerary?.days || [];
   const safeDayIdx = Math.min(selectedDayIdx, Math.max(0, days.length - 1));
@@ -637,76 +640,88 @@ export default function AdminItineraryEditor() {
                 {dayStops.map((stop, idx) => (
                   <div
                     key={stop.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50/60 p-3.5 text-xs"
+                    className="rounded-2xl border border-gray-200 bg-gray-50/60 p-3.5 text-xs space-y-2.5"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-bold text-emerald-800">
-                          {stop.time_tbc || !stop.start_time
-                            ? "TBC"
-                            : format12h(stop.start_time)}
-                        </span>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-gray-700 ring-1 ring-gray-200">
-                          {stop.category}
-                        </span>
-                        {stop.status_override && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900">
-                            {stop.status_override}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono font-bold text-emerald-800">
+                            {stop.time_tbc || !stop.start_time
+                              ? "TBC"
+                              : format12h(stop.start_time)}
                           </span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-gray-700 ring-1 ring-gray-200">
+                            {stop.category}
+                          </span>
+                          {stop.status_override && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900">
+                              {stop.status_override}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate font-extrabold text-emerald-950 text-sm">
+                          {stop.title}
+                        </p>
+                        {stop.location && (
+                          <p className="truncate text-[11px] text-gray-600">{stop.location}</p>
                         )}
                       </div>
-                      <p className="mt-1 truncate font-extrabold text-emerald-950 text-sm">
-                        {stop.title}
-                      </p>
-                      {stop.location && (
-                        <p className="truncate text-[11px] text-gray-600">{stop.location}</p>
-                      )}
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveStop(idx, -1)}
+                          aria-label={`Move ${stop.title} up`}
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 disabled:opacity-40"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx >= dayStops.length - 1}
+                          onClick={() => handleMoveStop(idx, 1)}
+                          aria-label={`Move ${stop.title} down`}
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 disabled:opacity-40"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStop(stop);
+                            setStopModalOpen(true);
+                          }}
+                          aria-label={`Edit ${stop.title}`}
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setConfirmDelete({
+                              type: "stop",
+                              id: stop.id,
+                              label: stop.title,
+                            })
+                          }
+                          aria-label={`Delete ${stop.title}`}
+                          className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-red-200 bg-white text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        disabled={idx === 0}
-                        onClick={() => handleMoveStop(idx, -1)}
-                        aria-label={`Move ${stop.title} up`}
-                        className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 disabled:opacity-40"
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={idx >= dayStops.length - 1}
-                        onClick={() => handleMoveStop(idx, 1)}
-                        aria-label={`Move ${stop.title} down`}
-                        className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 disabled:opacity-40"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingStop(stop);
-                          setStopModalOpen(true);
+                    <div className="border-t border-gray-200/70 pt-2">
+                      <StopLiveActions
+                        stop={stop}
+                        onChanged={async () => {
+                          await refresh();
+                          setChangesRefreshKey((k) => k + 1);
                         }}
-                        aria-label={`Edit ${stop.title}`}
-                        className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setConfirmDelete({
-                            type: "stop",
-                            id: stop.id,
-                            label: stop.title,
-                          })
-                        }
-                        aria-label={`Delete ${stop.title}`}
-                        className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-red-200 bg-white text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      />
                     </div>
                   </div>
                 ))}
@@ -715,6 +730,9 @@ export default function AdminItineraryEditor() {
           </div>
         </div>
       )}
+
+      {/* Recent Changes Audit Panel */}
+      <ChangesLogPanel itineraryId={itinerary.id} refreshKey={changesRefreshKey} />
 
       {/* Stop Editor Sheet */}
       {currentDay && (
