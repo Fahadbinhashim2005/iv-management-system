@@ -59,7 +59,7 @@ function StudentDashboard() {
           .map((item) => item.fullName);
         setDynamicCoordinators(facultyAndChief);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       active = false;
     };
@@ -166,16 +166,16 @@ function StudentDashboard() {
   const roomBadge = roomSummary?.room_no
     ? `Room ${roomSummary.room_no}`
     : tripAssignment?.room_no
-    ? `Room ${tripAssignment.room_no}`
-    : staySummary?.selection_status === "open"
-    ? "Booking Open"
-    : "Not Selected";
+      ? `Room ${tripAssignment.room_no}`
+      : staySummary?.selection_status === "open"
+        ? "Booking Open"
+        : "Not Selected";
 
   const attendanceBadge = hasUnmarked
     ? "Action Needed"
     : hasActive
-    ? "Marked ✓"
-    : "No Active Gate";
+      ? "Marked ✓"
+      : "No Active Gate";
 
   return (
     <div className="space-y-8">
@@ -205,13 +205,11 @@ function StudentDashboard() {
             }
           >
             <Bell size={20} className="text-emerald-600" />
-            <span aria-live="polite" className="contents">
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -259,15 +257,15 @@ function StudentDashboard() {
             {tripStatus === "upcoming"
               ? "Upcoming Journey"
               : tripStatus === "ongoing"
-              ? "Live Journey"
-              : "Journey Completed"}
+                ? "Live Journey"
+                : "Journey Completed"}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             {tripStatus === "upcoming"
               ? "Your next adventure is getting closer!"
               : tripStatus === "ongoing"
-              ? "Follow your journey and stay updated in real time."
-              : "Your industrial visit journey has been completed!"}
+                ? "Follow your journey and stay updated in real time."
+                : "Your industrial visit journey has been completed!"}
           </p>
         </div>
 
@@ -286,8 +284,8 @@ function StudentDashboard() {
                 {tripStatus === "upcoming"
                   ? "Upcoming Trip"
                   : tripStatus === "ongoing"
-                  ? "Live Now"
-                  : "Trip Completed"}
+                    ? "Live Now"
+                    : "Trip Completed"}
               </span>
               <span className="flex items-center gap-1.5 text-xs text-white/80">
                 <Clock size={14} />
@@ -308,7 +306,7 @@ function StudentDashboard() {
                   <MapPin size={20} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/90">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
                     Destination
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
@@ -322,7 +320,7 @@ function StudentDashboard() {
                   <Calendar size={20} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/90">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
                     Travel Date
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
@@ -367,13 +365,12 @@ function StudentDashboard() {
               <ClipboardCheck size={20} />
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                hasUnmarked
-                  ? "bg-amber-100 text-amber-800"
-                  : hasActive
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${hasUnmarked
+                ? "bg-amber-100 text-amber-800"
+                : hasActive
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-gray-100 text-gray-600"
-              }`}
+                }`}
             >
               {attendanceBadge}
             </span>
@@ -409,8 +406,8 @@ function StudentDashboard() {
             {!hasTransportAssignment
               ? "Not assigned yet — your coordinator will confirm."
               : assignedDriver
-              ? `Driver: ${assignedDriver}${assignedDriverPhone ? ` (Ph: ${assignedDriverPhone})` : ""}.`
-              : `${assignedBus} assigned. Driver details will be shared soon.`}
+                ? `Driver: ${assignedDriver}${assignedDriverPhone ? ` (Ph: ${assignedDriverPhone})` : ""}.`
+                : `${assignedBus} assigned. Driver details will be shared soon.`}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-600 transition group-hover:translate-x-1">
             <span>View Bus Details</span>
@@ -429,13 +426,12 @@ function StudentDashboard() {
               <BedDouble size={20} />
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                roomSummary?.room_no
-                  ? "bg-emerald-100 text-emerald-800"
-                  : staySummary?.selection_status === "open"
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${roomSummary?.room_no
+                ? "bg-emerald-100 text-emerald-800"
+                : staySummary?.selection_status === "open"
                   ? "bg-amber-100 text-amber-800"
                   : "bg-purple-50 text-purple-700"
-              }`}
+                }`}
             >
               {roomBadge}
             </span>
@@ -445,8 +441,8 @@ function StudentDashboard() {
             {roomSummary?.room_no
               ? `${staySummary?.name || "Hotel Stay"} • ${roomSummary.type_label || "Assigned Room"} (${roomSummary.occupant_count}/${roomSummary.capacity} beds)`
               : staySummary
-              ? `${staySummary.name} • Tap to select your live room on the grid.`
-              : `${hotelLabel}. View room allocation & roommates.`}
+                ? `${staySummary.name} • Tap to select your live room on the grid.`
+                : `${hotelLabel}. View room allocation & roommates.`}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-purple-600 transition group-hover:translate-x-1">
             <span>{roomSummary?.room_no ? "View Room & Roommates" : "Select Room"}</span>
@@ -489,11 +485,10 @@ function StudentDashboard() {
               key={item.id}
               type="button"
               onClick={() => navigate(item.to)}
-              className={`flex items-center justify-between gap-2 rounded-2xl border p-3 text-left text-xs transition ${
-                item.done
-                  ? "border-emerald-200 bg-emerald-50/50 text-emerald-900"
-                  : "border-amber-200 bg-amber-50/50 text-amber-950 hover:bg-amber-50"
-              }`}
+              className={`flex items-center justify-between gap-2 rounded-2xl border p-3 text-left text-xs transition ${item.done
+                ? "border-emerald-200 bg-emerald-50/50 text-emerald-900"
+                : "border-amber-200 bg-amber-50/50 text-amber-950 hover:bg-amber-50"
+                }`}
             >
               <span className="flex items-center gap-2 font-semibold">
                 {item.done ? (
