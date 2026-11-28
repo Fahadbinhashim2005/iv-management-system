@@ -128,30 +128,30 @@ function App() {
               </Route>
             </Route>
 
-          {/* Admin Portal (Protected) */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="visits" element={<AdminVisits />} />
-              <Route path="itineraries" element={<AdminItineraryList />} />
-              <Route path="itineraries/:id" element={<AdminItineraryEditor />} />
-              <Route path="coordinators" element={<AdminCoordinators />} />
-              <Route path="students" element={<AdminStudents />} />
-              <Route path="logistics" element={<AdminLogistics />} />
-              <Route path="rooms" element={<AdminRoomsPage />} />
-              <Route path="finances" element={<AdminFinances />} />
-              <Route path="compliance" element={<AdminCompliance />} />
-              <Route path="logs" element={<AdminLogs />} />
-              <Route path="attendance" element={<AdminAttendanceList />} />
-              <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
-              <Route path="profile" element={<ProfilePage />} />
-            </Route>
+            {/* Admin Portal (Protected) */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="visits" element={<AdminVisits />} />
+                <Route path="itineraries" element={<AdminItineraryList />} />
+                <Route path="itineraries/:id" element={<AdminItineraryEditor />} />
+                <Route path="coordinators" element={<AdminCoordinators />} />
+                <Route path="students" element={<AdminStudents />} />
+                <Route path="logistics" element={<AdminLogistics />} />
+                <Route path="rooms" element={<AdminRoomsPage />} />
+                <Route path="finances" element={<AdminFinances />} />
+                <Route path="compliance" element={<AdminCompliance />} />
+                <Route path="logs" element={<AdminLogs />} />
+                <Route path="attendance" element={<AdminAttendanceList />} />
+                <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
+                <Route path="profile" element={<ProfilePage />} />
+              </Route>
           </Route>
 
-            {/* Direct Shortcuts & Fallbacks */}
-            <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+              {/* Direct Shortcuts & Fallbacks */}
+              <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
