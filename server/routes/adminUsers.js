@@ -76,17 +76,23 @@ router.get('/requests', async (req, res) => {
       return res.status(503).json({ error: 'Database client unavailable for pending requests.' });
     }
 
-    let query = sb
-      .from('profiles')
-      .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, is_active, approval_status, created_at')
-      .eq('approval_status', 'pending')
-      .order('created_at', { ascending: false });
+    const runReq = (includeCoordType) => {
+      const cols = includeCoordType
+        ? 'id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, is_active, approval_status, created_at'
+        : 'id, email, full_name, role, gender, phone, roll_no, department, batch, is_active, approval_status, created_at';
+      let q = sb
+        .from('profiles')
+        .select(cols)
+        .eq('approval_status', 'pending')
+        .order('created_at', { ascending: false });
+      if (role) q = q.eq('role', role.toLowerCase());
+      return q;
+    };
 
-    if (role) {
-      query = query.eq('role', role.toLowerCase());
+    let { data: requests, error } = await runReq(true);
+    if (error && String(error.message || '').includes('coordinator_type')) {
+      ({ data: requests, error } = await runReq(false));
     }
-
-    const { data: requests, error } = await query;
 
     if (error) {
       console.error('[GET /api/admin/users/requests DB Error]:', error.message);
@@ -265,19 +271,24 @@ router.get('/', async (req, res) => {
       return res.status(503).json({ error: 'Database client unavailable.' });
     }
 
-    let query = sb
-      .from('profiles')
-      .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
-      .order('created_at', { ascending: false });
+    const runUsers = (includeCoordType) => {
+      const cols = includeCoordType
+        ? 'id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at'
+        : 'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at';
+      let q = sb.from('profiles').select(cols).order('created_at', { ascending: false });
+      if (role && ['student', 'coordinator', 'admin'].includes(role.toLowerCase())) {
+        q = q.eq('role', role.toLowerCase());
+      }
+      if (status && status !== 'all') {
+        q = q.eq('approval_status', status.toLowerCase());
+      }
+      return q;
+    };
 
-    if (role && ['student', 'coordinator', 'admin'].includes(role.toLowerCase())) {
-      query = query.eq('role', role.toLowerCase());
+    let { data, error } = await runUsers(true);
+    if (error && String(error.message || '').includes('coordinator_type')) {
+      ({ data, error } = await runUsers(false));
     }
-    if (status && status !== 'all') {
-      query = query.eq('approval_status', status.toLowerCase());
-    }
-
-    const { data, error } = await query;
     if (error) {
       return res.status(500).json({ error: error.message });
     }

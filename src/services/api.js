@@ -306,14 +306,23 @@ export const api = {
   // Admin Access Request Approvals
   async getAccessRequests(role) {
     if (isSupabaseConfigured && supabase) {
-      let query = supabase
-        .from('profiles')
-        .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, created_at')
-        .eq('approval_status', 'pending')
-        .order('created_at', { ascending: false });
+      const runReqQuery = (includeCoordType) => {
+        const cols = includeCoordType
+          ? 'id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, created_at'
+          : 'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, created_at';
+        let q = supabase
+          .from('profiles')
+          .select(cols)
+          .eq('approval_status', 'pending')
+          .order('created_at', { ascending: false });
+        if (role) q = q.eq('role', role.toLowerCase());
+        return q;
+      };
 
-      if (role) query = query.eq('role', role.toLowerCase());
-      const { data, error } = await query;
+      let { data, error } = await runReqQuery(true);
+      if (error && String(error.message || '').includes('coordinator_type')) {
+        ({ data, error } = await runReqQuery(false));
+      }
 
       if (!error && Array.isArray(data)) {
         if (data.length > 0) {
@@ -464,15 +473,20 @@ export const api = {
   // Admin User Directory
   async getAdminUsers(role, status = 'approved') {
     if (isSupabaseConfigured && supabase) {
-      let query = supabase
-        .from('profiles')
-        .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
-        .order('created_at', { ascending: false });
+      const runUsersQuery = (includeCoordType) => {
+        const cols = includeCoordType
+          ? 'id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at'
+          : 'id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at';
+        let q = supabase.from('profiles').select(cols).order('created_at', { ascending: false });
+        if (status && status !== 'all') q = q.eq('approval_status', status);
+        if (role) q = q.eq('role', role.toLowerCase());
+        return q;
+      };
 
-      if (status && status !== 'all') query = query.eq('approval_status', status);
-      if (role) query = query.eq('role', role.toLowerCase());
-
-      const { data, error } = await query;
+      let { data, error } = await runUsersQuery(true);
+      if (error && String(error.message || '').includes('coordinator_type')) {
+        ({ data, error } = await runUsersQuery(false));
+      }
       if (!error && Array.isArray(data) && data.length > 0) {
         return { success: true, count: data.length, users: data };
       }
@@ -579,7 +593,7 @@ export const api = {
         const userId = authData?.user?.id;
         if (!userId) throw new Error('Failed to register user in Supabase Auth.', { cause: backendErr });
 
-        const { error: profErr } = await supabase.from('profiles').upsert({
+        const profileRow = {
           id: userId,
           email,
           full_name: userData.full_name,
@@ -595,7 +609,14 @@ export const api = {
           approval_status: 'approved',
           is_active: true,
           must_change_password: false,
-        });
+        };
+
+        let { error: profErr } = await supabase.from('profiles').upsert(profileRow);
+        if (profErr && String(profErr.message || '').includes('coordinator_type')) {
+          const rest = { ...profileRow };
+          delete rest.coordinator_type;
+          ({ error: profErr } = await supabase.from('profiles').upsert(rest));
+        }
 
         if (profErr) {
           throw new Error(`Created auth user, but profile save failed: ${profErr.message}`, { cause: backendErr });
@@ -663,11 +684,20 @@ export const api = {
 
   async updateAdminUser(id, updates) {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', id)
         .select('id');
+      if (error && String(error.message || '').includes('coordinator_type')) {
+        const rest = { ...updates };
+        delete rest.coordinator_type;
+        ({ data, error } = await supabase
+          .from('profiles')
+          .update(rest)
+          .eq('id', id)
+          .select('id'));
+      }
       if (!error && Array.isArray(data) && data.length > 0) {
         return { success: true };
       }
