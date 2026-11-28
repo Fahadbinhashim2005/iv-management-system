@@ -17,6 +17,16 @@ export default function DaySlider({
     }
   }, [selectedIndex]);
 
+  const handleKeyDown = (e, idx) => {
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      onSelect(Math.min(days.length - 1, idx + 1));
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      onSelect(Math.max(0, idx - 1));
+    }
+  };
+
   return (
     <div
       role="tablist"
@@ -35,8 +45,10 @@ export default function DaySlider({
             ref={isSelected ? activeTabRef : null}
             type="button"
             role="tab"
+            tabIndex={isSelected ? 0 : -1}
             aria-selected={isSelected}
             onClick={() => onSelect(idx)}
+            onKeyDown={(e) => handleKeyDown(e, idx)}
             className={`relative flex min-h-[48px] min-w-[82px] shrink-0 snap-center flex-col items-center justify-center rounded-2xl border px-3.5 py-2 text-center transition ${
               isSelected
                 ? "border-[#065F46] bg-[#065F46] text-white shadow-sm"
