@@ -435,8 +435,8 @@ export default function CoordinatorDashboard() {
                 <p className="line-clamp-2 text-[11px] text-gray-500">{latestNotice.content}</p>
               </>
             ) : (
-              <p className="text-[11px] text-gray-500">
-                No notices broadcast yet. Use Broadcast Notice to alert students instantly.
+              <p className="text-[11px] text-gray-600">
+                No notices published yet. Use Broadcast Notice to notify students while the app is open.
               </p>
             )}
           </div>

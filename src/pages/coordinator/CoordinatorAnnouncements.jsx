@@ -98,7 +98,7 @@ export default function CoordinatorAnnouncements() {
       setLocationLat(null);
       setLocationLng(null);
       setIsPinned(false);
-      toast.success("Broadcast sent to all students with alert sound!");
+      toast.success("Notice published. Students see it within a few seconds while the app is open.");
     } catch (err) {
       toast.error(err.message || "Failed to broadcast notice");
     } finally {
@@ -137,7 +137,7 @@ export default function CoordinatorAnnouncements() {
             Publish Notices &amp; Live Locations
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Send instructions, Google Maps locations, and phone/web alerts with a special sound to every student.
+            Publish instructions, Google Maps locations, and in-app alerts that students receive while the app is open.
           </p>
         </div>
         <button
