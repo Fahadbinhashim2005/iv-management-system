@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -297,7 +297,21 @@ function CoordinatorLayoutInner() {
           <div className="no-print">
             <AttendanceBanner basePath="/coordinator/attendance" />
           </div>
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="space-y-4">
+                <div className="h-9 w-48 rounded-xl bg-white motion-safe:animate-pulse" />
+                <div className="h-44 rounded-3xl bg-white motion-safe:animate-pulse" />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="h-28 rounded-2xl bg-white motion-safe:animate-pulse" />
+                  <div className="h-28 rounded-2xl bg-white motion-safe:animate-pulse" />
+                  <div className="h-28 rounded-2xl bg-white motion-safe:animate-pulse" />
+                </div>
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

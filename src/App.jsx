@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import './App.css';
@@ -8,29 +9,29 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 
-// Student Portal
+// Student Portal (route-level code splitting)
 import StudentLayout from './layouts/StudentLayout';
-import StudentDashboard from './pages/StudentDashboard';
-import StudentItinerary from './pages/StudentItinerary';
-import StudentAttendance from './features/attendance/pages/StudentAttendance';
-import StudentScan from './features/attendance/pages/StudentScan';
-import StudentTransport from './pages/StudentTransport';
-import StudentAccommodation from './pages/StudentAccommodation';
-import StudentAnnouncements from './pages/StudentAnnouncements';
-import StudentProfile from './pages/StudentProfile';
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentItinerary = lazy(() => import('./pages/StudentItinerary'));
+const StudentAttendance = lazy(() => import('./features/attendance/pages/StudentAttendance'));
+const StudentScan = lazy(() => import('./features/attendance/pages/StudentScan'));
+const StudentTransport = lazy(() => import('./pages/StudentTransport'));
+const StudentAccommodation = lazy(() => import('./pages/StudentAccommodation'));
+const StudentAnnouncements = lazy(() => import('./pages/StudentAnnouncements'));
+const StudentProfile = lazy(() => import('./pages/StudentProfile'));
 
-// Coordinator Portal (Field Operations & Attendance)
+// Coordinator Portal (route-level code splitting)
 import CoordinatorLayout from './layouts/CoordinatorLayout';
-import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
-import CoordinatorItinerary from './pages/coordinator/CoordinatorItinerary';
-import CoordinatorParticipants from './pages/coordinator/CoordinatorParticipants';
-import CoordinatorAttendanceList from './features/attendance/pages/CoordinatorAttendanceList';
-import CoordinatorAttendanceSession from './features/attendance/pages/CoordinatorAttendanceSession';
-import CoordinatorTransport from './pages/coordinator/CoordinatorTransport';
-import CoordinatorAccommodation from './pages/coordinator/CoordinatorAccommodation';
-import CoordinatorAnnouncements from './pages/coordinator/CoordinatorAnnouncements';
-import CoordinatorReports from './pages/coordinator/CoordinatorReports';
-import ProfilePage from './pages/Profile/ProfilePage';
+const CoordinatorDashboard = lazy(() => import('./pages/coordinator/CoordinatorDashboard'));
+const CoordinatorItinerary = lazy(() => import('./pages/coordinator/CoordinatorItinerary'));
+const CoordinatorParticipants = lazy(() => import('./pages/coordinator/CoordinatorParticipants'));
+const CoordinatorAttendanceList = lazy(() => import('./features/attendance/pages/CoordinatorAttendanceList'));
+const CoordinatorAttendanceSession = lazy(() => import('./features/attendance/pages/CoordinatorAttendanceSession'));
+const CoordinatorTransport = lazy(() => import('./pages/coordinator/CoordinatorTransport'));
+const CoordinatorAccommodation = lazy(() => import('./pages/coordinator/CoordinatorAccommodation'));
+const CoordinatorAnnouncements = lazy(() => import('./pages/coordinator/CoordinatorAnnouncements'));
+const CoordinatorReports = lazy(() => import('./pages/coordinator/CoordinatorReports'));
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
 
 // Admin Portal (Superior Authority / Chief Coordinator)
 import AdminLayout from './layouts/AdminLayout';
@@ -51,7 +52,15 @@ function App() {
     <AuthProvider>
       <Toaster position="top-right" />
       <BrowserRouter>
-        <Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-[#F4F8F5] p-6 space-y-4">
+              <div className="h-10 w-56 rounded-2xl bg-white motion-safe:animate-pulse" />
+              <div className="h-44 rounded-3xl bg-white motion-safe:animate-pulse" />
+            </div>
+          }
+        >
+          <Routes>
           {/* Public Landing & Authentication */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
@@ -114,6 +123,7 @@ function App() {
           <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
