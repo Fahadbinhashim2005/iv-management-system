@@ -14,6 +14,8 @@ import {
   Clock,
   UserCheck,
   UserX,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../../services/api";
@@ -37,6 +39,15 @@ export default function AdminCoordinators() {
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCoord, setEditingCoord] = useState(null);
+  const [editForm, setEditForm] = useState({
+    full_name: "",
+    phone: "",
+    department: "",
+    coordinator_type: "faculty",
+    gender: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [credentialCard, setCredentialCard] = useState(null);
 
   // Form State
@@ -44,6 +55,7 @@ export default function AdminCoordinators() {
     full_name: "",
     email: "",
     gender: "",
+    coordinator_type: "faculty",
     department: "Computer Science & Engineering",
     designation: "Assistant Professor",
     phone: "",
@@ -78,11 +90,12 @@ export default function AdminCoordinators() {
     const onKeyDown = (e) => {
       if (e.key !== "Escape") return;
       if (credentialCard) setCredentialCard(null);
+      else if (editingCoord) setEditingCoord(null);
       else if (showAddModal) setShowAddModal(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [credentialCard, showAddModal]);
+  }, [credentialCard, editingCoord, showAddModal]);
 
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
@@ -117,11 +130,13 @@ export default function AdminCoordinators() {
         password: formData.password,
         full_name: formData.full_name,
         role: "coordinator",
+        coordinator_type: formData.coordinator_type || "faculty",
         gender: formData.gender || null,
         phone: formData.phone,
         details: {
           department: formData.department,
           designation: formData.designation,
+          coordinator_type: formData.coordinator_type || "faculty",
         },
       });
 
@@ -138,6 +153,7 @@ export default function AdminCoordinators() {
           full_name: "",
           email: "",
           gender: "",
+          coordinator_type: "faculty",
           department: "Computer Science & Engineering",
           designation: "Assistant Professor",
           phone: "",
@@ -174,6 +190,57 @@ export default function AdminCoordinators() {
       toast.success(`Updated gender for ${coord.full_name || coord.name}.`);
     } catch (err) {
       toast.error(err.message || "Failed to update gender.");
+    }
+  };
+
+  const openEditCoordinator = (coord) => {
+    setEditingCoord(coord);
+    setEditForm({
+      full_name: coord.full_name || coord.name || "",
+      phone: coord.phone || "",
+      department: coord.coordinator_details?.department || coord.department || "",
+      coordinator_type: coord.coordinator_type || "faculty",
+      gender: coord.gender || "",
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingCoord || !editForm.full_name.trim()) {
+      toast.error("Full name is required.");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updates = {
+        full_name: editForm.full_name.trim(),
+        phone: editForm.phone.trim() || null,
+        department: editForm.department.trim() || null,
+        coordinator_type: editForm.coordinator_type || "faculty",
+        gender: editForm.gender || null,
+      };
+      await api.updateAdminUser(editingCoord.id, updates);
+      setApprovedCoordinators((prev) =>
+        prev.map((c) => (c.id === editingCoord.id ? { ...c, ...updates } : c))
+      );
+      toast.success(`Updated coordinator ${updates.full_name}.`);
+      setEditingCoord(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to update coordinator.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteCoordinator = async (coord) => {
+    const label = coord.full_name || coord.name || coord.email;
+    if (!window.confirm(`Permanently remove coordinator "${label}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteAdminUser(coord.id);
+      toast.success(`Removed coordinator ${label}.`);
+      loadAllData();
+    } catch (err) {
+      toast.error(err.message || "Failed to remove coordinator.");
     }
   };
 
@@ -345,9 +412,13 @@ export default function AdminCoordinators() {
             </div>
           ) : (
             filteredApproved.map((faculty) => {
-              const name = faculty.full_name || faculty.name || "Faculty Coordinator";
-              const designation = faculty.coordinator_details?.designation || faculty.designation || "Tour Coordinator";
-              const dept = faculty.coordinator_details?.department || faculty.department || "Engineering";
+              const name = faculty.full_name || faculty.name || "Coordinator";
+              const coordType = String(faculty.coordinator_type || "faculty").toLowerCase();
+              const coordTypeLabel =
+                coordType === "student" ? "Student Coordinator" : "Faculty Coordinator";
+              const designation =
+                faculty.coordinator_details?.designation || faculty.designation || coordTypeLabel;
+              const dept = faculty.coordinator_details?.department || faculty.department || "Not set";
               const isActive = faculty.is_active !== false;
 
               return (
@@ -366,13 +437,18 @@ export default function AdminCoordinators() {
                       </div>
                     </div>
 
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                        isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {isActive ? "Active Lead" : "Deactivated"}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                          isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {isActive ? "Active Lead" : "Deactivated"}
+                      </span>
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
+                        {coordTypeLabel}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="rounded-xl bg-gray-50 p-3 text-xs space-y-2">
@@ -399,7 +475,7 @@ export default function AdminCoordinators() {
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs text-gray-600">
                     <span className="flex items-center gap-1.5 font-semibold text-gray-800">
                       <Phone size={13} className="shrink-0 text-emerald-700" />
-                      {faculty.phone || "+91 94471 00000"}
+                      {faculty.phone || "No phone added"}
                     </span>
                     <span className="flex items-center gap-1.5 min-w-0 break-all">
                       <Mail size={13} className="shrink-0 text-emerald-700" />
@@ -407,11 +483,20 @@ export default function AdminCoordinators() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => openEditCoordinator(faculty)}
+                      className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 py-1.5 font-semibold text-emerald-900 hover:bg-emerald-100 transition"
+                    >
+                      <Edit3 size={12} />
+                      <span>Edit</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => handleResetPassword(faculty)}
-                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-gray-600 hover:bg-gray-100 transition"
+                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-gray-600 hover:bg-gray-100 transition"
                     >
                       <RotateCcw size={12} />
                       <span>Reset Password</span>
@@ -420,14 +505,24 @@ export default function AdminCoordinators() {
                     <button
                       type="button"
                       onClick={() => handleToggleActive(faculty)}
-                      className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 transition ${
+                      className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 transition ${
                         isActive
-                          ? "border-red-200 text-red-700 hover:bg-red-50"
+                          ? "border-amber-200 text-amber-800 hover:bg-amber-50"
                           : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                       }`}
                     >
                       {isActive ? <Ban size={12} /> : <CheckCircle2 size={12} />}
                       <span>{isActive ? "Deactivate" : "Activate"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCoordinator(faculty)}
+                      aria-label={`Delete coordinator ${name}`}
+                      title="Delete Coordinator"
+                      className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-red-700 hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
@@ -545,7 +640,7 @@ export default function AdminCoordinators() {
                   required
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="e.g. Dr. Rajesh Kumar"
+                  placeholder="e.g. Prof. Anitha Menon"
                   className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -553,16 +648,44 @@ export default function AdminCoordinators() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                    Faculty Email *
+                    Email *
                   </label>
                   <input
                     type="email"
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="faculty@college.edu"
+                    placeholder="coordinator@college.edu"
                     className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Coordinator Role
+                  </label>
+                  <select
+                    value={formData.coordinator_type}
+                    onChange={(e) => setFormData({ ...formData, coordinator_type: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="faculty">Faculty Coordinator</option>
+                    <option value="student">Student Coordinator</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
@@ -642,6 +765,126 @@ export default function AdminCoordinators() {
                   className="flex-1 rounded-xl bg-emerald-800 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-900"
                 >
                   {loading ? "Appointing..." : "Save Coordinator"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Coordinator Modal */}
+      {editingCoord && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit Coordinator"
+          onClick={() => setEditingCoord(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="font-black text-xl text-emerald-950">Edit Coordinator</h3>
+                <p className="text-xs text-gray-500 font-mono">{editingCoord.email}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close edit coordinator modal"
+                onClick={() => setEditingCoord(null)}
+                className="rounded-full p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Coordinator Role
+                  </label>
+                  <select
+                    value={editForm.coordinator_type}
+                    onChange={(e) => setEditForm({ ...editForm, coordinator_type: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="faculty">Faculty Coordinator</option>
+                    <option value="student">Student Coordinator</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={editForm.gender}
+                    onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="">Not specified</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingCoord(null)}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="flex-1 rounded-xl bg-emerald-800 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-900 disabled:opacity-60"
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>

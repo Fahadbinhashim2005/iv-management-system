@@ -18,6 +18,8 @@ import {
   UserCheck,
   UserX,
   FileSpreadsheet,
+  Edit3,
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../../services/api";
@@ -45,6 +47,17 @@ export default function AdminStudents() {
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editForm, setEditForm] = useState({
+    full_name: "",
+    roll_no: "",
+    department: "",
+    batch: "",
+    semester: "",
+    phone: "",
+    gender: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [credentialCard, setCredentialCard] = useState(null);
 
   // Add Single Student Form
@@ -95,6 +108,7 @@ export default function AdminStudents() {
     const onKeyDown = (e) => {
       if (e.key !== "Escape") return;
       if (credentialCard) setCredentialCard(null);
+      else if (editingStudent) setEditingStudent(null);
       else if (showAddModal) setShowAddModal(false);
       else if (showBulkModal) {
         setShowBulkModal(false);
@@ -103,7 +117,7 @@ export default function AdminStudents() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [credentialCard, showAddModal, showBulkModal]);
+  }, [credentialCard, editingStudent, showAddModal, showBulkModal]);
 
   // 1. One-click Approve Request
   const handleApproveRequest = async (req) => {
@@ -199,6 +213,67 @@ export default function AdminStudents() {
       toast.success(`Updated gender for ${student.full_name}.`);
     } catch (err) {
       toast.error(err.message || "Failed to update gender.");
+    }
+  };
+
+  const openEditStudent = (student) => {
+    setEditingStudent(student);
+    setEditForm({
+      full_name: student.full_name || "",
+      roll_no: student.roll_no || student.student_details?.roll_no || student.roll_number || "",
+      department: student.department || student.student_details?.department || "",
+      batch: student.batch || "",
+      semester: student.semester != null ? String(student.semester) : "",
+      phone: student.phone || "",
+      gender: student.gender || "",
+    });
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingStudent || !editForm.full_name.trim()) {
+      toast.error("Student full name is required.");
+      return;
+    }
+    const semRaw = editForm.semester.trim();
+    const semVal = semRaw ? Number(semRaw) : null;
+    if (semVal !== null && (!Number.isInteger(semVal) || semVal < 1 || semVal > 8)) {
+      toast.error("Semester must be between 1 and 8.");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updates = {
+        full_name: editForm.full_name.trim(),
+        roll_no: editForm.roll_no.trim() || null,
+        department: editForm.department.trim() || null,
+        batch: editForm.batch.trim() || null,
+        semester: semVal,
+        phone: editForm.phone.trim() || null,
+        gender: editForm.gender || null,
+      };
+      await api.updateAdminUser(editingStudent.id, updates);
+      setApprovedStudents((prev) =>
+        prev.map((s) => (s.id === editingStudent.id ? { ...s, ...updates } : s))
+      );
+      toast.success(`Updated ${updates.full_name}.`);
+      setEditingStudent(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to update student.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteStudent = async (student) => {
+    const label = student.full_name || student.email;
+    if (!window.confirm(`Permanently remove student "${label}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteAdminUser(student.id);
+      toast.success(`Removed ${label}.`);
+      loadAllData();
+    } catch (err) {
+      toast.error(err.message || "Failed to remove student.");
     }
   };
 
@@ -498,8 +573,8 @@ export default function AdminStudents() {
               </div>
             ) : (
               filteredApproved.map((student) => {
-                const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "CS-2026";
-                const dept = student.department || student.student_details?.department || "Computer Science";
+                const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "Roll N/A";
+                const dept = student.department || student.student_details?.department || "Department not set";
                 const isActive = student.is_active !== false;
 
                 return (
@@ -509,7 +584,9 @@ export default function AdminStudents() {
                         <p className="truncate font-bold text-emerald-950 text-sm">{student.full_name}</p>
                         <p className="font-mono text-[11px] text-gray-500">{roll}</p>
                         <p className="mt-0.5 truncate text-xs text-gray-600">{student.email}</p>
-                        <p className="text-[11px] text-gray-400">{dept}</p>
+                        <p className="text-[11px] text-gray-400">
+                          {dept}{student.batch ? ` • ${student.batch}` : ""}{student.phone ? ` • ${student.phone}` : ""}
+                        </p>
                       </div>
                       <span
                         className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
@@ -544,6 +621,16 @@ export default function AdminStudents() {
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
+                          onClick={() => openEditStudent(student)}
+                          aria-label={`Edit ${student.full_name}`}
+                          title="Edit Student"
+                          className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-1.5 text-emerald-800 hover:bg-emerald-100 transition"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleResetPassword(student)}
                           aria-label={`Reset password for ${student.full_name}`}
                           title="Reset Password"
@@ -559,11 +646,21 @@ export default function AdminStudents() {
                           title={isActive ? "Deactivate Account" : "Activate Account"}
                           className={`rounded-lg border p-1.5 transition ${
                             isActive
-                              ? "border-red-200 text-red-700 hover:bg-red-50"
+                              ? "border-amber-200 text-amber-800 hover:bg-amber-50"
                               : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                           }`}
                         >
                           {isActive ? <Ban size={14} /> : <CheckCircle2 size={14} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStudent(student)}
+                          aria-label={`Delete ${student.full_name}`}
+                          title="Delete Student"
+                          className="rounded-lg border border-red-200 p-1.5 text-red-700 hover:bg-red-50 transition"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
@@ -594,8 +691,8 @@ export default function AdminStudents() {
                   </tr>
                 ) : (
                   filteredApproved.map((student) => {
-                    const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "CS-2026";
-                    const dept = student.department || student.student_details?.department || "Computer Science";
+                    const roll = student.roll_no || student.student_details?.roll_no || student.roll_number || "Roll N/A";
+                    const dept = student.department || student.student_details?.department || "Department not set";
                     const isActive = student.is_active !== false;
 
                     return (
@@ -607,7 +704,9 @@ export default function AdminStudents() {
 
                         <td className="px-5 py-4">
                           <p className="text-gray-900 font-medium">{student.email}</p>
-                          <p className="text-[11px] text-gray-500">{dept}</p>
+                          <p className="text-[11px] text-gray-500">
+                            {dept}{student.batch ? ` • ${student.batch}` : ""}{student.phone ? ` • ${student.phone}` : ""}
+                          </p>
                         </td>
 
                         <td className="px-5 py-4">
@@ -643,6 +742,16 @@ export default function AdminStudents() {
                           <div className="inline-flex items-center gap-1.5">
                             <button
                               type="button"
+                              onClick={() => openEditStudent(student)}
+                              aria-label={`Edit ${student.full_name}`}
+                              title="Edit Student"
+                              className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-1.5 text-emerald-800 hover:bg-emerald-100 transition"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={() => handleResetPassword(student)}
                               title="Reset Password"
                               className="rounded-lg border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-100 hover:text-emerald-800 transition"
@@ -656,11 +765,21 @@ export default function AdminStudents() {
                               title={isActive ? "Deactivate Account" : "Activate Account"}
                               className={`rounded-lg border p-1.5 transition ${
                                 isActive
-                                  ? "border-red-200 text-red-700 hover:bg-red-50"
+                                  ? "border-amber-200 text-amber-800 hover:bg-amber-50"
                                   : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                               }`}
                             >
                               {isActive ? <Ban size={13} /> : <CheckCircle2 size={13} />}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStudent(student)}
+                              aria-label={`Delete ${student.full_name}`}
+                              title="Delete Student"
+                              className="rounded-lg border border-red-200 p-1.5 text-red-700 hover:bg-red-50 transition"
+                            >
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </td>
@@ -833,6 +952,43 @@ export default function AdminStudents() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Batch
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.batch}
+                    onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider">
@@ -993,6 +1149,150 @@ export default function AdminStudents() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit Student"
+          onClick={() => setEditingStudent(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="font-black text-xl text-emerald-950">Edit Student Profile</h3>
+                <p className="text-xs text-gray-500 font-mono">{editingStudent.email}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close edit student modal"
+                onClick={() => setEditingStudent(null)}
+                className="rounded-full p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Roll Number
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.roll_no}
+                    onChange={(e) => setEditForm({ ...editForm, roll_no: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Batch
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.batch}
+                    onChange={(e) => setEditForm({ ...editForm, batch: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Semester (1-8)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={8}
+                    value={editForm.semester}
+                    onChange={(e) => setEditForm({ ...editForm, semester: e.target.value })}
+                    placeholder="e.g. 5"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={editForm.gender}
+                    onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="">Unset</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingStudent(null)}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="flex-1 rounded-xl bg-emerald-800 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-900 disabled:opacity-60"
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

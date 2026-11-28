@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -8,144 +9,163 @@ import {
   Building2,
   X,
   CheckCircle2,
+  Edit3,
+  Trash2,
+  Map,
 } from "lucide-react";
+import { tripConfig } from "../../config/tripConfig";
 
-const INITIAL_TOURS = [
+const STORAGE_KEY = "iv_admin_tours_v2";
+
+const DEFAULT_TOURS = [
   {
-    id: "IV-2026-01",
-    title: "Industrial Visit 2026 — GIFT City & Tech Infrastructure",
-    department: "Computer Science & Engineering",
-    batch: "Batch 2023-27 (Semester 5)",
-    host: "Gujarat International Finance Tec-City (GIFT) & ISRO SAC",
-    location: "Ahmedabad, Gujarat",
-    startDate: "2026-12-05",
-    endDate: "2026-12-08",
-    capacity: 135,
-    enrolled: 128,
+    id: "IV-2026-RD",
+    title: tripConfig.trip.displayName,
+    department: "All Participating Batches",
+    host: (tripConfig.trip.industries || []).join(", "),
+    location: tripConfig.trip.destination,
+    startDate: tripConfig.trip.startDate,
+    endDate: tripConfig.trip.endDate,
+    capacity: 150,
     status: "Published",
-    leadCoordinator: "Dr. Rajesh Kumar (HOD CS)",
-    budget: "₹5,40,000",
-    complianceCleared: true,
-  },
-  {
-    id: "IV-2026-02",
-    title: "Bangalore Tech Park & Aerospace Hub Study Tour",
-    department: "Computer Science & Engineering",
-    batch: "Batch 2024-28 (Semester 3)",
-    host: "Infosys Mysore Campus & HAL Aerospace Heritage Centre",
-    location: "Bengaluru & Mysuru, Karnataka",
-    startDate: "2027-02-12",
-    endDate: "2027-02-16",
-    capacity: 120,
-    enrolled: 84,
-    status: "Draft",
-    leadCoordinator: "Prof. Vikram Mohan",
-    budget: "₹4,20,000",
+    leadCoordinator: "Chief Faculty & Coordinators",
+    budget: "TBC",
     complianceCleared: false,
-  },
-  {
-    id: "IV-2025-01",
-    title: "Hyderabad Cyberabad & T-Hub Innovation Tour",
-    department: "Computer Science & Engineering",
-    batch: "Batch 2022-26 (Semester 7)",
-    host: "T-Hub Innovation Ecosystem & Microsoft Campus",
-    location: "Hyderabad, Telangana",
-    startDate: "2025-11-18",
-    endDate: "2025-11-21",
-    capacity: 110,
-    enrolled: 110,
-    status: "Completed",
-    leadCoordinator: "Dr. Rajesh Kumar",
-    budget: "₹3,90,000",
-    complianceCleared: true,
   },
 ];
 
+const EMPTY_FORM = {
+  title: "",
+  department: "",
+  host: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  capacity: 120,
+  budget: "",
+  leadCoordinator: "",
+  status: "Draft",
+  complianceCleared: false,
+};
+
 export default function AdminVisits() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingTour, setEditingTour] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [tours, setTours] = useState(() => {
     try {
-      const saved = localStorage.getItem("iv_admin_tours_v1");
-      return saved ? JSON.parse(saved) : INITIAL_TOURS;
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_TOURS;
     } catch {
-      return INITIAL_TOURS;
+      return DEFAULT_TOURS;
     }
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem("iv_admin_tours_v1", JSON.stringify(tours));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tours));
     } catch {
       // Ignore storage limit errors
     }
   }, [tours]);
 
   useEffect(() => {
-    if (!showCreateModal) return;
+    if (!modalOpen) return;
     const onKeyDown = (e) => {
-      if (e.key === "Escape") setShowCreateModal(false);
+      if (e.key === "Escape") setModalOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showCreateModal]);
+  }, [modalOpen]);
 
-  const [form, setForm] = useState({
-    title: "",
-    department: "Computer Science & Engineering",
-    batch: "Batch 2023-27",
-    host: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    capacity: 120,
-    budget: "₹4,50,000",
-    leadCoordinator: "Dr. Rajesh Kumar",
-  });
+  const openCreateModal = () => {
+    setEditingTour(null);
+    setForm(EMPTY_FORM);
+    setModalOpen(true);
+  };
 
-  const handleCreate = (e) => {
-    e.preventDefault();
-    const created = {
-      id: `IV-2027-0${tours.length + 1}`,
-      ...form,
-      enrolled: 0,
-      status: "Published",
-      complianceCleared: true,
-    };
-    setTours([created, ...tours]);
-    setShowCreateModal(false);
+  const openEditModal = (tour) => {
+    setEditingTour(tour);
     setForm({
-      title: "",
-      department: "Computer Science & Engineering",
-      batch: "Batch 2023-27",
-      host: "",
-      location: "",
-      startDate: "",
-      endDate: "",
-      capacity: 120,
-      budget: "₹4,50,000",
-      leadCoordinator: "Dr. Rajesh Kumar",
+      title: tour.title || "",
+      department: tour.department || "",
+      host: tour.host || "",
+      location: tour.location || "",
+      startDate: tour.startDate || "",
+      endDate: tour.endDate || "",
+      capacity: tour.capacity ?? 120,
+      budget: tour.budget || "",
+      leadCoordinator: tour.leadCoordinator || "",
+      status: tour.status || "Draft",
+      complianceCleared: Boolean(tour.complianceCleared),
     });
-    toast.success(`Master Tour "${created.title}" created and authorized.`);
+    setModalOpen(true);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) {
+      toast.error("Tour title is required.");
+      return;
+    }
+    if (form.endDate && form.startDate && form.endDate < form.startDate) {
+      toast.error("End date must be on or after start date.");
+      return;
+    }
+
+    if (editingTour) {
+      setTours((prev) =>
+        prev.map((t) =>
+          t.id === editingTour.id
+            ? {
+                ...t,
+                ...form,
+                title: form.title.trim(),
+                capacity: Number(form.capacity) || 0,
+              }
+            : t
+        )
+      );
+      toast.success(`Updated "${form.title.trim()}".`);
+    } else {
+      const created = {
+        id: `IV-${Date.now().toString().slice(-4)}`,
+        ...form,
+        title: form.title.trim(),
+        capacity: Number(form.capacity) || 0,
+      };
+      setTours((prev) => [created, ...prev]);
+      toast.success(`Created "${created.title}".`);
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = (tour) => {
+    if (!window.confirm(`Remove "${tour.title}" from Master Registry?`)) return;
+    setTours((prev) => prev.filter((t) => t.id !== tour.id));
+    toast.success(`Removed "${tour.title}".`);
   };
 
   const toggleStatus = (id, newStatus) => {
-    setTours((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
-    );
-    toast.success(`Tour ${id} status updated to ${newStatus}.`);
+    setTours((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+    toast.success(`Tour status updated to ${newStatus}.`);
   };
 
-  const filtered = tours.filter(
-    (t) =>
-      t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = tours.filter((t) => {
+    const q = searchTerm.trim().toLowerCase();
+    return (
+      !q ||
+      (t.title || "").toLowerCase().includes(q) ||
+      (t.location || "").toLowerCase().includes(q) ||
+      (t.host || "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
-
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -154,18 +174,29 @@ export default function AdminVisits() {
             Tour Master Programs
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Institutional authorization, budget approvals, and lead coordinator assignments.
+            Manage program overview metadata, authorization status, and coordinator assignments.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-900 px-5 py-3 text-xs font-bold text-white shadow-md hover:from-emerald-700 hover:to-emerald-800 active:scale-95 self-start sm:self-auto"
-        >
-          <Plus size={16} className="text-amber-300" />
-          <span>Create New Master Program</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => navigate("/admin/itineraries")}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-900 shadow-xs hover:bg-emerald-50"
+          >
+            <Map size={15} />
+            <span>Itinerary Builder</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-900 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:from-emerald-700 hover:to-emerald-800 active:scale-95"
+          >
+            <Plus size={16} className="text-amber-300" />
+            <span>Create New Program</span>
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -173,7 +204,7 @@ export default function AdminVisits() {
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by tour title or destination..."
+          placeholder="Search by tour title, industry, or destination..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs text-gray-900 focus:border-emerald-600 focus:outline-none shadow-sm"
@@ -181,130 +212,164 @@ export default function AdminVisits() {
       </div>
 
       {/* Tours Grid */}
-      <div className="space-y-4">
-        {filtered.map((tour) => (
-          <div
-            key={tour.id}
-            className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md sm:p-7 space-y-4"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-black ${
-                      tour.status === "Published"
-                        ? "bg-emerald-100 text-emerald-900"
-                        : tour.status === "Draft"
-                        ? "bg-amber-100 text-amber-900"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {tour.status}
-                  </span>
-                  <span className="font-mono text-xs font-bold text-gray-400">{tour.id}</span>
-                  <span className="text-xs text-gray-500">• {tour.department}</span>
+      {filtered.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-10 text-center text-xs text-gray-500">
+          No tour programs match your search.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((tour) => (
+            <div
+              key={tour.id}
+              className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md sm:p-7 space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-black ${
+                        tour.status === "Published"
+                          ? "bg-emerald-100 text-emerald-900"
+                          : tour.status === "Draft"
+                          ? "bg-amber-100 text-amber-900"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {tour.status}
+                    </span>
+                    {tour.department && (
+                      <span className="text-xs text-gray-500">• {tour.department}</span>
+                    )}
+                  </div>
+
+                  <h2 className="mt-2 text-lg font-bold text-emerald-950 sm:text-xl">
+                    {tour.title}
+                  </h2>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-600">
+                    {tour.host && (
+                      <span className="flex items-center gap-1">
+                        <Building2 size={14} className="text-emerald-700 shrink-0" />
+                        {tour.host}
+                      </span>
+                    )}
+                    {tour.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin size={14} className="text-emerald-700 shrink-0" />
+                        {tour.location}
+                      </span>
+                    )}
+                    {(tour.startDate || tour.endDate) && (
+                      <span className="flex items-center gap-1 font-bold text-emerald-950">
+                        <Calendar size={14} className="shrink-0" />
+                        {tour.startDate} to {tour.endDate}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <h2 className="mt-2 text-lg font-bold text-emerald-950 sm:text-xl">
-                  {tour.title}
-                </h2>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  {tour.status === "Draft" ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(tour.id, "Published")}
+                      className="rounded-xl bg-emerald-800 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-900"
+                    >
+                      Authorize &amp; Publish
+                    </button>
+                  ) : tour.status === "Published" ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(tour.id, "Draft")}
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                    >
+                      Move to Draft
+                    </button>
+                  ) : null}
 
-                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <Building2 size={14} className="text-emerald-700" />
-                    {tour.host}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin size={14} className="text-emerald-700" />
-                    {tour.location}
-                  </span>
-                  <span className="flex items-center gap-1 font-bold text-emerald-950">
-                    <Calendar size={14} />
-                    {tour.startDate} to {tour.endDate}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(tour)}
+                    aria-label={`Edit ${tour.title}`}
+                    className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-100"
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(tour)}
+                    aria-label={`Delete ${tour.title}`}
+                    className="inline-flex items-center rounded-xl border border-red-200 bg-white p-2 text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                {tour.status === "Draft" ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleStatus(tour.id, "Published")}
-                    className="rounded-xl bg-emerald-800 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-900"
-                  >
-                    Authorize & Publish
-                  </button>
-                ) : tour.status === "Published" ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleStatus(tour.id, "Draft")}
-                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                  >
-                    Hold / Suspend
-                  </button>
-                ) : null}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-gray-100 pt-4 text-xs">
+                <div className="rounded-xl bg-gray-50 p-2.5">
+                  <span className="text-gray-400 font-semibold uppercase text-[10px]">Lead Coordinator</span>
+                  <p className="mt-0.5 font-bold text-emerald-950">{tour.leadCoordinator || "Unassigned"}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-2.5">
+                  <span className="text-gray-400 font-semibold uppercase text-[10px]">Sanctioned Budget</span>
+                  <p className="mt-0.5 font-bold text-emerald-950">{tour.budget || "TBC"}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-2.5">
+                  <span className="text-gray-400 font-semibold uppercase text-[10px]">Planned Capacity</span>
+                  <p className="mt-0.5 font-bold text-emerald-950">
+                    {tour.capacity ? `${tour.capacity} Students` : "TBC"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-2.5">
+                  <span className="text-gray-400 font-semibold uppercase text-[10px]">Statutory Permit</span>
+                  <p className="mt-0.5 font-bold text-emerald-700 flex items-center gap-1">
+                    <CheckCircle2 size={13} />
+                    {tour.complianceCleared ? "Legally Cleared" : "Pending Clearance"}
+                  </p>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 border-t border-gray-100 pt-4 text-xs">
-              <div className="rounded-xl bg-gray-50 p-2.5">
-                <span className="text-gray-400 font-semibold uppercase text-[10px]">Lead Coordinator</span>
-                <p className="mt-0.5 font-bold text-emerald-950">{tour.leadCoordinator}</p>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-2.5">
-                <span className="text-gray-400 font-semibold uppercase text-[10px]">Sanctioned Budget</span>
-                <p className="mt-0.5 font-bold text-emerald-950">{tour.budget}</p>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-2.5">
-                <span className="text-gray-400 font-semibold uppercase text-[10px]">Quota & Enrollment</span>
-                <p className="mt-0.5 font-bold text-emerald-950">
-                  {tour.enrolled} / {tour.capacity} Students
-                </p>
-              </div>
-              <div className="rounded-xl bg-gray-50 p-2.5">
-                <span className="text-gray-400 font-semibold uppercase text-[10px]">Statutory Permit</span>
-                <p className="mt-0.5 font-bold text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 size={13} />
-                  {tour.complianceCleared ? "Legally Cleared" : "Pending Signature"}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Modal */}
-      {showCreateModal && (
+      {/* Create / Edit Modal */}
+      {modalOpen && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          aria-label="Create Master Tour Program"
-          onClick={() => setShowCreateModal(false)}
+          aria-label={editingTour ? "Edit Tour Program" : "Create Master Tour Program"}
+          onClick={() => setModalOpen(false)}
         >
           <div
             className="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="font-extrabold text-emerald-950 text-base">Create Master Tour Program</h3>
+              <h3 className="font-extrabold text-emerald-950 text-base">
+                {editingTour ? "Edit Tour Program" : "Create Master Tour Program"}
+              </h3>
               <button
                 type="button"
-                aria-label="Close create tour modal"
-                onClick={() => setShowCreateModal(false)}
+                aria-label="Close tour modal"
+                onClick={() => setModalOpen(false)}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleSubmit} className="mt-4 space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-gray-700">Tour Program Title</label>
+                <label className="block font-bold text-gray-700">Tour Program Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Pune Cyber Infrastructure & Automotive Tour 2027"
+                  placeholder="e.g. Industrial Visit 2026 — Rajasthan & Delhi"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
@@ -313,22 +378,20 @@ export default function AdminVisits() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block font-bold text-gray-700">Host Institutions</label>
+                  <label className="block font-bold text-gray-700">Industries / Host Institutions</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Tata Motors & CDAC"
+                    placeholder="e.g. Odoo India, Sense Electricals, IIT Delhi"
                     value={form.host}
                     onChange={(e) => setForm({ ...form, host: e.target.value })}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-gray-700">Location</label>
+                  <label className="block font-bold text-gray-700">Destination Route</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Pune, MH"
+                    placeholder="e.g. Ahmedabad → Udaipur → Delhi"
                     value={form.location}
                     onChange={(e) => setForm({ ...form, location: e.target.value })}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
@@ -336,9 +399,30 @@ export default function AdminVisits() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block font-bold text-gray-700">Start Date</label>
+                  <label className="block font-bold text-gray-700">Department / Batch</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-700">Lead Coordinator</label>
+                  <input
+                    type="text"
+                    value={form.leadCoordinator}
+                    onChange={(e) => setForm({ ...form, leadCoordinator: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div>
+                  <label className="block font-bold text-gray-700">Start Date *</label>
                   <input
                     type="date"
                     required
@@ -348,7 +432,7 @@ export default function AdminVisits() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-gray-700">End Date</label>
+                  <label className="block font-bold text-gray-700">End Date *</label>
                   <input
                     type="date"
                     required
@@ -358,10 +442,20 @@ export default function AdminVisits() {
                   />
                 </div>
                 <div>
+                  <label className="block font-bold text-gray-700">Capacity</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.capacity}
+                    onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
                   <label className="block font-bold text-gray-700">Budget</label>
                   <input
                     type="text"
-                    required
+                    placeholder="TBC"
                     value={form.budget}
                     onChange={(e) => setForm({ ...form, budget: e.target.value })}
                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-gray-900 focus:border-emerald-600 focus:outline-none"
@@ -369,10 +463,20 @@ export default function AdminVisits() {
                 </div>
               </div>
 
+              <label className="inline-flex items-center gap-2 font-bold text-gray-700 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={form.complianceCleared}
+                  onChange={(e) => setForm({ ...form, complianceCleared: e.target.checked })}
+                  className="h-4 w-4 rounded text-emerald-700"
+                />
+                <span>Statutory &amp; transit compliance cleared</span>
+              </label>
+
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => setModalOpen(false)}
                   className="rounded-xl border border-gray-200 px-4 py-2 font-bold text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
@@ -381,7 +485,7 @@ export default function AdminVisits() {
                   type="submit"
                   className="rounded-xl bg-emerald-800 px-5 py-2 font-bold text-white shadow-sm hover:bg-emerald-900"
                 >
-                  Create & Authorize
+                  {editingTour ? "Save Changes" : "Create Program"}
                 </button>
               </div>
             </form>

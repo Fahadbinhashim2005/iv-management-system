@@ -1,58 +1,118 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Activity, Search, Clock, Download } from "lucide-react";
+import { Activity, Search, Clock, Download, RefreshCw } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "../../lib/supabaseClient";
 import { downloadCsvFile } from "../../lib/exportUtils";
 
-const BASE_LOGS = [
-  { id: "sys-1", event: "Tranche 1 Disbursed", details: "₹2,50,000 transferred to Lead Coordinator Dr. Rajesh Kumar", actor: "Prof. Dr. K. Narayanan (Admin)", time: "Today, 10:45 AM", type: "Finance" },
-  { id: "sys-2", event: "Manual Attendance Override", details: "Student CS-2026-042 (Sneha Sharma) marked Present at Gate 2", actor: "Dr. Rajesh Kumar (Coordinator)", time: "Today, 10:15 AM", type: "Attendance" },
-  { id: "sys-3", event: "Itinerary Milestone Added", details: "Inserted CDAC Lab Tour slot for Day 2 11:30 AM", actor: "Prof. Anjali Menon", time: "Yesterday, 06:20 PM", type: "Itinerary" },
-  { id: "sys-4", event: "RTO Transit Permit Uploaded", details: "Police transit pass GJ-2026-9921 verified and attached", actor: "Administrative Office", time: "Yesterday, 02:00 PM", type: "Compliance" },
-  { id: "sys-5", event: "Emergency SMS Dispatched", details: "Broadcasting checklist to 4 pending students", actor: "Automated System Alert", time: "Nov 20, 09:30 AM", type: "System" },
-];
-
-const CATEGORIES = ["All", "Room", "Finance", "Attendance", "Itinerary", "Compliance", "System"];
+const CATEGORIES = ["All", "Itinerary", "Room", "Admin"];
 
 export default function AdminLogs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("All");
-  const [liveRoomLogs, setLiveRoomLogs] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
-    let active = true;
-    supabase
-      .from("room_audit_log")
-      .select("id, action, detail, created_at, actor_id")
-      .order("created_at", { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (!active || error || !Array.isArray(data)) return;
-        const formatted = data.map((row) => ({
-          id: `room-${row.id}`,
-          event: `Room: ${row.action.replaceAll("_", " ")}`,
-          details: row.detail ? JSON.stringify(row.detail) : "Room allocation state transition",
-          actor: row.actor_id ? `User ${String(row.actor_id).slice(0, 8)}...` : "System",
-          time: new Date(row.created_at).toLocaleString([], {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          type: "Room",
-        }));
-        setLiveRoomLogs(formatted);
-      })
-      .catch(() => {});
+  const loadLogs = useCallback(async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setLogs([]);
+      return;
+    }
 
-    return () => {
-      active = false;
-    };
+    setLoading(true);
+    try {
+      const [roomRes, itinRes, adminRes] = await Promise.all([
+        supabase
+          .from("room_audit_log")
+          .select("id, action, detail, created_at, actor_id")
+          .order("created_at", { ascending: false })
+          .limit(30),
+        supabase
+          .from("itinerary_changes")
+          .select("id, entity, action, before, after, created_at, actor")
+          .order("created_at", { ascending: false })
+          .limit(30),
+        supabase
+          .from("audit_logs")
+          .select("id, action, resource_type, details, created_at, actor_id")
+          .order("created_at", { ascending: false })
+          .limit(30),
+      ]);
+
+      const merged = [];
+
+      if (Array.isArray(itinRes.data)) {
+        for (const row of itinRes.data) {
+          const title = row.after?.title || row.before?.title || row.entity;
+          merged.push({
+            id: `itin-${row.id}`,
+            event: `Itinerary ${row.action}: ${row.entity}`,
+            details: String(title || "Itinerary update"),
+            actor: row.actor ? `Staff ${String(row.actor).slice(0, 8)}` : "System / SQL",
+            createdAt: row.created_at,
+            time: new Date(row.created_at).toLocaleString([], {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            type: "Itinerary",
+          });
+        }
+      }
+
+      if (Array.isArray(roomRes.data)) {
+        for (const row of roomRes.data) {
+          merged.push({
+            id: `room-${row.id}`,
+            event: `Room: ${String(row.action || "").replaceAll("_", " ")}`,
+            details: row.detail ? JSON.stringify(row.detail) : "Room allocation state transition",
+            actor: row.actor_id ? `User ${String(row.actor_id).slice(0, 8)}` : "System",
+            createdAt: row.created_at,
+            time: new Date(row.created_at).toLocaleString([], {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            type: "Room",
+          });
+        }
+      }
+
+      if (Array.isArray(adminRes.data)) {
+        for (const row of adminRes.data) {
+          merged.push({
+            id: `adm-${row.id}`,
+            event: `${row.action} (${row.resource_type})`,
+            details: row.details ? JSON.stringify(row.details) : "Administrative action",
+            actor: row.actor_id ? `Admin ${String(row.actor_id).slice(0, 8)}` : "System",
+            createdAt: row.created_at,
+            time: new Date(row.created_at).toLocaleString([], {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            type: "Admin",
+          });
+        }
+      }
+
+      merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setLogs(merged);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const allLogs = [...liveRoomLogs, ...BASE_LOGS];
-  const filtered = allLogs.filter((l) => {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void loadLogs();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [loadLogs]);
+
+  const filtered = logs.filter((l) => {
     const matchesType = selectedType === "All" || l.type === selectedType;
     const q = searchTerm.trim().toLowerCase();
     const matchesSearch =
@@ -77,23 +137,36 @@ export default function AdminLogs() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-emerald-800">System Governance & Audit Trail</p>
+          <p className="text-sm font-semibold text-emerald-800">System Governance &amp; Audit Trail</p>
           <h1 className="mt-1 text-2xl font-black text-emerald-950 sm:text-3xl">
-            Security & Operational Audit Logs
+            Security &amp; Operational Audit Logs
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Cryptographically immutable event log of all administrative authorizations, room updates, overrides, and fund movements.
+            Live database trail of itinerary changes, room allocations, and administrative approvals.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleExportLogs}
-          className="inline-flex items-center gap-1.5 self-start rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-xs hover:bg-gray-50 sm:self-auto"
-        >
-          <Download size={15} className="text-emerald-800" />
-          <span>Export CSV</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={loadLogs}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-xs hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportLogs}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-xs hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Download size={15} className="text-emerald-800" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Category Filter */}
@@ -131,9 +204,11 @@ export default function AdminLogs() {
 
       {/* Logs Feed */}
       <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-7 space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <p className="py-8 text-center text-xs text-gray-500">Loading audit events...</p>
+        ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-xs text-gray-500">
-            No audit events match your current search or category filter.
+            No live audit events found for the current filter.
           </p>
         ) : (
           filtered.map((log) => (

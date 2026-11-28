@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Compass, ShieldCheck, MapPin, Sparkles } from "lucide-react";
+import { tripConfig } from "../config/tripConfig";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -105,8 +106,8 @@ const LandingPage = () => {
           <div className="flex items-center gap-3 p-2">
             <MapPin size={24} className="text-emerald-400 shrink-0" />
             <div>
-              <p className="text-xs font-bold">GIFT City & Ahmedabad</p>
-              <p className="text-[11px] text-white/70">FinTech & Aerospace Tour</p>
+              <p className="text-xs font-bold">{tripConfig.trip.destination}</p>
+              <p className="text-[11px] text-white/70">Rajasthan &amp; Delhi Industrial Tour</p>
             </div>
           </div>
           <div className="flex items-center gap-3 p-2 border-t sm:border-t-0 sm:border-l border-white/10">
@@ -119,8 +120,8 @@ const LandingPage = () => {
           <div className="flex items-center gap-3 p-2 border-t sm:border-t-0 sm:border-l border-white/10">
             <Compass size={24} className="text-emerald-400 shrink-0" />
             <div>
-              <p className="text-xs font-bold">4 Days • Dec 5-8</p>
-              <p className="text-[11px] text-white/70">Buses, Hotel & Itinerary</p>
+              <p className="text-xs font-bold">{tripConfig.trip.dateRangeLabel}</p>
+              <p className="text-[11px] text-white/70">Itinerary, Rooms &amp; Helplines</p>
             </div>
           </div>
         </div>

@@ -1,60 +1,98 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Users,
-  Coins,
   ShieldCheck,
   Plus,
-  CheckCircle2,
   Lock,
   Clock,
   ArrowRight,
   BedDouble,
+  Map,
+  QrCode,
+  Edit3,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "../../services/api";
 import { roomsApi } from "../../features/rooms/api/roomsApi";
+import { itineraryApi } from "../../features/itinerary/api/itineraryApi";
+import { attendanceApi } from "../../features/attendance/api/attendanceApi";
+import { tripConfig } from "../../config/tripConfig";
+import { formatShortDate } from "../../features/itinerary/lib/time";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [registrationsLocked, setRegistrationsLocked] = useState(false);
+  const [registrationsLocked, setRegistrationsLocked] = useState(() => {
+    try {
+      return localStorage.getItem("iv_admin_roster_locked") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [loading, setLoading] = useState(true);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [students, setStudents] = useState([]);
+  const [coordinators, setCoordinators] = useState([]);
+  const [itineraries, setItineraries] = useState([]);
   const [stays, setStays] = useState([]);
+  const [sessions, setSessions] = useState([]);
+
+  const loadOverview = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [reqRes, stuRes, coordRes, itinRes, staysRes, sessRes] = await Promise.all([
+        api.getAccessRequests().catch(() => ({ count: 0 })),
+        api.getAdminUsers("student", "approved").catch(() => ({ users: [] })),
+        api.getAdminUsers("coordinator", "approved").catch(() => ({ users: [] })),
+        itineraryApi.listAll().catch(() => []),
+        roomsApi.listStays().catch(() => []),
+        attendanceApi.listSessions().catch(() => []),
+      ]);
+
+      setPendingRequestsCount(reqRes?.count || 0);
+      setStudents(Array.isArray(stuRes?.users) ? stuRes.users : []);
+      setCoordinators(Array.isArray(coordRes?.users) ? coordRes.users : []);
+      setItineraries(Array.isArray(itinRes) ? itinRes : []);
+      setStays(Array.isArray(staysRes) ? staysRes : []);
+      setSessions(Array.isArray(sessRes) ? sessRes : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    api
-      .getAccessRequests()
-      .then((res) => {
-        if (active && res?.count) setPendingRequestsCount(res.count);
-      })
-      .catch(() => {});
-
-    roomsApi
-      .listStays()
-      .then((data) => {
-        if (active && Array.isArray(data)) setStays(data);
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    const t = setTimeout(() => {
+      void loadOverview();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [loadOverview]);
 
   const handleToggleLock = () => {
     const next = !registrationsLocked;
     setRegistrationsLocked(next);
+    try {
+      localStorage.setItem("iv_admin_roster_locked", String(next));
+    } catch {
+      // Ignore storage write errors
+    }
     toast.success(
       next
-        ? "Student registrations locked. Final participant roster frozen."
-        : "Student registration portal unlocked for all departments."
+        ? "Roster lock flag saved locally. New sign-ins still require manual approval."
+        : "Roster lock cleared."
     );
   };
 
   const totalRoomsCount = stays.reduce((acc, s) => acc + (s.summary?.roomCount || 0), 0);
   const occupiedBedsCount = stays.reduce((acc, s) => acc + (s.summary?.occupiedBeds || 0), 0);
   const totalBedsCount = stays.reduce((acc, s) => acc + (s.summary?.totalBeds || 0), 0);
+  const missingGenderCount = students.filter((s) => !s.gender).length;
+  const activeSessionsCount = sessions.filter((s) => s.status === "active").length;
+  const activeItinerary =
+    itineraries.find((i) => i.is_active && i.status === "published") ||
+    itineraries.find((i) => i.status === "published") ||
+    itineraries[0] ||
+    null;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -75,366 +113,338 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => navigate("/admin/students")}
-              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-black text-white hover:bg-amber-700 transition"
-            >
-              <span>Review Requests</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/students")}
+            className="flex items-center gap-1 self-start sm:self-auto rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-black text-white hover:bg-amber-700 transition"
+          >
+            <span>Review Requests</span>
+            <ArrowRight size={13} />
+          </button>
         </div>
       )}
 
       {/* Header */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-xs font-black text-amber-900 uppercase tracking-wider">
               Institutional Master Deck
             </span>
-            <span className="text-xs text-gray-500 font-semibold">• All Departments & Batches</span>
+            <span className="text-xs text-gray-500 font-semibold">
+              • {tripConfig.trip.dateRangeLabel}
+            </span>
           </div>
           <h1 className="mt-1 text-2xl font-black text-emerald-950 sm:text-3xl">
             Chief Tour Administrator Console
           </h1>
           <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-            Institutional oversight for budgets, faculty authorization, safety compliance, and multi-trip management.
+            {tripConfig.trip.displayName} ({tripConfig.trip.route})
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={() => navigate("/admin/rooms")}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-900 shadow-sm transition hover:bg-emerald-50 active:scale-95"
+            onClick={loadOverview}
+            disabled={loading}
+            aria-label="Refresh dashboard data"
+            className="flex min-h-[42px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-60"
           >
-            <BedDouble size={15} />
-            <span>
-              Rooms{totalRoomsCount > 0 ? ` (${occupiedBedsCount}/${totalBedsCount})` : ""}
-            </span>
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <span>Refresh</span>
           </button>
 
           <button
             type="button"
             onClick={handleToggleLock}
             aria-pressed={registrationsLocked}
-            className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-black transition shadow-sm active:scale-95 ${
+            className={`flex min-h-[42px] items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-black transition shadow-sm active:scale-95 ${
               registrationsLocked
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-emerald-900"
             }`}
           >
-            <Lock size={15} />
-            <span>{registrationsLocked ? "Unlock Registrations" : "Freeze All Rosters"}</span>
+            <Lock size={14} />
+            <span>{registrationsLocked ? "Roster Frozen" : "Freeze Rosters"}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => navigate("/admin/visits")}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-900 px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:from-emerald-700 hover:to-emerald-800 active:scale-95"
+            onClick={() =>
+              navigate(
+                activeItinerary
+                  ? `/admin/itineraries/${activeItinerary.id}`
+                  : "/admin/itineraries"
+              )
+            }
+            className="flex min-h-[42px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-900 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:from-emerald-700 hover:to-emerald-800 active:scale-95"
           >
-            <Plus size={16} className="text-amber-300" />
-            <span>Create Master Tour</span>
+            <Plus size={15} className="text-amber-300" />
+            <span>{activeItinerary ? "Edit Active Itinerary" : "Open Itinerary Builder"}</span>
           </button>
         </div>
       </header>
 
-      {/* 4 Super Metrics */}
+      {/* 4 Live Metrics */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Metric 1 */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => navigate("/admin/students")}
+          className="text-left rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+        >
           <div className="flex items-center justify-between text-gray-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Total Sanctioned</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-              <Coins size={18} />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">₹12.80 L</p>
-          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-bold text-emerald-700">3 Tours Budgeted</span>
-            <span>₹4.85L Committed</span>
-          </div>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Total Participants</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+              Approved Students
+            </span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <Users size={18} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">342</p>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {students.length}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-bold text-emerald-600">3 Batches (CSE/ECE)</span>
-            <span>96% Cap Occupied</span>
+            <span className={missingGenderCount > 0 ? "font-bold text-amber-700" : "font-bold text-emerald-700"}>
+              {missingGenderCount > 0 ? `${missingGenderCount} missing gender` : "Roster ready"}
+            </span>
+            <span>{pendingRequestsCount} pending</span>
           </div>
-        </div>
+        </button>
 
-        {/* Metric 3 */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => navigate("/admin/coordinators")}
+          className="text-left rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+        >
           <div className="flex items-center justify-between text-gray-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Faculty Officers</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+              Coordinators
+            </span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
               <ShieldCheck size={18} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">14 Leads</p>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {coordinators.length}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-semibold text-blue-700">All Roles Assigned</span>
-            <span>Ratio 1:24</span>
+            <span className="font-semibold text-blue-700">
+              {coordinators.filter((c) => (c.coordinator_type || "faculty") === "faculty").length} Faculty
+            </span>
+            <span>
+              {coordinators.filter((c) => c.coordinator_type === "student").length} Student Leads
+            </span>
           </div>
-        </div>
+        </button>
 
-        {/* Metric 4 */}
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => navigate("/admin/rooms")}
+          className="text-left rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+        >
           <div className="flex items-center justify-between text-gray-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">Statutory Clearances</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
-              <CheckCircle2 size={18} />
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+              Room Allocation
+            </span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+              <BedDouble size={18} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">100%</p>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {totalRoomsCount > 0 ? `${occupiedBedsCount}/${totalBedsCount}` : "Not set"}
+          </p>
           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="font-bold text-emerald-700">Police & RTO Ready</span>
-            <span>3 Bus Permits</span>
+            <span className="font-bold text-emerald-700">
+              {stays.length} stay{stays.length === 1 ? "" : "s"}
+            </span>
+            <span>{totalRoomsCount} rooms</span>
           </div>
-        </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/admin/attendance")}
+          className="text-left rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-emerald-200"
+        >
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+              QR Attendance
+            </span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
+              <QrCode size={18} />
+            </div>
+          </div>
+          <p className="mt-3 text-2xl font-black text-emerald-950 sm:text-3xl">
+            {activeSessionsCount} Live
+          </p>
+          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <span className="font-bold text-emerald-700">{sessions.length} total sessions</span>
+            <span>Tap to open</span>
+          </div>
+        </button>
       </section>
 
-      {/* Master Tour Programs Table Overview */}
+      {/* Live Itineraries Overview */}
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 sm:p-7 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-100 pb-4">
           <div>
-            <h2 className="text-lg font-black text-emerald-950">Active Institutional Visit Programs</h2>
+            <h2 className="text-lg font-black text-emerald-950">Itineraries &amp; Live Schedule</h2>
             <p className="text-xs text-gray-500">
-              Oversee master authorization states, budgets, and lead faculty coordinators across all departments.
+              Manage published itineraries, upload hero photography, and control active trip visibility.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => navigate("/admin/visits")}
-            className="text-xs font-bold text-emerald-800 hover:underline"
+            onClick={() => navigate("/admin/itineraries")}
+            className="text-xs font-bold text-emerald-800 hover:underline self-start sm:self-auto"
           >
-            Manage Master Registry →
+            Open Itinerary Builder →
           </button>
         </div>
 
-        {/* Mobile Cards for Active Tours */}
-        <div className="space-y-3 md:hidden">
-          <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-2.5 text-xs">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-bold text-emerald-950 text-sm">Industrial Visit 2026 — GIFT City & Tech Hub</p>
-                <p className="text-gray-500 text-[11px]">Dec 5 - Dec 8, 2026 • Computer Science & Eng.</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
-                Published
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-gray-600">
-              <span>Lead: <strong className="text-gray-900">Dr. Rajesh Kumar</strong></span>
-              <span className="font-bold text-emerald-950">₹5,40,000 • 128/135</span>
-            </div>
+        {itineraries.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 p-6 text-center space-y-3">
+            <Map size={28} className="mx-auto text-emerald-700 opacity-70" />
+            <p className="text-xs font-bold text-gray-800">
+              No itineraries saved in the database yet.
+            </p>
+            <p className="text-[11px] text-gray-500 max-w-md mx-auto">
+              Create your trip in Itinerary Builder or run the SQL seed script, then publish it so students see it live.
+            </p>
             <button
               type="button"
-              onClick={() => navigate("/coordinator/dashboard")}
-              className="w-full rounded-xl bg-emerald-50 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+              onClick={() => navigate("/admin/itineraries")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#065F46] px-4 py-2 text-xs font-bold text-white hover:bg-emerald-900"
             >
-              Open Coordinator Deck
+              <Plus size={14} /> Open Itinerary Builder
             </button>
           </div>
+        ) : (
+          <div className="space-y-3">
+            {itineraries.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-gray-100 bg-gray-50/70 p-4 text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                        item.status === "published"
+                          ? "bg-emerald-100 text-emerald-900"
+                          : item.status === "archived"
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-amber-100 text-amber-900"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                    {item.is_active && (
+                      <span className="rounded-full bg-emerald-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
+                        Active
+                      </span>
+                    )}
+                    <span className="text-gray-500 font-semibold">
+                      {formatShortDate(item.start_date)} – {formatShortDate(item.end_date)}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 font-extrabold text-emerald-950 text-sm">{item.title}</p>
+                  {item.subtitle && (
+                    <p className="truncate text-[11px] text-gray-600">{item.subtitle}</p>
+                  )}
+                </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-2.5 text-xs">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-bold text-emerald-950 text-sm">Bangalore Tech Park & Aerospace Study Tour</p>
-                <p className="text-gray-500 text-[11px]">Feb 12 - Feb 16, 2027 • Batch 2024-28 (Sem 3)</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/itineraries/${item.id}`)}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#065F46] px-4 py-2 text-xs font-bold text-white hover:bg-emerald-900"
+                >
+                  <Edit3 size={14} />
+                  <span>Edit Stops &amp; Photos</span>
+                </button>
               </div>
-              <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black text-amber-900">
-                Dean Review
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-gray-600">
-              <span>Lead: <strong className="text-gray-900">Prof. Vikram Mohan</strong></span>
-              <span className="font-bold text-emerald-950">₹4,20,000 • 84/120</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate("/admin/visits")}
-              className="w-full rounded-xl border border-gray-200 bg-white py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
-            >
-              Authorize Tour
-            </button>
+            ))}
           </div>
-        </div>
-
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
-              <tr>
-                <th className="px-4 py-3">Program Details</th>
-                <th className="px-4 py-3">Lead Coordinator</th>
-                <th className="px-4 py-3">Budget Authorized</th>
-                <th className="px-4 py-3">Capacity & Roster</th>
-                <th className="px-4 py-3">Governance Status</th>
-                <th className="px-4 py-3 text-right">Master Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {/* Tour 1 */}
-              <tr className="hover:bg-gray-50/60 transition">
-                <td className="px-4 py-3.5">
-                  <p className="font-bold text-emerald-950 text-sm">Industrial Visit 2026 — GIFT City & Tech Hub</p>
-                  <p className="text-gray-500 text-[11px]">Dec 5 - Dec 8, 2026 • Computer Science & Eng.</p>
-                </td>
-                <td className="px-4 py-3.5">
-                  <p className="font-semibold text-gray-900">Dr. Rajesh Kumar</p>
-                  <p className="text-[10px] text-emerald-800 font-bold">HOD & Lead Coordinator</p>
-                </td>
-                <td className="px-4 py-3.5 font-bold text-emerald-950">₹5,40,000</td>
-                <td className="px-4 py-3.5">
-                  <p className="font-bold text-emerald-950">128 / 135 Students</p>
-                  <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-200">
-                    <div className="h-1.5 rounded-full bg-emerald-600" style={{ width: "95%" }} />
-                  </div>
-                </td>
-                <td className="px-4 py-3.5">
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
-                    Published & Cleared
-                  </span>
-                </td>
-                <td className="px-4 py-3.5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/coordinator/dashboard")}
-                    className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
-                  >
-                    Open Deck
-                  </button>
-                </td>
-              </tr>
-
-              {/* Tour 2 */}
-              <tr className="hover:bg-gray-50/60 transition">
-                <td className="px-4 py-3.5">
-                  <p className="font-bold text-emerald-950 text-sm">Bangalore Tech Park & Aerospace Study Tour</p>
-                  <p className="text-gray-500 text-[11px]">Feb 12 - Feb 16, 2027 • Batch 2024-28 (Semester 3)</p>
-                </td>
-                <td className="px-4 py-3.5">
-                  <p className="font-semibold text-gray-900">Prof. Vikram Mohan</p>
-                  <p className="text-[10px] text-blue-800 font-bold">Associate Coordinator</p>
-                </td>
-                <td className="px-4 py-3.5 font-bold text-emerald-950">₹4,20,000</td>
-                <td className="px-4 py-3.5">
-                  <p className="font-bold text-emerald-950">84 / 120 Students</p>
-                  <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-200">
-                    <div className="h-1.5 rounded-full bg-amber-500" style={{ width: "70%" }} />
-                  </div>
-                </td>
-                <td className="px-4 py-3.5">
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black text-amber-900">
-                    Under Dean Review
-                  </span>
-                </td>
-                <td className="px-4 py-3.5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/visits")}
-                    className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                  >
-                    Authorize
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        )}
       </section>
 
-      {/* Governance & Institutional Clearance Alerts */}
+      {/* Bottom 2-Column Overview */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Statutory Permits & Clearance */}
+        {/* Registered Coordinators */}
         <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-black text-emerald-950 text-sm">Legal & Police Transit Clearances</h3>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-              All Clear
-            </span>
-          </div>
-
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span className="font-bold text-gray-800">RTO Inter-State Highway Police Transit Pass</span>
-              </div>
-              <span className="font-mono text-[10px] text-gray-500">RTO-GJ-2026-9921</span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span className="font-bold text-gray-800">GIFT City Security Visitor Protocol Pass</span>
-              </div>
-              <span className="font-mono text-[10px] text-gray-500">GIFT-SEC-842</span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span className="font-bold text-gray-800">ISRO SAC Ahmedabad Educational Group Clearance</span>
-              </div>
-              <span className="font-mono text-[10px] text-gray-500">ISRO-SAC-EDU-411</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Master Coordinator Roster */}
-        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-black text-emerald-950 text-sm">Faculty Coordinator Assignments</h3>
+            <h3 className="font-black text-emerald-950 text-sm">Registered Coordinators</h3>
             <button
               type="button"
               onClick={() => navigate("/admin/coordinators")}
               className="text-xs font-bold text-emerald-800 hover:underline"
             >
-              Configure Leads →
+              Manage Coordinators →
+            </button>
+          </div>
+
+          {coordinators.length === 0 ? (
+            <p className="rounded-xl bg-gray-50 p-4 text-xs text-gray-500">
+              No approved coordinators registered yet. Approve sign-in requests or appoint coordinators in{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/admin/coordinators")}
+                className="font-bold text-emerald-800 underline"
+              >
+                Faculty &amp; Coordinators
+              </button>
+              .
+            </p>
+          ) : (
+            <div className="space-y-2.5 text-xs">
+              {coordinators.slice(0, 5).map((coord) => (
+                <div
+                  key={coord.id}
+                  className="flex items-center justify-between rounded-xl bg-gray-50 p-3 gap-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-emerald-950">
+                      {coord.full_name || coord.email}
+                    </p>
+                    <p className="truncate text-[10px] text-gray-500">
+                      {coord.department || "Department not set"}
+                      {coord.phone ? ` • ${coord.phone}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
+                    {coord.coordinator_type === "student" ? "Student Lead" : "Faculty Lead"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Planned Industries & Trip Highlights */}
+        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-emerald-950 text-sm">Scheduled Industries &amp; Destinations</h3>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/visits")}
+              className="text-xs font-bold text-emerald-800 hover:underline"
+            >
+              Tour Registry →
             </button>
           </div>
 
           <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div>
-                <p className="font-bold text-emerald-950">Dr. Rajesh Kumar (HOD)</p>
-                <p className="text-[10px] text-gray-500">Lead Tour Commander • GIFT City Tour</p>
+            {(tripConfig.trip.industries || []).map((ind) => (
+              <div key={ind} className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
+                <span className="font-bold text-emerald-950">{ind}</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  Scheduled
+                </span>
               </div>
-              <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                Active Lead
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div>
-                <p className="font-bold text-emerald-950">Prof. Anjali Menon</p>
-                <p className="text-[10px] text-gray-500">Logistics & Hotel In-Charge • Bus 04 Lead</p>
-              </div>
-              <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-900">
-                Logistics Lead
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3">
-              <div>
-                <p className="font-bold text-emerald-950">Prof. Vikram Mohan</p>
-                <p className="text-[10px] text-gray-500">Safety & Medical Protocol Officer</p>
-              </div>
-              <span className="rounded bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900">
-                Medical Officer
-              </span>
+            ))}
+            <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 text-[11px] text-gray-600">
+              <strong className="text-gray-800">Route:</strong> {tripConfig.trip.route}
             </div>
           </div>
         </section>

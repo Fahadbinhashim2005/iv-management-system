@@ -299,7 +299,7 @@ export function AuthProvider({ children }) {
         } else if (error) {
           if (error.message?.toLowerCase().includes('email not confirmed')) {
             console.warn('[AuthContext] Email not confirmed yet. Checking backend auto-confirm...');
-          } else if (cleanEmail !== 'admin@college.edu' && !error.message.includes('fetch')) {
+          } else if (!error.message.includes('fetch')) {
             setAuthError(error.message);
             throw error;
           }
@@ -315,7 +315,7 @@ export function AuthProvider({ children }) {
         ) {
           setAuthError(err.message);
           throw err;
-        } else if (cleanEmail !== 'admin@college.edu' && err.message && !err.message.includes('fetch')) {
+        } else if (err.message && !err.message.includes('fetch')) {
           setAuthError(err.message);
           throw err;
         }
@@ -363,33 +363,32 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // 3. Offline Dev Mode Admin Fallback (strict password check, NEVER || password.length >= 6!)
-    const adminPassword = import.meta.env.VITE_ADMIN_FALLBACK_PASSWORD || 'Admin@IV2026!';
-    if (cleanEmail === 'admin@college.edu' && password === adminPassword) {
-      const adminProfile = {
-        id: 'usr_admin_01',
-        email: 'admin@college.edu',
-        full_name: 'Chief Administrator',
-        role: 'admin',
-        approval_status: 'approved',
-        is_active: true,
-        must_change_password: false,
-      };
-      const adminUser = {
-        id: 'usr_admin_01',
-        email: 'admin@college.edu',
-        user_metadata: { full_name: 'Chief Administrator' },
-      };
-      setSession({ access_token: 'demo_token_admin', user: adminUser });
-      setUser(adminUser);
-      setProfile(adminProfile);
-      localStorage.setItem('iv_auth_token', 'demo_token_admin');
-      localStorage.setItem('iv_user', JSON.stringify(adminProfile));
-      return { user: adminUser, profile: adminProfile };
-    }
-
-    // 4. Offline dev users (ONLY when Supabase isn't configured)
+    // 3. Offline Dev Mode Fallbacks (ONLY when Supabase isn't configured)
     if (!isSupabaseConfigured) {
+      const adminPassword = import.meta.env.VITE_ADMIN_FALLBACK_PASSWORD || 'Admin@IV2026!';
+      if (cleanEmail === 'admin@college.edu' && password === adminPassword) {
+        const adminProfile = {
+          id: 'usr_admin_01',
+          email: 'admin@college.edu',
+          full_name: 'Chief Administrator',
+          role: 'admin',
+          approval_status: 'approved',
+          is_active: true,
+          must_change_password: false,
+        };
+        const adminUser = {
+          id: 'usr_admin_01',
+          email: 'admin@college.edu',
+          user_metadata: { full_name: 'Chief Administrator' },
+        };
+        setSession({ access_token: 'demo_token_admin', user: adminUser });
+        setUser(adminUser);
+        setProfile(adminProfile);
+        localStorage.setItem('iv_auth_token', 'demo_token_admin');
+        localStorage.setItem('iv_user', JSON.stringify(adminProfile));
+        return { user: adminUser, profile: adminProfile };
+      }
+
       const offlineUsers = JSON.parse(localStorage.getItem('iv_demo_users') || '[]');
       const found = offlineUsers.find((u) => u.email.toLowerCase() === cleanEmail);
 

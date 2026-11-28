@@ -344,6 +344,7 @@ export const itineraryApi = {
 
   async reorderDays(days) {
     assertSupabase();
+    const base = days.some((d) => d.day_number === 0) ? 0 : 1;
     // Temporarily offset day_number to avoid unique constraint collisions
     for (let i = 0; i < days.length; i++) {
       const { error } = await supabase
@@ -355,7 +356,7 @@ export const itineraryApi = {
     for (let i = 0; i < days.length; i++) {
       const { error } = await supabase
         .from("itinerary_days")
-        .update({ day_number: i + 1 })
+        .update({ day_number: base + i })
         .eq("id", days[i].id);
       if (error) throw error;
     }

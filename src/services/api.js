@@ -308,7 +308,7 @@ export const api = {
     if (isSupabaseConfigured && supabase) {
       let query = supabase
         .from('profiles')
-        .select('id, email, full_name, role, gender, phone, roll_no, department, batch, is_active, approval_status, created_at')
+        .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, created_at')
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
 
@@ -463,7 +463,7 @@ export const api = {
     if (isSupabaseConfigured && supabase) {
       let query = supabase
         .from('profiles')
-        .select('id, email, full_name, role, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
+        .select('id, email, full_name, role, coordinator_type, gender, phone, roll_no, department, batch, semester, is_active, approval_status, avatar_type, avatar_url, created_at')
         .order('created_at', { ascending: false });
 
       if (status && status !== 'all') query = query.eq('approval_status', status);
@@ -577,11 +577,14 @@ export const api = {
           email,
           full_name: userData.full_name,
           role: userData.role,
+          coordinator_type:
+            userData.role === 'coordinator' ? userData.coordinator_type || 'faculty' : null,
           gender: userData.gender || null,
           phone: userData.phone || null,
           roll_no: details.roll_no || null,
           department: details.department || 'Computer Science & Engineering',
           batch: details.batch || '2023-27',
+          semester: details.semester ? Number(details.semester) : null,
           approval_status: 'approved',
           is_active: true,
           must_change_password: false,
@@ -653,12 +656,24 @@ export const api = {
 
   async updateAdminUser(id, updates) {
     if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from('profiles').update(updates).eq('id', id);
-      if (!error) return { success: true };
-      return await request(`/admin/users/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', id)
+        .select('id');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return { success: true };
+      }
+      try {
+        return await request(`/admin/users/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        });
+      } catch (backendErr) {
+        throw new Error(error?.message || backendErr?.message || 'Failed to update user.', {
+          cause: backendErr,
+        });
+      }
     }
 
     try {

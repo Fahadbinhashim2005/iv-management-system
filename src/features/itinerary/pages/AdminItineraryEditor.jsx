@@ -16,6 +16,7 @@ import {
   Save,
   Loader2,
   X,
+  Star,
 } from "lucide-react";
 import { itineraryApi } from "../api/itineraryApi";
 import { useItinerary } from "../hooks/useItinerary";
@@ -50,6 +51,7 @@ export default function AdminItineraryEditor() {
 
   // Day metadata form
   const [dayForm, setDayForm] = useState({
+    day_number: 1,
     title: "",
     subtitle: "",
     date: "",
@@ -90,6 +92,7 @@ export default function AdminItineraryEditor() {
     if (!currentDay) return;
     const t = setTimeout(() => {
       setDayForm({
+        day_number: currentDay.day_number ?? 1,
         title: currentDay.title || "",
         subtitle: currentDay.subtitle || "",
         date: currentDay.date || "",
@@ -163,8 +166,19 @@ export default function AdminItineraryEditor() {
     }
   };
 
+  const handleSetActive = async () => {
+    try {
+      await itineraryApi.setActive(itinerary.id);
+      toast.success(`"${itinerary.title}" is now the active trip.`);
+      await refresh();
+    } catch (err) {
+      handleApiError(err, "Failed to set active itinerary.");
+    }
+  };
+
   const handleAddDay = async () => {
-    const nextNum = days.length + 1;
+    const maxNum = days.reduce((m, d) => Math.max(m, d.day_number ?? 0), -1);
+    const nextNum = days.length === 0 ? 1 : maxNum + 1;
     const lastDate = days[days.length - 1]?.date || itinerary.start_date;
     const d = new Date(`${lastDate}T00:00:00Z`);
     if (days.length > 0 && !Number.isNaN(d.getTime())) {
@@ -209,11 +223,21 @@ export default function AdminItineraryEditor() {
       toast.error("Day title is required.");
       return;
     }
+    const parsedDayNum = Number(dayForm.day_number);
+    if (!Number.isInteger(parsedDayNum) || parsedDayNum < 0) {
+      toast.error("Day number must be 0 or greater.");
+      return;
+    }
+    if (days.some((d) => d.id !== currentDay.id && d.day_number === parsedDayNum)) {
+      toast.error(`Day ${parsedDayNum} already exists in this trip.`);
+      return;
+    }
     setSavingDay(true);
     try {
       await itineraryApi.updateDay(
         currentDay.id,
         {
+          day_number: parsedDayNum,
           title: dayForm.title.trim(),
           subtitle: dayForm.subtitle.trim() || null,
           date: dayForm.date,
@@ -227,7 +251,7 @@ export default function AdminItineraryEditor() {
       );
       setConflict(false);
       await refresh();
-      toast.success("Day highlight saved.");
+      toast.success("Day settings saved.");
     } catch (err) {
       handleApiError(err, "Failed to save day.");
     } finally {
@@ -341,9 +365,16 @@ export default function AdminItineraryEditor() {
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Admin Editor • {itinerary.status}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                Admin Editor • {itinerary.status}
+              </p>
+              {itinerary.is_active && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                  <Star size={10} className="text-amber-300" /> Active Trip
+                </span>
+              )}
+            </div>
             <h1 className="truncate text-xl font-extrabold text-emerald-950 sm:text-2xl">
               {itinerary.title}
             </h1>
@@ -359,6 +390,17 @@ export default function AdminItineraryEditor() {
             <Eye size={15} />
             <span>Preview as Student</span>
           </button>
+
+          {itinerary.status === "published" && !itinerary.is_active && (
+            <button
+              type="button"
+              onClick={handleSetActive}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-extrabold text-amber-950 hover:bg-amber-100"
+            >
+              <Star size={14} className="text-amber-600" />
+              <span>Set Active</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -567,15 +609,29 @@ export default function AdminItineraryEditor() {
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-gray-800">Date *</label>
-              <input
-                type="date"
-                required
-                value={dayForm.date}
-                onChange={(e) => setDayForm({ ...dayForm, date: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-gray-900"
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
+              <div>
+                <label className="block font-bold text-gray-800">Day # *</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  required
+                  value={dayForm.day_number}
+                  onChange={(e) => setDayForm({ ...dayForm, day_number: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-800">Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={dayForm.date}
+                  onChange={(e) => setDayForm({ ...dayForm, date: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-gray-900"
+                />
+              </div>
             </div>
 
             <ImageUploader
@@ -745,7 +801,7 @@ export default function AdminItineraryEditor() {
           itineraryId={itinerary.id}
           dayId={currentDay.id}
           initialStop={editingStop}
-          nextSequence={(dayStops[dayStops.length - 1]?.sequence_no ?? 0) + 1}
+          nextSequence={dayStops.reduce((m, s) => Math.max(m, s.sequence_no ?? 0), 0) + 1}
           onSave={handleSaveStop}
         />
       )}
