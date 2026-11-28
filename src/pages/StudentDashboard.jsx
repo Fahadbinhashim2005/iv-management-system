@@ -7,6 +7,7 @@ import { useAnnouncementAlerts } from "../features/updates/hooks/useAnnouncement
 import { roomsApi } from "../features/rooms/api/roomsApi";
 import { tripConfig } from "../config/tripConfig";
 import { getTripScheduleStatus } from "../utils/tripDates";
+import { loadTripHelplines } from "../utils/helplines";
 import Avatar from "../components/Avatar";
 import {
   Bell,
@@ -46,6 +47,23 @@ function StudentDashboard() {
 
   const [roomSummary, setRoomSummary] = useState(null);
   const [staySummary, setStaySummary] = useState(null);
+  const [dynamicCoordinators, setDynamicCoordinators] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    loadTripHelplines()
+      .then((list) => {
+        if (!active) return;
+        const facultyAndChief = list
+          .filter((item) => item.fullName)
+          .map((item) => item.fullName);
+        setDynamicCoordinators(facultyAndChief);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -135,9 +153,14 @@ function StudentDashboard() {
     ? [tripConfig.hotel.name, tripConfig.hotel.address].filter(Boolean).join(", ")
     : "Contact details will be shared soon";
 
-  const coordinatorsCopy =
+  const coordinatorNames =
     tripConfig.coordinators.length > 0
-      ? `${tripConfig.coordinators.join(" & ")} are available 24/7 during the tour.`
+      ? tripConfig.coordinators
+      : dynamicCoordinators;
+
+  const coordinatorsCopy =
+    coordinatorNames.length > 0
+      ? `${coordinatorNames.join(", ")} available during the tour.`
       : "Contact details will be shared soon.";
 
   const roomBadge = roomSummary?.room_no
