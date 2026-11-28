@@ -38,8 +38,8 @@ export default function CoordinatorReports() {
         setSessions(Array.isArray(sessionList) ? sessionList : []);
         const onlyStudents = Array.isArray(studentRes?.students)
           ? studentRes.students.filter(
-              (p) => String(p.role || "student").toLowerCase() === "student"
-            )
+            (p) => String(p.role || "student").toLowerCase() === "student"
+          )
           : [];
         setStudents(onlyStudents);
       })

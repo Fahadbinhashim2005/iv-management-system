@@ -75,7 +75,7 @@ function CoordinatorLayoutInner() {
       </a>
 
       {/* Mobile & Tablet Top Bar */}
-      <header className="no-print sticky top-0 z-40 flex min-h-[calc(4rem+env(safe-area-inset-top))] w-full items-center justify-between border-b border-gray-100 bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-6 lg:hidden shadow-xs">
+      <header className="no-print sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:hidden shadow-xs">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -103,7 +103,7 @@ function CoordinatorLayoutInner() {
           <button
             type="button"
             onClick={() => setSosOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
             aria-label="Emergency & Helpline Contacts"
           >
             <PhoneCall size={17} />
@@ -112,7 +112,7 @@ function CoordinatorLayoutInner() {
           <button
             type="button"
             onClick={() => navigate("/coordinator/profile")}
-            className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-xs"
+            className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-xs"
             aria-label="My Coordinator Profile"
           >
             <Avatar profile={profile} size="sm" />
@@ -170,10 +170,9 @@ function CoordinatorLayoutInner() {
                 to={to}
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                    isActive
-                      ? "bg-emerald-800 text-white shadow-xs"
-                      : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-900"
+                  `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none transition ${isActive
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-900"
                   }`
                 }
               >
@@ -246,10 +245,9 @@ function CoordinatorLayoutInner() {
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                      isActive
-                        ? "bg-emerald-800 text-white shadow-xs"
-                        : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none transition ${isActive
+                      ? "bg-emerald-800 text-white shadow-xs"
+                      : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                     }`
                   }
                 >
@@ -293,7 +291,7 @@ function CoordinatorLayoutInner() {
           </div>
         </aside>
 
-        <main id="main-content" tabIndex={-1} className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-10 outline-none">
+        <main id="main-content" tabIndex={-1} className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-28 sm:pb-28 lg:pb-10 outline-none">
           <div className="no-print">
             <AttendanceBanner basePath="/coordinator/attendance" />
           </div>

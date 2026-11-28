@@ -35,8 +35,8 @@ export default function CoordinatorTransport() {
       const studentsRes = await api.getApprovedStudents();
       const approved = Array.isArray(studentsRes?.students)
         ? studentsRes.students.filter(
-            (p) => String(p.role || "student").toLowerCase() === "student"
-          )
+          (p) => String(p.role || "student").toLowerCase() === "student"
+        )
         : [];
 
       let assignments = [];
@@ -278,24 +278,21 @@ export default function CoordinatorTransport() {
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelectedBusId(bus.id)}
-                  className={`w-full text-left rounded-2xl p-5 transition shadow-sm ring-1 ${
-                    isSelected
-                      ? "bg-emerald-800 text-white ring-emerald-800 shadow-md"
-                      : "bg-white text-gray-900 ring-gray-100 hover:shadow hover:ring-emerald-200"
-                  }`}
+                  className={`w-full text-left rounded-2xl p-5 transition shadow-sm ring-1 ${isSelected
+                    ? "bg-emerald-800 text-white ring-emerald-800 shadow-md"
+                    : "bg-white text-gray-900 ring-gray-100 hover:shadow hover:ring-emerald-200"
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                        isSelected ? "bg-emerald-900 text-emerald-200" : "bg-emerald-50 text-emerald-800"
-                      }`}
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isSelected ? "bg-emerald-900 text-emerald-200" : "bg-emerald-50 text-emerald-800"
+                        }`}
                     >
                       {bus.id}
                     </span>
                     <span
-                      className={`text-xs font-semibold ${
-                        isSelected ? "text-emerald-200" : "text-gray-500"
-                      }`}
+                      className={`text-xs font-semibold ${isSelected ? "text-emerald-200" : "text-gray-500"
+                        }`}
                     >
                       {bus.capacity ? `${bus.allocated} / ${bus.capacity} seats` : `${bus.allocated} assigned`}
                     </span>
@@ -304,9 +301,8 @@ export default function CoordinatorTransport() {
                   <h3 className="mt-3 text-base font-bold sm:text-lg">{bus.name}</h3>
                   {(bus.type || bus.regNo) && (
                     <p
-                      className={`text-xs mt-0.5 ${
-                        isSelected ? "text-emerald-100" : "text-gray-500"
-                      }`}
+                      className={`text-xs mt-0.5 ${isSelected ? "text-emerald-100" : "text-gray-500"
+                        }`}
                     >
                       {[bus.type, bus.regNo].filter(Boolean).join(" • ")}
                     </p>
@@ -314,9 +310,8 @@ export default function CoordinatorTransport() {
 
                   {bus.driverName && (
                     <div
-                      className={`mt-4 border-t pt-3 text-xs flex justify-between gap-2 ${
-                        isSelected ? "border-emerald-700 text-emerald-100" : "border-gray-100 text-gray-500"
-                      }`}
+                      className={`mt-4 border-t pt-3 text-xs flex justify-between gap-2 ${isSelected ? "border-emerald-700 text-emerald-100" : "border-gray-100 text-gray-500"
+                        }`}
                     >
                       <span>Driver: {bus.driverName}</span>
                     </div>
@@ -456,11 +451,10 @@ export default function CoordinatorTransport() {
                               disabled={togglingId === passenger.userId}
                               onClick={() => togglePassengerCheckIn(passenger)}
                               aria-pressed={passenger.checkedIn}
-                              className={`shrink-0 inline-flex min-h-[36px] items-center gap-1 rounded-full px-3 py-1 text-[10px] font-bold transition disabled:opacity-50 ${
-                                passenger.checkedIn
-                                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                  : "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                              }`}
+                              className={`shrink-0 inline-flex min-h-[36px] items-center gap-1 rounded-full px-3 py-1 text-[10px] font-bold transition disabled:opacity-50 ${passenger.checkedIn
+                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                }`}
                             >
                               {passenger.checkedIn ? (
                                 <>
@@ -504,11 +498,10 @@ export default function CoordinatorTransport() {
                                     disabled={togglingId === passenger.userId}
                                     onClick={() => togglePassengerCheckIn(passenger)}
                                     aria-pressed={passenger.checkedIn}
-                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition disabled:opacity-50 ${
-                                      passenger.checkedIn
-                                        ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                        : "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                                    }`}
+                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition disabled:opacity-50 ${passenger.checkedIn
+                                      ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                      : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                      }`}
                                   >
                                     {passenger.checkedIn ? (
                                       <>

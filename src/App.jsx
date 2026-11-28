@@ -147,11 +147,11 @@ function App() {
                 <Route path="attendance/:sessionId" element={<AdminAttendanceSession />} />
                 <Route path="profile" element={<ProfilePage />} />
               </Route>
-          </Route>
+            </Route>
 
-              {/* Direct Shortcuts & Fallbacks */}
-              <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+            {/* Direct Shortcuts & Fallbacks */}
+            <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
