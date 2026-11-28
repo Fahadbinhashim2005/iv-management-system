@@ -316,7 +316,6 @@ export const api = {
       const { data, error } = await query;
 
       if (!error && Array.isArray(data)) {
-        // Also merge from backend API only if direct browser query returned 0 (e.g. if Admin is using server fallback token)
         if (data.length > 0) {
           return { success: true, count: data.length, requests: data };
         }
@@ -331,8 +330,12 @@ export const api = {
         }
       } catch (e) {
         console.warn('[getAccessRequests Backend fallback note]:', e.message);
+        if (error) {
+          throw new Error(error.message || e.message, { cause: e });
+        }
       }
 
+      if (error) throw new Error(error.message);
       return { success: true, count: (data || []).length, requests: data || [] };
     }
 
@@ -486,8 +489,12 @@ export const api = {
         }
       } catch (e) {
         console.warn('[getAdminUsers Backend note]:', e.message);
+        if (error) {
+          throw new Error(error.message || e.message, { cause: e });
+        }
       }
 
+      if (error) throw new Error(error.message);
       return { success: true, count: (data || []).length, users: data || [] };
     }
 

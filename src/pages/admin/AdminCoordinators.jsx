@@ -36,6 +36,7 @@ export default function AdminCoordinators() {
 
   const [pendingRequests, setPendingRequests] = useState([]);
   const [approvedCoordinators, setApprovedCoordinators] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -65,15 +66,17 @@ export default function AdminCoordinators() {
   const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [reqRes, usersRes] = await Promise.all([
-        api.getAccessRequests("coordinator").catch(() => ({ requests: [] })),
-        api.getAdminUsers("coordinator", "approved").catch(() => ({ users: [] })),
+        api.getAccessRequests("coordinator"),
+        api.getAdminUsers("coordinator", "approved"),
       ]);
 
       setPendingRequests(reqRes?.requests || []);
       setApprovedCoordinators(usersRes?.users || []);
     } catch (err) {
       console.warn("Failed to load coordinators data:", err);
+      setLoadError(err?.message || "Failed to load coordinators from database.");
     } finally {
       setLoading(false);
     }
@@ -299,6 +302,22 @@ export default function AdminCoordinators() {
           <span>Appoint Coordinator</span>
         </button>
       </div>
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-900"
+        >
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadAllData}
+            className="rounded-xl bg-red-700 px-3 py-1.5 text-white hover:bg-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200">

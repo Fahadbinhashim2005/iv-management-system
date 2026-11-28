@@ -43,6 +43,7 @@ export default function AdminStudents() {
   // Real Data State from Database
   const [pendingRequests, setPendingRequests] = useState([]);
   const [approvedStudents, setApprovedStudents] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -83,15 +84,17 @@ export default function AdminStudents() {
   const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [reqRes, usersRes] = await Promise.all([
-        api.getAccessRequests("student").catch(() => ({ requests: [] })),
-        api.getAdminUsers("student", "approved").catch(() => ({ users: [] })),
+        api.getAccessRequests("student"),
+        api.getAdminUsers("student", "approved"),
       ]);
 
       setPendingRequests(reqRes?.requests || []);
       setApprovedStudents(usersRes?.users || []);
     } catch (err) {
       console.warn("Failed to load student data:", err);
+      setLoadError(err?.message || "Failed to load student roster from database.");
     } finally {
       setLoading(false);
     }
@@ -446,6 +449,22 @@ export default function AdminStudents() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-900"
+        >
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadAllData}
+            className="rounded-xl bg-red-700 px-3 py-1.5 text-white hover:bg-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200">

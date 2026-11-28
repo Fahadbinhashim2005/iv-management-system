@@ -26,6 +26,7 @@ import EmergencyHelpModal from "../components/common/EmergencyHelpModal";
 import Avatar from "../components/Avatar";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 
 const adminNavItems = [
   { to: "/admin/dashboard", label: "System Overview", icon: LayoutDashboard },
@@ -46,8 +47,23 @@ export default function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [hasLiveDbSession, setHasLiveDbSession] = useState(true);
   const navigate = useNavigate();
-  const { profile, user, logout } = useAuth();
+  const { profile, user, session, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      const liveToken = data?.session?.access_token;
+      const fallbackToken = session?.access_token || "";
+      setHasLiveDbSession(Boolean(liveToken) && !fallbackToken.startsWith("demo_token_"));
+    });
+    return () => {
+      active = false;
+    };
+  }, [session]);
 
   const adminName =
     profile?.full_name || user?.user_metadata?.full_name || "Chief Administrator";
@@ -352,6 +368,28 @@ export default function AdminLayout() {
         </aside>
 
         <main id="main-content" tabIndex={-1} className="min-w-0 px-3 py-5 sm:px-6 sm:py-7 lg:px-10 lg:py-8 pb-28 sm:pb-28 lg:pb-10 outline-none">
+          {isSupabaseConfigured && !hasLiveDbSession && (
+            <div
+              role="alert"
+              className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-red-300 bg-red-50 p-4 text-xs text-red-950 shadow-xs"
+            >
+              <div>
+                <p className="font-black text-red-900 text-sm">
+                  Not Connected to Live Supabase Database
+                </p>
+                <p className="mt-0.5 text-red-800">
+                  You are currently using an offline/cached session ({profile?.email || "fallback"}). Sign out and sign in with your real Supabase Admin account to load and edit students, coordinators, and itineraries.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="shrink-0 self-start sm:self-auto rounded-xl bg-red-700 px-4 py-2 text-xs font-extrabold text-white hover:bg-red-800"
+              >
+                Sign Out &amp; Sign In Again
+              </button>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

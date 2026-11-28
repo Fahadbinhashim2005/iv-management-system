@@ -140,9 +140,13 @@ export function AuthProvider({ children }) {
               isValidJwt = false;
             }
           }
+          if (isSupabaseConfigured && storedToken.startsWith('demo_token_')) {
+            localStorage.removeItem('iv_auth_token');
+            localStorage.removeItem('iv_user');
+            return false;
+          }
           if (
             storedToken.startsWith('ivsrv.') ||
-            storedToken.startsWith('demo_token_') ||
             isValidJwt ||
             !isSupabaseConfigured
           ) {
