@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Compass,
+  Map,
   Users,
   GraduationCap,
   Bus,
@@ -29,6 +30,7 @@ import { api } from "../services/api";
 const adminNavItems = [
   { to: "/admin/dashboard", label: "System Overview", icon: LayoutDashboard },
   { to: "/admin/visits", label: "Master Tour Registry", icon: Compass },
+  { to: "/admin/itineraries", label: "Itinerary Builder", icon: Map },
   { to: "/admin/attendance", label: "Live Attendance", icon: QrCode },
   { to: "/admin/coordinators", label: "Faculty & Coordinators", icon: Users },
   { to: "/admin/students", label: "Student Master Roster", icon: GraduationCap },

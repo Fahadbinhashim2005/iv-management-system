@@ -46,6 +46,8 @@ import AdminLogs from './pages/admin/AdminLogs';
 import AdminAttendanceList from './features/attendance/pages/AdminAttendanceList';
 import AdminAttendanceSession from './features/attendance/pages/AdminAttendanceSession';
 import AdminRoomsPage from './features/rooms/pages/AdminRoomsPage';
+const AdminItineraryList = lazy(() => import('./features/itinerary/pages/AdminItineraryList'));
+const AdminItineraryEditor = lazy(() => import('./features/itinerary/pages/AdminItineraryEditor'));
 
 function LimitedToaster() {
   const { toasts } = useToasterStore();
@@ -132,6 +134,8 @@ function App() {
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="visits" element={<AdminVisits />} />
+              <Route path="itineraries" element={<AdminItineraryList />} />
+              <Route path="itineraries/:id" element={<AdminItineraryEditor />} />
               <Route path="coordinators" element={<AdminCoordinators />} />
               <Route path="students" element={<AdminStudents />} />
               <Route path="logistics" element={<AdminLogistics />} />
