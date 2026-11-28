@@ -113,7 +113,7 @@ function StudentDashboard() {
     {
       id: "room",
       label: "Hotel room selected",
-      done: Boolean(roomSummary?.room_no || tripAssignment?.room_number),
+      done: Boolean(roomSummary?.room_no || tripAssignment?.room_no),
       actionLabel: "Pick Room",
       to: "/student/accommodation",
     },
@@ -123,10 +123,11 @@ function StudentDashboard() {
   const isProfileIncomplete =
     !profile?.consent_given || !profile?.emergency_phone || !profile?.blood_group;
 
-  const busId = tripAssignment?.bus_no || tripAssignment?.bus_number || "";
+  const busId = tripAssignment?.bus_no || "";
   const busConfig = busId ? tripConfig.buses[busId] : null;
   const assignedBus = busConfig?.name || busId;
-  const assignedSeat = tripAssignment?.seat_no || tripAssignment?.seat_number || "";
+  const assignedSeat = tripAssignment?.seat_no || "";
+  const hasTransportAssignment = Boolean(busId && assignedSeat);
   const assignedDriver = busConfig?.driverName || "";
   const assignedDriverPhone = busConfig?.driverPhone || "";
 
@@ -141,8 +142,8 @@ function StudentDashboard() {
 
   const roomBadge = roomSummary?.room_no
     ? `Room ${roomSummary.room_no}`
-    : tripAssignment?.room_number
-    ? `Room ${tripAssignment.room_number}`
+    : tripAssignment?.room_no
+    ? `Room ${tripAssignment.room_no}`
     : staySummary?.selection_status === "open"
     ? "Booking Open"
     : "Not Selected";
@@ -375,14 +376,16 @@ function StudentDashboard() {
               <Bus size={20} />
             </div>
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-              {assignedBus && assignedSeat ? `${assignedBus} • Seat ${assignedSeat}` : "Not assigned yet"}
+              {hasTransportAssignment ? `${assignedBus} • Seat ${assignedSeat}` : "Not assigned yet"}
             </span>
           </div>
           <h4 className="mt-4 font-bold text-emerald-950">Assigned Transport</h4>
           <p className="mt-1 text-xs text-gray-500">
-            {assignedDriver
+            {!hasTransportAssignment
+              ? "Not assigned yet — your coordinator will confirm."
+              : assignedDriver
               ? `Driver: ${assignedDriver}${assignedDriverPhone ? ` (Ph: ${assignedDriverPhone})` : ""}.`
-              : "Not assigned yet — your coordinator will confirm."}
+              : `${assignedBus} assigned. Driver details will be shared soon.`}
           </p>
           <div className="mt-4 flex items-center text-xs font-semibold text-blue-600 transition group-hover:translate-x-1">
             <span>View Bus Details</span>
