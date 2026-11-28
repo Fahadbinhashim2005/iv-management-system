@@ -40,6 +40,11 @@ textarea {
   outline-offset: 2px;
 }
 
+.font-display {
+  font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+  letter-spacing: 0.02em;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
