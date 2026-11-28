@@ -259,20 +259,33 @@ export default function ItineraryView({
         onViewPlan={scrollToSheet}
       />
 
-      {/* Page 2 & 3: White Sliding Sheet with Matching Notch */}
+      {/* Page 2 & 3: White Sliding Sheet with Matching Upward Center Notch */}
       <div
         ref={sheetRef}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="relative z-20 -mt-6 rounded-t-[28px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+        className="relative z-20 -mt-8 rounded-t-[28px] bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.14)]"
       >
-        {/* Subtle center notch curve matching hero */}
-        <div className="flex justify-center pt-2" aria-hidden="true">
-          <span className="h-1.5 w-12 rounded-full bg-emerald-900/15" />
+        {/* Upward center notch curve matching Canva page 2 */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2"
+        >
+          <svg viewBox="0 0 120 20" className="h-5 w-28" preserveAspectRatio="none">
+            <path
+              d="M0,20 C35,20 42,2 60,2 C78,2 85,20 120,20 Z"
+              fill="#ffffff"
+            />
+          </svg>
         </div>
 
         {/* Sticky Day Slider */}
-        <div className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 backdrop-blur-md">
+        <div className="sticky top-0 z-30 rounded-t-[28px] border-b border-gray-100 bg-white/95 pt-2 backdrop-blur-md">
+          {itinerary?.title && (
+            <p className="px-4 pt-1 text-[10px] font-extrabold uppercase tracking-widest text-[#065F46]">
+              {itinerary.title}
+            </p>
+          )}
           <DaySlider
             days={days}
             selectedIndex={safeDayIndex}

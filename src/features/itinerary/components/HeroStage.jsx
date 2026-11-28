@@ -58,15 +58,15 @@ export default function HeroStage({
     ? `DAY ${day?.day_number ?? 1} · LIVE NOW`
     : `DAY ${day?.day_number ?? 1}${dateLabel ? ` · ${dateLabel}` : ""}`;
 
-  // Parallax up to 12% unless reduced motion is enabled
   const parallaxY = reducedMotion ? 0 : Math.round(scrollProgress * 12);
+  const isCompact = reducedMotion || scrollProgress > 0.55;
 
   return (
     <section
       aria-label={`Day ${day?.day_number ?? 1} overview`}
-      className="relative overflow-hidden bg-gradient-to-br from-[#065F46] via-[#064e3b] to-[#022c22] text-white"
+      className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#065F46] via-[#064e3b] to-[#022c22] text-white"
       style={{
-        minHeight: reducedMotion ? "38dvh" : `${Math.round(72 - scrollProgress * 34)}dvh`,
+        minHeight: reducedMotion ? "38dvh" : `${Math.round(78 - scrollProgress * 40)}dvh`,
       }}
     >
       {/* Background image or branded gradient */}
@@ -95,7 +95,7 @@ export default function HeroStage({
               transform: reducedMotion ? "none" : `translateY(${parallaxY}%) scale(1.06)`,
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-[#03231b]/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/15 to-[#022018]/92" />
         </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none">
@@ -103,22 +103,22 @@ export default function HeroStage({
         </div>
       )}
 
-      {/* Compact Top Bar (always visible, shows Back + place name + Live chip) */}
-      <div className="relative z-20 flex items-center justify-between gap-3 px-4 pt-4 sm:px-6">
+      {/* Compact Top Bar (always shows back arrow, place name on scroll, and Live chip) */}
+      <div className="relative z-20 flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
         <div className="flex items-center gap-2.5 min-w-0">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label="Go back"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#065F46]/85 text-white backdrop-blur-md transition hover:bg-[#065F46]"
             >
               <ArrowLeft size={18} />
             </button>
           )}
           <span
             className="truncate text-sm font-bold text-white drop-shadow"
-            style={{ opacity: reducedMotion ? 1 : Math.min(1, scrollProgress * 1.4 + 0.15) }}
+            style={{ opacity: isCompact ? 1 : Math.min(1, scrollProgress * 1.6) }}
           >
             {day?.title || itinerary?.title}
           </span>
@@ -128,9 +128,7 @@ export default function HeroStage({
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#065F46]/90 px-3 py-1.5 text-[11px] font-extrabold text-white ring-1 ring-white/25 backdrop-blur-md">
             <span
               className={`h-2 w-2 rounded-full ${
-                busLiveStatus === "live"
-                  ? "bg-[#10B981] motion-safe:animate-pulse"
-                  : busLiveStatus === "stale"
+                busLiveStatus === "stale"
                   ? "bg-gray-300"
                   : "bg-[#10B981] motion-safe:animate-pulse"
               }`}
@@ -138,7 +136,7 @@ export default function HeroStage({
             <Radio size={12} className="text-emerald-300" />
             <span>
               {busLiveStatus === "live"
-                ? "Live Bus"
+                ? "Live"
                 : busLiveStatus === "stale"
                 ? "Bus Stale"
                 : "Live"}
@@ -151,37 +149,40 @@ export default function HeroStage({
         ) : null}
       </div>
 
-      {/* Centered Notch + Title */}
-      <div
-        className="relative z-10 flex flex-col items-center justify-center py-6 sm:py-10"
-        style={{
-          opacity: reducedMotion ? 1 : Math.max(0.2, 1 - scrollProgress * 0.75),
-          transform: reducedMotion ? "none" : `translateY(${Math.round(-scrollProgress * 14)}px)`,
-        }}
-      >
-        <NotchTitle
-          eyebrow={eyebrow}
-          title={day?.title || `Day ${day?.day_number ?? 1}`}
-          isToday={isToday}
-        />
-        {day?.subtitle && (
-          <p className="mt-2 max-w-md px-6 text-center text-xs sm:text-sm font-medium text-white/90 drop-shadow">
-            {day.subtitle}
-          </p>
-        )}
-      </div>
+      {/* Top Notch + Condensed Title (fades into compact view as user scrolls) */}
+      {!isCompact && (
+        <div
+          className="relative z-10 -mt-10 flex flex-col items-center justify-center pb-4"
+          style={{
+            opacity: Math.max(0, 1 - scrollProgress * 1.4),
+            transform: `translateY(${Math.round(-scrollProgress * 14)}px)`,
+          }}
+        >
+          <NotchTitle
+            eyebrow={eyebrow}
+            title={day?.title || `Day ${day?.day_number ?? 1}`}
+            isToday={isToday}
+          />
+          {day?.subtitle && (
+            <p className="mt-1.5 max-w-md px-6 text-center text-xs sm:text-sm font-medium text-white/90 drop-shadow">
+              {day.subtitle}
+            </p>
+          )}
+        </div>
+      )}
 
-      {/* Bottom Hero Panel (fades out as user scrolls into sheet) */}
-      {(!reducedMotion && scrollProgress < 0.85) && (
+      {/* Bottom Hero Panel (Canva page 1) */}
+      {!reducedMotion && scrollProgress < 0.75 && (
         <div
           style={{
             opacity: Math.max(0, 1 - scrollProgress * 1.6),
-            transform: `translateY(${Math.round(scrollProgress * 18)}px)`,
+            transform: `translateY(${Math.round(scrollProgress * 16)}px)`,
           }}
         >
           <HeroPanel
             itineraryTitle={itinerary?.title}
             itinerarySubtitle={itinerary?.subtitle}
+            dayTitle={day?.title}
             nextStop={nextStop}
             onViewPlan={onViewPlan}
           />

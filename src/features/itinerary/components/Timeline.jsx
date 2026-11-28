@@ -103,21 +103,24 @@ export default function Timeline({
                           dotRefs.current[idx] = el;
                         }
                       }}
-                      className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${
+                      className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-extrabold transition ${
                         isDone
                           ? "border-[#065F46] bg-[#065F46] text-white"
                           : isNow
-                          ? "border-[#F59E0B] bg-[#F59E0B] text-white ring-4 ring-amber-200/70 motion-safe:animate-pulse"
+                          ? "border-[#F59E0B] bg-[#F59E0B] text-white ring-4 ring-amber-200/80 motion-safe:animate-pulse"
                           : isDelayed
                           ? "border-[#F59E0B] bg-amber-50 text-amber-800"
                           : isSkipped
                           ? "border-gray-300 bg-gray-100 text-gray-500"
-                          : "border-gray-300 bg-white text-transparent"
+                          : "border-gray-300 bg-white text-gray-500"
                       }`}
                     >
-                      {isDone && <Check size={13} strokeWidth={3} />}
-                      {isDelayed && <Clock size={12} />}
-                      {isSkipped && <XIcon size={12} />}
+                      {isDone && <Check size={14} strokeWidth={3} />}
+                      {isDelayed && <Clock size={13} />}
+                      {isSkipped && <XIcon size={13} />}
+                      {!isDone && !isNow && !isDelayed && !isSkipped && (
+                        <span>{idx + 1}</span>
+                      )}
                     </span>
                   </div>
 
