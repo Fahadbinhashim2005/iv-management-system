@@ -44,6 +44,7 @@ export default function HeroStage({
   isToday,
   nextStop,
   busLiveStatus = "offline",
+  hasBusRow = false,
   isRealtimeLive = false,
   scrollProgress = 0,
   reducedMotion = false,
@@ -123,13 +124,31 @@ export default function HeroStage({
           </span>
         </div>
 
-        {(busLiveStatus === "live" || isRealtimeLive) && (
+        {(busLiveStatus === "live" || busLiveStatus === "stale" || isRealtimeLive) ? (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#065F46]/90 px-3 py-1.5 text-[11px] font-extrabold text-white ring-1 ring-white/25 backdrop-blur-md">
-            <span className="h-2 w-2 rounded-full bg-[#10B981] motion-safe:animate-pulse" />
+            <span
+              className={`h-2 w-2 rounded-full ${
+                busLiveStatus === "live"
+                  ? "bg-[#10B981] motion-safe:animate-pulse"
+                  : busLiveStatus === "stale"
+                  ? "bg-gray-300"
+                  : "bg-[#10B981] motion-safe:animate-pulse"
+              }`}
+            />
             <Radio size={12} className="text-emerald-300" />
-            <span>{busLiveStatus === "live" ? "Live Bus" : "Live"}</span>
+            <span>
+              {busLiveStatus === "live"
+                ? "Live Bus"
+                : busLiveStatus === "stale"
+                ? "Bus Stale"
+                : "Live"}
+            </span>
           </span>
-        )}
+        ) : hasBusRow && busLiveStatus === "offline" ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-[11px] font-bold text-gray-200 ring-1 ring-white/20 backdrop-blur-md">
+            Bus location unavailable
+          </span>
+        ) : null}
       </div>
 
       {/* Centered Notch + Title */}

@@ -3,6 +3,7 @@ import { itineraryApi } from "../features/itinerary/api/itineraryApi";
 import { useItinerary } from "../features/itinerary/hooks/useItinerary";
 import { useBusLocation } from "../features/itinerary/hooks/useBusLocation";
 import ItineraryView from "../features/itinerary/components/ItineraryView";
+import BusMarker from "../features/itinerary/components/BusMarker";
 
 export default function StudentItinerary() {
   const [publishedList, setPublishedList] = useState([]);
@@ -33,7 +34,11 @@ export default function StudentItinerary() {
     cachedAt,
   } = useItinerary(selectedId, { staffView: false });
 
-  const { location: busLocation, status: busStatus } = useBusLocation({
+  const {
+    location: busLocation,
+    status: busStatus,
+    ageSeconds: busAgeSeconds,
+  } = useBusLocation({
     itineraryId: itinerary?.id || null,
     enabled: Boolean(itinerary?.id),
   });
@@ -52,6 +57,8 @@ export default function StudentItinerary() {
       cachedAt={cachedAt}
       busLocation={busLocation}
       busStatus={busStatus}
+      busAgeSeconds={busAgeSeconds}
+      BusOverlayComponent={BusMarker}
       showStaffNote={false}
       emptyMessage="Itinerary not published yet"
     />

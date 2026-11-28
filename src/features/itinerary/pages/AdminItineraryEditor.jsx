@@ -26,6 +26,7 @@ import LiveBanner from "../components/LiveBanner";
 import ItineraryView from "../components/ItineraryView";
 import StopLiveActions from "../components/StopLiveActions";
 import ChangesLogPanel from "../components/ChangesLogPanel";
+import ShareLocationCard from "../components/ShareLocationCard";
 
 export default function AdminItineraryEditor() {
   const { id } = useParams();
@@ -382,6 +383,8 @@ export default function AdminItineraryEditor() {
           refresh();
         }}
       />
+
+      <ShareLocationCard itineraryId={itinerary.id} />
 
       {/* Trip Metadata + Cover Photo */}
       <form

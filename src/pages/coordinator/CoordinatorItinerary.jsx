@@ -4,6 +4,8 @@ import { useItinerary } from "../../features/itinerary/hooks/useItinerary";
 import { useBusLocation } from "../../features/itinerary/hooks/useBusLocation";
 import ItineraryView from "../../features/itinerary/components/ItineraryView";
 import StopLiveActions from "../../features/itinerary/components/StopLiveActions";
+import ShareLocationCard from "../../features/itinerary/components/ShareLocationCard";
+import BusMarker from "../../features/itinerary/components/BusMarker";
 
 export default function CoordinatorItinerary() {
   const [publishedList, setPublishedList] = useState([]);
@@ -34,7 +36,11 @@ export default function CoordinatorItinerary() {
     cachedAt,
   } = useItinerary(selectedId, { staffView: true });
 
-  const { location: busLocation, status: busStatus } = useBusLocation({
+  const {
+    location: busLocation,
+    status: busStatus,
+    ageSeconds: busAgeSeconds,
+  } = useBusLocation({
     itineraryId: itinerary?.id || null,
     enabled: Boolean(itinerary?.id),
   });
@@ -53,6 +59,9 @@ export default function CoordinatorItinerary() {
       cachedAt={cachedAt}
       busLocation={busLocation}
       busStatus={busStatus}
+      busAgeSeconds={busAgeSeconds}
+      BusOverlayComponent={BusMarker}
+      topSlot={itinerary?.id ? <ShareLocationCard itineraryId={itinerary.id} /> : null}
       showStaffNote={true}
       renderStaffActions={(stop) => (
         <StopLiveActions stop={stop} onChanged={refresh} />

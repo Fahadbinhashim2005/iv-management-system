@@ -46,6 +46,7 @@ export default function ItineraryView({
   cachedAt = null,
   busLocation = null,
   busStatus = "offline",
+  busAgeSeconds = null,
   BusOverlayComponent = null,
   showStaffNote = false,
   renderStaffActions = null,
@@ -250,6 +251,7 @@ export default function ItineraryView({
         isToday={isToday}
         nextStop={nextStop}
         busLiveStatus={busStatus}
+        hasBusRow={Boolean(busLocation)}
         isRealtimeLive={isLive}
         scrollProgress={scrollProgress}
         reducedMotion={reducedMotion}
@@ -299,6 +301,7 @@ export default function ItineraryView({
                   currentIndex: derived.currentIndex,
                   busLocation,
                   busStatus,
+                  ageSeconds: busAgeSeconds,
                   reducedMotion,
                 }
               : null
