@@ -236,3 +236,14 @@ CREATE POLICY att_audit_select_coordinator_own
       WHERE p.id = auth.uid() AND p.role::text = 'coordinator'
     )
   );
+
+-- Enable Supabase Realtime on attendance tables for instant Admin/Coordinator updates
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance_records;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance_sessions;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

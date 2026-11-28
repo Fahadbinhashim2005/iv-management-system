@@ -494,22 +494,35 @@ export function createSupabaseAttendanceStore(getClient) {
           (data || []).flatMap((r) => [r.marked_by, r.via_user_id].filter(Boolean))
         )
       );
-      let staffMap = {};
-      if (staffIds.length > 0) {
-        const { data: staffRows } = await sb
+      const studentIds = Array.from(
+        new Set((data || []).map((r) => r.student_id).filter(Boolean))
+      );
+      const lookupIds = Array.from(new Set([...staffIds, ...studentIds]));
+      const profileMap = {};
+      if (lookupIds.length > 0) {
+        const { data: profRows } = await sb
           .from('profiles')
-          .select('id, full_name')
-          .in('id', staffIds);
-        (staffRows || []).forEach((p) => {
-          staffMap[p.id] = p.full_name;
+          .select('id, full_name, email, roll_no, department, batch, phone')
+          .in('id', lookupIds);
+        (profRows || []).forEach((p) => {
+          profileMap[p.id] = p;
         });
       }
 
-      return (data || []).map((r) => ({
-        ...r,
-        markedByName: r.marked_by ? staffMap[r.marked_by] || 'Staff' : null,
-        viaName: r.via_user_id ? staffMap[r.via_user_id] || 'Staff' : null,
-      }));
+      return (data || []).map((r) => {
+        const st = profileMap[r.student_id];
+        return {
+          ...r,
+          studentName: st?.full_name || st?.email?.split('@')[0] || 'Student',
+          studentEmail: st?.email || '',
+          studentRollNumber: st?.roll_no || '',
+          studentDepartment: st?.department || '',
+          studentBatch: st?.batch || '',
+          studentPhone: st?.phone || '',
+          markedByName: r.marked_by ? profileMap[r.marked_by]?.full_name || 'Staff' : null,
+          viaName: r.via_user_id ? profileMap[r.via_user_id]?.full_name || 'Staff' : null,
+        };
+      });
     },
 
     async isStudentEnrolledApproved(req, visitId, studentId) {

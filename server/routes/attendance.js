@@ -467,8 +467,10 @@ export function createAttendanceRouter({
 
       const presentAll = [];
       const absentAll = [];
+      const seenStudentIds = new Set();
 
       for (const p of participants) {
+        seenStudentIds.add(p.id);
         const rec = recordByStudent.get(p.id);
         if (rec) {
           presentAll.push({
@@ -484,6 +486,26 @@ export function createAttendanceRouter({
         }
       }
 
+      // Ensure any marked-present student is never dropped from the roster
+      for (const rec of records) {
+        if (seenStudentIds.has(rec.student_id)) continue;
+        seenStudentIds.add(rec.student_id);
+        presentAll.push({
+          id: rec.student_id,
+          name: rec.studentName || 'Student',
+          email: rec.studentEmail || '',
+          rollNumber: rec.studentRollNumber || '',
+          department: rec.studentDepartment || '',
+          batch: rec.studentBatch || '',
+          phone: rec.studentPhone || '',
+          markedAt: rec.marked_at,
+          method: rec.method,
+          markedByName: rec.markedByName,
+          viaName: rec.viaName,
+          note: rec.note,
+        });
+      }
+
       const matchesFilter = (row) => {
         if (q) {
           const hay = `${row.name} ${row.rollNumber} ${row.email}`.toLowerCase();
@@ -496,7 +518,7 @@ export function createAttendanceRouter({
         return true;
       };
 
-      const total = participants.length;
+      const total = presentAll.length + absentAll.length;
       const presentCount = presentAll.length;
       const absentCount = absentAll.length;
       const percent = total > 0 ? Math.round((presentCount / total) * 100) : 0;

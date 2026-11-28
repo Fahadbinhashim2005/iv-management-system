@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { attendanceApi } from '../api/attendanceApi';
+import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 
-export function useRoster(sessionId, { pollIntervalMs = 5000 } = {}) {
+export function useRoster(sessionId, { pollIntervalMs = 4000 } = {}) {
   const [roster, setRoster] = useState({
     summary: { total: 0, present: 0, absent: 0, percent: 0 },
     present: [],
@@ -46,14 +47,36 @@ export function useRoster(sessionId, { pollIntervalMs = 5000 } = {}) {
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleVisibility);
 
+    let channel = null;
+    if (isSupabaseConfigured && supabase && sessionId) {
+      channel = supabase
+        .channel(`att-roster-${sessionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'attendance_records',
+            filter: `session_id=eq.${sessionId}`,
+          },
+          () => {
+            fetchRoster();
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
       mountedRef.current = false;
       clearTimeout(initTimer);
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [fetchRoster, pollIntervalMs]);
+  }, [fetchRoster, pollIntervalMs, sessionId]);
 
   const markStudents = useCallback(
     async (studentIds, reason) => {

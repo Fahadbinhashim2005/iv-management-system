@@ -46,6 +46,7 @@ async function getToken() {
 async function attRequest(path, options = {}) {
   const token = await getToken();
   const res = await fetch(`${API_BASE}/attendance${path}`, {
+    cache: 'no-store',
     ...options,
     headers: {
       'Content-Type': 'application/json',
