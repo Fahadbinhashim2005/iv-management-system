@@ -5,8 +5,8 @@ import { useActiveSessions } from "../../features/attendance/hooks/useActiveSess
 function CoordinatorBottomNav() {
   const { hasActive } = useActiveSessions({ mode: "staff", pollIntervalMs: 10000 });
   const navLinkClass = ({ isActive }) =>
-    `flex flex-col items-center gap-1 transition ${
-      isActive ? "font-semibold text-emerald-700" : "text-gray-500 hover:text-emerald-700"
+    `flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-1 px-2 transition ${
+      isActive ? "font-semibold text-emerald-700" : "text-gray-600 hover:text-emerald-700"
     }`;
 
   return (
@@ -50,7 +50,7 @@ function CoordinatorBottomNav() {
       >
         <QrCode size={28} />
         {hasActive && (
-          <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-300 animate-pulse" />
+          <span className="absolute right-1 top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-300 motion-safe:animate-pulse" />
         )}
       </NavLink>
     </nav>

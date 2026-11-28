@@ -129,11 +129,13 @@ export default function CoordinatorDashboard() {
             }
           >
             <Bell size={20} className="text-emerald-600" />
-            {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
+            <span aria-live="polite" className="contents">
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
           </button>
 
           <button
@@ -308,7 +310,7 @@ export default function CoordinatorDashboard() {
                   <MapPin size={20} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/90">
                     Destination
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">
@@ -322,7 +324,7 @@ export default function CoordinatorDashboard() {
                   <Calendar size={20} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/90">
                     Travel Date
                   </p>
                   <p className="truncate text-sm font-bold text-white sm:text-base">

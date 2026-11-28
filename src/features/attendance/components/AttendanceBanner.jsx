@@ -15,7 +15,7 @@ export default function AttendanceBanner({ basePath = '/coordinator/attendance' 
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-800 to-emerald-700 px-5 py-4 text-white shadow-sm">
       <div className="flex items-center gap-3">
         <span className="relative flex h-3 w-3">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+          <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-emerald-300 opacity-75" />
           <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-300" />
         </span>
         <div>

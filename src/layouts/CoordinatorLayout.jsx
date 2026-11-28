@@ -103,7 +103,7 @@ function CoordinatorLayoutInner() {
           <button
             type="button"
             onClick={() => setSosOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
             aria-label="Emergency & Helpline Contacts"
           >
             <PhoneCall size={17} />
@@ -112,7 +112,7 @@ function CoordinatorLayoutInner() {
           <button
             type="button"
             onClick={() => navigate("/coordinator/profile")}
-            className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-xs"
+            className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-xs"
             aria-label="My Coordinator Profile"
           >
             <Avatar profile={profile} size="sm" />
@@ -170,7 +170,7 @@ function CoordinatorLayoutInner() {
                 to={to}
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none transition ${
+                  `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
                     isActive
                       ? "bg-emerald-800 text-white shadow-xs"
                       : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-900"
@@ -246,10 +246,10 @@ function CoordinatorLayoutInner() {
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none transition ${
+                    `flex min-h-[44px] items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
                       isActive
                         ? "bg-emerald-800 text-white shadow-xs"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                        : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
                     }`
                   }
                 >

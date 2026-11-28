@@ -207,15 +207,15 @@ export default function CoordinatorItinerary() {
               type="button"
               aria-pressed={isSelected}
               onClick={() => setSelectedDayIndex(index)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+              className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
                 isSelected
                   ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
+                  : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
               }`}
             >
               <Calendar size={16} />
               <span>{dayPlan.day}</span>
-              <span className={`text-xs font-normal ${isSelected ? "text-emerald-100" : "text-gray-400"}`}>
+              <span className={`text-xs font-normal ${isSelected ? "text-emerald-100" : "text-gray-500"}`}>
                 • {dayPlan.date}
               </span>
             </button>
@@ -244,10 +244,10 @@ export default function CoordinatorItinerary() {
               type="button"
               aria-pressed={selectedCategory === cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+              className={`min-h-[44px] shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
                 selectedCategory === cat
                   ? "bg-emerald-950 text-white shadow-xs"
-                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50"
+                  : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50"
               }`}
             >
               {cat}
@@ -310,7 +310,7 @@ export default function CoordinatorItinerary() {
                       type="button"
                       onClick={() => handleDeleteEvent(event.id, event.activity)}
                       aria-label={`Remove ${event.activity}`}
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
                       title="Remove activity"
                     >
                       <Trash2 size={15} />

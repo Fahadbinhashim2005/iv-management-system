@@ -81,7 +81,7 @@ export default function StudentAnnouncements() {
         <button
           type="button"
           onClick={refresh}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
         >
           <RefreshCw size={14} /> Refresh
         </button>
@@ -108,7 +108,7 @@ export default function StudentAnnouncements() {
           <button
             type="button"
             onClick={handleTestSound}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
           >
             <Volume2 size={14} /> Test Sound
           </button>
@@ -117,7 +117,7 @@ export default function StudentAnnouncements() {
             <button
               type="button"
               onClick={handleEnableAlerts}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-800"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-800"
             >
               Enable Phone Alerts
             </button>
@@ -145,10 +145,10 @@ export default function StudentAnnouncements() {
                 type="button"
                 aria-pressed={filter === tag.value}
                 onClick={() => setFilter(tag.value)}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                className={`min-h-[44px] rounded-xl px-4 py-2 text-xs font-bold transition ${
                   filter === tag.value
                     ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
+                    : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-700"
                 }`}
               >
                 {tag.label} ({count})
@@ -174,7 +174,7 @@ export default function StudentAnnouncements() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 rounded-2xl bg-white animate-pulse border border-gray-100" />
+            <div key={i} className="h-32 rounded-2xl bg-white motion-safe:animate-pulse border border-gray-100" />
           ))}
         </div>
       ) : error ? (

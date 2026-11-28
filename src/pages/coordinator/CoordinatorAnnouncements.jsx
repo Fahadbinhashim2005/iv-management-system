@@ -143,7 +143,7 @@ export default function CoordinatorAnnouncements() {
         <button
           type="button"
           onClick={loadAnnouncements}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50"
         >
           <RefreshCw size={14} /> Refresh
         </button>
@@ -288,7 +288,7 @@ export default function CoordinatorAnnouncements() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 rounded-2xl bg-white animate-pulse border border-gray-100" />
+                <div key={i} className="h-32 rounded-2xl bg-white motion-safe:animate-pulse border border-gray-100" />
               ))}
             </div>
           ) : announcements.length === 0 ? (
@@ -337,10 +337,11 @@ export default function CoordinatorAnnouncements() {
                       <button
                         type="button"
                         onClick={() => handleTogglePin(item)}
-                        className={`rounded-lg p-1.5 transition ${
+                        aria-label={item.isPinned ? `Unpin ${item.title}` : `Pin ${item.title}`}
+                        className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 transition ${
                           item.isPinned
                             ? "bg-amber-50 text-amber-700"
-                            : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                         }`}
                         title={item.isPinned ? "Unpin" : "Pin"}
                       >
@@ -349,7 +350,8 @@ export default function CoordinatorAnnouncements() {
                       <button
                         type="button"
                         onClick={() => handleDelete(item.id)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
+                        aria-label={`Delete ${item.title}`}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
                         title="Delete notice"
                       >
                         <Trash2 size={15} />

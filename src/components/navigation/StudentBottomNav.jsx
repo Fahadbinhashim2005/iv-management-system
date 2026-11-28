@@ -66,7 +66,7 @@ function StudentBottomNav() {
       >
         <ScanQrCode size={30} />
         {hasUnmarked && (
-          <span className="absolute right-1 top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-amber-400 animate-pulse" />
+          <span className="absolute right-1 top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-amber-400 motion-safe:animate-pulse" />
         )}
       </NavLink>
     </nav>

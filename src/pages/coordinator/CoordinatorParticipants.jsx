@@ -186,7 +186,7 @@ export default function CoordinatorParticipants() {
             type="button"
             onClick={() => loadStudents(true)}
             disabled={refreshing}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 disabled:opacity-60"
           >
             <RefreshCw size={15} className={refreshing ? "animate-spin text-emerald-700" : "text-emerald-700"} />
             <span>Refresh</span>
@@ -195,7 +195,7 @@ export default function CoordinatorParticipants() {
           <button
             type="button"
             onClick={exportCSV}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-900 shadow-xs transition hover:bg-emerald-100 active:scale-95"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-900 shadow-xs transition hover:bg-emerald-100 active:scale-95"
           >
             <Download size={15} className="text-emerald-800" />
             <span>Export Students (CSV)</span>
@@ -299,9 +299,9 @@ export default function CoordinatorParticipants() {
               type="button"
               aria-pressed={filterMode === tab.id}
               onClick={() => setFilterMode(tab.id)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition shrink-0 ${filterMode === tab.id
+              className={`min-h-[44px] rounded-xl px-4 py-2 text-xs font-bold transition shrink-0 ${filterMode === tab.id
                   ? "bg-emerald-800 text-white shadow-xs"
-                  : "bg-white text-gray-600 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
+                  : "bg-white text-gray-700 ring-1 ring-gray-100 hover:bg-emerald-50 hover:text-emerald-800"
                 }`}
             >
               {tab.label} ({tab.count})
@@ -614,7 +614,7 @@ export default function CoordinatorParticipants() {
                 type="button"
                 aria-label="Close student details"
                 onClick={() => setSelectedStudent(null)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
               >
                 <X size={18} />
               </button>

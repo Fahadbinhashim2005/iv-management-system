@@ -108,7 +108,7 @@ function StudentLayoutInner() {
           <button
             type="button"
             onClick={() => setSosOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-700 hover:bg-red-100 transition"
             aria-label="Emergency & Helpline Contacts"
             title="Emergency Helplines"
           >
@@ -118,21 +118,23 @@ function StudentLayoutInner() {
           <button
             type="button"
             onClick={() => navigate("/student/announcements")}
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gray-50 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700"
             aria-label={`Announcements${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
           >
             <Bell size={18} />
-            {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
+            <span aria-live="polite" className="contents">
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => navigate("/student/profile")}
-            className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-xs hover:ring-2 hover:ring-emerald-500/30 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-xs hover:ring-2 hover:ring-emerald-500/30 transition"
             aria-label="My Profile"
           >
             <Avatar profile={profile} size="sm" />
@@ -162,7 +164,7 @@ function StudentLayoutInner() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-800"
               aria-label="Close navigation menu"
             >
               <X size={20} />
@@ -195,7 +197,7 @@ function StudentLayoutInner() {
                 to={to}
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `flex min-h-[44px] items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold outline-none transition ${
+                  `flex min-h-[44px] items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
                     isActive
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-800"
@@ -276,10 +278,10 @@ function StudentLayoutInner() {
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `flex items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold outline-none transition ${
+                    `flex min-h-[44px] items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold transition ${
                       isActive
                         ? "bg-emerald-50 font-semibold text-emerald-700 shadow-2xs"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+                        : "text-gray-700 hover:bg-emerald-50 hover:text-emerald-700"
                     }`
                   }
                 >
